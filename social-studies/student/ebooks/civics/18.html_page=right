@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_18.css">
+                <link rel="stylesheet" href="css/civics_19.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="16.html?page=right"; onclick="goto('16.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="18.html"; onclick="goto('18.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="16.html?page=right"; onclick="goto('16.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_18_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_19_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_18_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="18.html?page=right"; onclick="goto('18.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="20.html"; onclick="goto('20.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="20.html"; onclick="goto('20.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="16.html?page=right"; onclick="goto('16.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="18.html"; onclick="goto('18.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="16.html?page=right"; onclick="goto('16.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_18">
+                                                                                                <div class="pageData">
+
+	<div id="t_18_0" style="position: absolute; left: 5.62%; top:4.14%;" class="c_18_0">
+		For government to be effective,
+	</div>
+
+	<div id="t_18_1" style="position: absolute; left: 5.62%; top:5.91%;" class="c_18_0">
+		citizens must fulfill their civic duties.
+	</div>
+
+	<div id="t_18_2" style="position: absolute; left: 27.71%; top: 10.24%; letter-spacing: 0.01em;" class="c_18_1">
+		We owe a special debt
+	</div>
+
+	<div id="t_18_3" style="position: absolute; left: 27.71%; top: 12.01%; letter-spacing: 0.01em;" class="c_18_1">
+		of gratitude to the
+	</div>
+
+	<div id="t_18_4" style="position: absolute; left: 27.71%; top: 13.77%; letter-spacing: 0.01em;" class="c_18_1">
+		women and men who
+	</div>
+
+	<div id="t_18_5" style="position: absolute; left: 27.71%; top: 15.54%; letter-spacing: 0.01em;" class="c_18_1">
+		serve, and have served,
+	</div>
+
+	<div id="t_18_6" style="position: absolute; left: 27.71%; top: 17.31%; letter-spacing: 0.01em;" class="c_18_1">
+		in our armed forces.
+	</div>
+
+	<div id="t_18_7" style="position: absolute; left: 72.51%; top:22.59%;" class="c_18_2">
+		THE NAVY
+	</div>
+
+	<div id="t_18_8" style="position: absolute; left: 69.34%; top: 25.06%;" class="c_18_3">
+		&bull; <span class="c_18_4">They say: Life, Liberty,</span>
+	</div>
+
+	<div id="t_18_9" style="position: absolute; left: 70.58%; top: 26.79%; letter-spacing: 0.01em;" class="c_18_1">
+		and the Pursuit of All
+	</div>
+
+	<div id="t_18_10" style="position: absolute; left: 72.04%; top: 28.68%; letter-spacing: 0.01em;" class="c_18_1">
+		Who Threaten It.
+	</div>
+
+	<div id="t_18_11" style="position: absolute; left: 66.67%; top: 30.99%;" class="c_18_5">
+		The U.S. Navy is tasked with
+	</div>
+
+	<div id="t_18_12" style="position: absolute; left: 66.67%; top: 32.89%;" class="c_18_5">
+		the enormous job of keeping
+	</div>
+
+	<div id="t_18_13" style="position: absolute; left: 66.67%; top: 34.78%;" class="c_18_5">
+		the world&rsquo;s oceans safe for
+	</div>
+
+	<div id="t_18_14" style="position: absolute; left: 66.67%; top: 36.68%;" class="c_18_5">
+		travel and trade. It does this
+	</div>
+
+	<div id="t_18_15" style="position: absolute; left: 66.67%; top: 38.57%;" class="c_18_5">
+		mostly at sea, but often in the
+	</div>
+
+	<div id="t_18_16" style="position: absolute; left: 66.67%; top: 40.47%;" class="c_18_5">
+		air and on land, too. Aircraft
+	</div>
+
+	<div id="t_18_17" style="position: absolute; left: 66.67%; top: 42.36%;" class="c_18_5">
+		carriers, submarines,
+	</div>
+
+	<div id="t_18_18" style="position: absolute; left: 66.67%; top: 44.26%;" class="c_18_5">
+		battleships&mdash;all keep us safe.
+	</div>
+
+	<div id="t_18_19" style="position: absolute; left: 70.59%; top:47.10%;" class="c_18_2">
+		THE AIR FORCE
+	</div>
+
+	<div id="t_18_20" style="position: absolute; left: 71.41%; top: 49.57%;" class="c_18_3">
+		&bull; <span class="c_18_4">They say: Aim High</span>
+	</div>
+
+	<div id="t_18_21" style="position: absolute; left: 73.32%; top: 51.29%; letter-spacing: 0.01em;" class="c_18_1">
+		Fly&ndash;Fight&ndash;Win.
+	</div>
+
+	<div id="t_18_22" style="position: absolute; left: 66.91%; top: 53.35%;" class="c_18_5">
+		Keeping the skies safe is the
+	</div>
+
+	<div id="t_18_23" style="position: absolute; left: 66.91%; top: 55.25%;" class="c_18_5">
+		job of the USAF&mdash;the nation&rsquo;s
+	</div>
+
+	<div id="t_18_24" style="position: absolute; left: 66.91%; top: 57.14%;" class="c_18_5">
+		source of air and space power.
+	</div>
+
+	<div id="t_18_25" style="position: absolute; left: 66.91%; top: 59.04%;" class="c_18_5">
+		At the helm of fast-flying jets
+	</div>
+
+	<div id="t_18_26" style="position: absolute; left: 66.91%; top: 60.93%;" class="c_18_5">
+		and helicopters, or the control
+	</div>
+
+	<div id="t_18_27" style="position: absolute; left: 66.91%; top: 62.83%;" class="c_18_5">
+		panels of satellite systems,
+	</div>
+
+	<div id="t_18_28" style="position: absolute; left: 66.91%; top: 64.72%;" class="c_18_5">
+		these high flyers soar through
+	</div>
+
+	<div id="t_18_29" style="position: absolute; left: 66.91%; top: 66.62%;" class="c_18_5">
+		the clouds to protect us all.
+	</div>
+
+	<div id="t_18_30" style="position: absolute; left: 8.82%; top: 38.17%; letter-spacing: -0.02em;" class="c_18_6">
+		Serving Our Nation
+	</div>
+
+	<div id="t_18_31" style="position: absolute; left: 10.14%; top: 45.47%;" class="c_18_5">
+		We live in a time of relative peace, although the news might not
+	</div>
+
+	<div id="t_18_32" style="position: absolute; left: 8.82%; top: 47.36%;" class="c_18_5">
+		seem that way. During past global wars, military service was
+	</div>
+
+	<div id="t_18_33" style="position: absolute; left: 8.82%; top: 49.26%;" class="c_18_5">
+		required for all qualified men. Today we have an all-volunteer U.S.
+	</div>
+
+	<div id="t_18_34" style="position: absolute; left: 8.82%; top: 51.15%;" class="c_18_5">
+		Armed Forces, made up of the Air Force, Army, Navy, and Marine
+	</div>
+
+	<div id="t_18_35" style="position: absolute; left: 8.82%; top: 53.04%;" class="c_18_5">
+		Corps. The mission of our armed forces? Keeping us safe at home
+	</div>
+
+	<div id="t_18_36" style="position: absolute; left: 8.82%; top: 54.94%;" class="c_18_5">
+		while trying to make America&rsquo;s foreign policy decisions a reality.
+	</div>
+
+	<div id="t_18_37" style="position: absolute; left: 10.14%; top: 56.83%;" class="c_18_5">
+		The National Guard and Coast Guard do the same thing, most
+	</div>
+
+	<div id="t_18_38" style="position: absolute; left: 8.82%; top: 58.73%;" class="c_18_5">
+		often here in the United States. Helping our country through military
+	</div>
+
+	<div id="t_18_39" style="position: absolute; left: 8.82%; top: 60.62%;" class="c_18_5">
+		service is a great way for young people to gain advanced technical
+	</div>
+
+	<div id="t_18_40" style="position: absolute; left: 8.82%; top: 62.52%;" class="c_18_5">
+		skills, help pay for a college education, travel the world, and share in
+	</div>
+
+	<div id="t_18_41" style="position: absolute; left: 8.82%; top: 64.41%;" class="c_18_5">
+		a proud tradition of service to the nation.
+	</div>
+
+	<div id="t_18_42" style="position: absolute; left: 10.14%; top: 66.31%;" class="c_18_5">
+		What if our nation were to find itself unable to get enough
+	</div>
+
+	<div id="t_18_43" style="position: absolute; left: 8.82%; top: 68.2%;" class="c_18_5">
+		volunteers to serve? If you are called for military service, you are
+	</div>
+
+	<div id="t_18_44" style="position: absolute; left: 8.82%; top: 70.09%;" class="c_18_5">
+		required by law to do it.
+	</div>
+
+	<div id="t_18_45" style="position: absolute; left: 4.85%; top:94.44%;" class="c_18_7">
+		18
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_18_for_government_to_be.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 22%; top: 9%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_18_we_owe_a_special.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 66%; top: 21%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_18_the_navy.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 63%; top: 47%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_18_the_air_force.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 39%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_18_serving_our_nation.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_19">
+                                                                                                <div class="pageData">
+
+	<div id="t_19_0" style="position: absolute; left: 75.56%; top:4.52%;" class="c_19_0">
+		THE ARMY
+	</div>
+
+	<div id="t_19_1" style="position: absolute; left: 71.75%; top: 7%;" class="c_19_1">
+		&bull; <span class="c_19_2">They say: There&rsquo;s Strong.</span>
+	</div>
+
+	<div id="t_19_2" style="position: absolute; left: 75.21%; top: 8.72%; letter-spacing: 0.01em;" class="c_19_3">
+		And Then There&rsquo;s
+	</div>
+
+	<div id="t_19_3" style="position: absolute; left: 76.83%; top: 10.62%; letter-spacing: 0.01em;" class="c_19_3">
+		Army Strong.
+	</div>
+
+	<div id="t_19_4" style="position: absolute; left: 70.59%; top: 12.68%;" class="c_19_4">
+		When it comes to major
+	</div>
+
+	<div id="t_19_5" style="position: absolute; left: 70.59%; top: 14.57%;" class="c_19_4">
+		operations on land, the U.S.
+	</div>
+
+	<div id="t_19_6" style="position: absolute; left: 70.59%; top: 16.47%;" class="c_19_4">
+		Army is in control. Our
+	</div>
+
+	<div id="t_19_7" style="position: absolute; left: 70.59%; top: 18.36%;" class="c_19_4">
+		army is tasked with this:
+	</div>
+
+	<div id="t_19_8" style="position: absolute; left: 70.59%; top: 20.25%;" class="c_19_4">
+		move into a place, secure it,
+	</div>
+
+	<div id="t_19_9" style="position: absolute; left: 70.59%; top: 22.15%;" class="c_19_4">
+		then create order, stability,
+	</div>
+
+	<div id="t_19_10" style="position: absolute; left: 70.59%; top: 24.04%;" class="c_19_4">
+		and safety before leaving.
+	</div>
+
+	<div id="t_19_11" style="position: absolute; left: 70.59%; top: 25.94%;" class="c_19_4">
+		Army forces also help to
+	</div>
+
+	<div id="t_19_12" style="position: absolute; left: 70.59%; top: 27.83%;" class="c_19_4">
+		protect U.S. properties
+	</div>
+
+	<div id="t_19_13" style="position: absolute; left: 70.59%; top: 29.73%;" class="c_19_4">
+		throughout the world.
+	</div>
+
+	<div id="t_19_14" style="position: absolute; left: 52.47%; top:35.52%;" class="c_19_5">
+		ON THE HOME FRONT
+	</div>
+
+	<div id="t_19_15" style="position: absolute; left: 38.80%; top:38.36%;" class="c_19_0">
+		THE NATIONAL GUARD
+	</div>
+
+	<div id="t_19_16" style="position: absolute; left: 38.80%; top: 40.83%;" class="c_19_4">
+		Hurricanes, floods, tornadoes&mdash;the National Guard&rsquo;s main task is
+	</div>
+
+	<div id="t_19_17" style="position: absolute; left: 38.80%; top: 42.73%;" class="c_19_4">
+		to protect us here on American soil, although recently the men
+	</div>
+
+	<div id="t_19_18" style="position: absolute; left: 38.80%; top: 44.62%;" class="c_19_4">
+		and women of the Guard have also served overseas. Each state
+	</div>
+
+	<div id="t_19_19" style="position: absolute; left: 38.80%; top: 46.52%;" class="c_19_4">
+		has its own Guard, and it is the only branch of the military
+	</div>
+
+	<div id="t_19_20" style="position: absolute; left: 38.80%; top: 48.41%;" class="c_19_4">
+		whose existence is mandated by the Constitution.
+	</div>
+
+	<div id="t_19_21" style="position: absolute; left: 23.86%; top:52.79%;" class="c_19_0">
+		THE COAST GUARD
+	</div>
+
+	<div id="t_19_22" style="position: absolute; left: 11.54%; top: 55.26%;" class="c_19_4">
+		Known for spectacular rescues in storm-tossed waters, the
+	</div>
+
+	<div id="t_19_23" style="position: absolute; left: 11.54%; top: 57.15%;" class="c_19_4">
+		Coast Guard&rsquo;s main mission is to keep domestic waterways
+	</div>
+
+	<div id="t_19_24" style="position: absolute; left: 11.54%; top: 59.05%;" class="c_19_4">
+		safe. Besides rescue missions, the Coast Guard is tasked
+	</div>
+
+	<div id="t_19_25" style="position: absolute; left: 11.54%; top: 60.94%;" class="c_19_4">
+		with law enforcement and drug-smuggling prevention on
+	</div>
+
+	<div id="t_19_26" style="position: absolute; left: 11.54%; top: 62.84%;" class="c_19_4">
+		offshore U.S. waters. They also serve overseas in combat.
+	</div>
+
+	<div id="t_19_27" style="position: absolute; left: 28.31%; top:66.52%;" class="c_19_0">
+		THE MARINES
+	</div>
+
+	<div id="t_19_28" style="position: absolute; left: 19.00%; top: 68.99%;" class="c_19_1">
+		&bull; <span class="c_19_2">They say: The Few. The Proud. The Marines.</span>
+	</div>
+
+	<div id="t_19_29" style="position: absolute; left: 16.49%; top:70.86%;" class="c_19_6">
+		Semper Fi<span class="c_19_7">&mdash;&ldquo;always faithful.&rdquo; Marines have been</span>
+	</div>
+
+	<div id="t_19_30" style="position: absolute; left: 16.49%; top: 73.28%;" class="c_19_4">
+		called the world&rsquo;s fiercest warriors. They are our
+	</div>
+
+	<div id="t_19_31" style="position: absolute; left: 16.49%; top: 75.3%;" class="c_19_4">
+		rapid-reaction force, trained on both sea and land.
+	</div>
+
+	<div id="t_19_32" style="position: absolute; left: 16.49%; top: 77.32%;" class="c_19_4">
+		They are often the first &ldquo;boots on the ground.&rdquo;
+	</div>
+
+	<div id="t_19_33" style="position: absolute; left: 93.40%; top:94.45%;" class="c_19_8">
+		19
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 67%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_19_the_army.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 46%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_19_on_the_home_front.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 14%; top: 65%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_19_the_marines.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_18_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_19_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_18_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="18.html?page=right"; onclick="goto('18.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="20.html"; onclick="goto('20.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="20.html"; onclick="goto('20.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

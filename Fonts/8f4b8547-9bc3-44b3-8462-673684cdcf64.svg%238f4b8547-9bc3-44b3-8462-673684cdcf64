@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/js.cookie.js"></script>
+    <script src="/common.js?ts=201809161550"></script>
+    <script>
+        // Actual name of current page
+        var self = '/account/login.html';
+
+        // Save the current URL as the referring page
+        var referrer = window.location.href;
+
+        // Get user token
+        var userToken = getUserToken();
+
+        // Decide whether to show the page - Note that we'll show the page on query login failures
+        var show = true;
+
+        // Get login parameters if specified as part of query
+        var username = getQueryParam("username");
+        var password = getQueryParam("password");
+        if ( (username!=false) && (password!=false) ) {
+            show = false;
+            ajaxLogin(username, password, '/', '/account/login.html');
+        } else if (userToken != "") {
+            show = false;
+            if (referrer.indexOf(self) >= 0) {
+                // If they called the login page, go back to the index page
+                window.location.href = '/';
+            } else if (hasTooManyRedirects()) {
+            // Prevent a loop.  Don't keep going to the same page if it keeps throwing an error.
+                window.location.href = '/';
+            } else {
+                ajaxGetSigned(userToken, referrer);
+            }
+        }
+
+        $(document).ready(function(){
+
+            if (show) {
+                $("body").show();
+            }
+
+            $("button").click(function(){
+                username = $('[name="username"]').val();
+                password = $('[name="password"]').val();
+                ajaxLogin(username, password, referrer, false);
+            });
+        });
+
+    </script>
+    <style>
+
+        input[type=text], input[type=password] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .container {
+            padding: 16px;
+            border: 3px solid #f1f1f1;
+        }
+
+        .error {
+            padding-bottom: 12px;
+            color: red;
+        }
+
+        .startHidden {
+            display: none;
+        }
+
+    </style>
+</head>
+<body class="startHidden">
+
+    <h2>Login Form</h2>
+
+    <div class="startHidden error">Login incorrect.  Please reenter the username and password.</div>
+
+    <div class="container">
+        <label><b>Username</b></label>
+        <input type="text" placeholder="Enter Username" name="username" required>
+
+        <label><b>Password</b></label>
+        <input type="text" placeholder="Enter Password" name="password" required>
+
+        <button type="submit">Login</button>
+    </div>
+
+</body>
+</html>

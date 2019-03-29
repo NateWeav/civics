@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_200.css">
+                <link rel="stylesheet" href="css/civics_201.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="200.html"; onclick="goto('200.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="200.html?page=right"; onclick="goto('200.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="202.html"; onclick="goto('202.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="202.html"; onclick="goto('202.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="200.html"; onclick="goto('200.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_200">
+                                                                                                <div class="pageData">
+
+	<div id="t_200_0" style="position: absolute; left: 4.74%; top:5.70%;" class="c_200_0">
+		IMPEACHMENT
+	</div>
+
+	<div id="t_200_1" style="position: absolute; left: 4.74%; top:7.22%;" class="c_200_0">
+		How to discipline a
+	</div>
+
+	<div id="t_200_2" style="position: absolute; left: 4.74%; top:8.73%;" class="c_200_0">
+		president who
+	</div>
+
+	<div id="t_200_3" style="position: absolute; left: 4.74%; top:10.25%;" class="c_200_0">
+		misbehaves.
+	</div>
+
+	<div id="t_200_4" style="position: absolute; left: 4.74%; top:12.00%;" class="c_200_1">
+		Congress has the power to
+	</div>
+
+	<div id="t_200_5" style="position: absolute; left: 4.74%; top:13.52%;" class="c_200_1">
+		publicly charge the president
+	</div>
+
+	<div id="t_200_6" style="position: absolute; left: 4.74%; top:15.03%;" class="c_200_1">
+		with misconduct. If a
+	</div>
+
+	<div id="t_200_7" style="position: absolute; left: 4.74%; top:16.55%;" class="c_200_1">
+		president does something
+	</div>
+
+	<div id="t_200_8" style="position: absolute; left: 4.74%; top:18.06%;" class="c_200_1">
+		bad while in office, the
+	</div>
+
+	<div id="t_200_9" style="position: absolute; left: 4.74%; top:19.58%;" class="c_200_1">
+		House of Representatives can
+	</div>
+
+	<div id="t_200_10" style="position: absolute; left: 4.74%; top:21.09%;" class="c_200_1">
+		vote to impeach&mdash;bring one
+	</div>
+
+	<div id="t_200_11" style="position: absolute; left: 4.74%; top:22.61%;" class="c_200_1">
+		or more charges against&mdash;
+	</div>
+
+	<div id="t_200_12" style="position: absolute; left: 4.74%; top:24.12%;" class="c_200_1">
+		the president. Then the
+	</div>
+
+	<div id="t_200_13" style="position: absolute; left: 4.74%; top:25.64%;" class="c_200_1">
+		Senate holds a trial and
+	</div>
+
+	<div id="t_200_14" style="position: absolute; left: 4.74%; top:27.15%;" class="c_200_1">
+		votes on whether to convict
+	</div>
+
+	<div id="t_200_15" style="position: absolute; left: 4.74%; top:28.67%;" class="c_200_1">
+		him and remove him from
+	</div>
+
+	<div id="t_200_16" style="position: absolute; left: 4.74%; top:30.18%;" class="c_200_1">
+		office. Two presidents have
+	</div>
+
+	<div id="t_200_17" style="position: absolute; left: 4.74%; top:31.70%;" class="c_200_1">
+		been impeached; neither
+	</div>
+
+	<div id="t_200_18" style="position: absolute; left: 4.74%; top:33.21%;" class="c_200_1">
+		was convicted and removed.
+	</div>
+
+	<div id="t_200_19" style="position: absolute; left: 4.33%; top:38.77%;" class="c_200_0">
+		BEING IN CONGRESS
+	</div>
+
+	<div id="t_200_20" style="position: absolute; left: 4.33%; top:40.29%;" class="c_200_1">
+		&bull;Each House of Congress
+	</div>
+
+	<div id="t_200_21" style="position: absolute; left: 4.33%; top:41.80%;" class="c_200_1">
+		will determine its own rules.
+	</div>
+
+	<div id="t_200_22" style="position: absolute; left: 4.33%; top:44.31%;" class="c_200_1">
+		&bull;Members of Congress will
+	</div>
+
+	<div id="t_200_23" style="position: absolute; left: 4.33%; top:45.82%;" class="c_200_1">
+		be paid out of the U.S.
+	</div>
+
+	<div id="t_200_24" style="position: absolute; left: 4.33%; top:47.34%;" class="c_200_1">
+		Treasury.
+	</div>
+
+	<div id="t_200_25" style="position: absolute; left: 5.36%; top:48.85%;" class="c_200_2">
+		(In 2010, members of the
+	</div>
+
+	<div id="t_200_26" style="position: absolute; left: 4.33%; top:50.37%;" class="c_200_2">
+		House and the Senate earned
+	</div>
+
+	<div id="t_200_27" style="position: absolute; left: 4.33%; top:51.88%;" class="c_200_2">
+		$174,000 per year)
+	</div>
+
+	<div id="t_200_28" style="position: absolute; left: 4.33%; top:54.39%;" class="c_200_1">
+		&bull;Each member of Congress
+	</div>
+
+	<div id="t_200_29" style="position: absolute; left: 4.33%; top:55.91%;" class="c_200_1">
+		is able to speak freely while
+	</div>
+
+	<div id="t_200_30" style="position: absolute; left: 4.33%; top:57.42%;" class="c_200_1">
+		Congress is in session.
+	</div>
+
+	<div id="t_200_31" style="position: absolute; left: 4.22%; top:63.79%;" class="c_200_0">
+		TAXES
+	</div>
+
+	<div id="t_200_32" style="position: absolute; left: 4.22%; top:65.54%;" class="c_200_1">
+		The federal government
+	</div>
+
+	<div id="t_200_33" style="position: absolute; left: 4.22%; top:67.06%;" class="c_200_1">
+		cannot tax your property or
+	</div>
+
+	<div id="t_200_34" style="position: absolute; left: 4.22%; top:68.57%;" class="c_200_1">
+		income unless both houses of
+	</div>
+
+	<div id="t_200_35" style="position: absolute; left: 4.22%; top:70.09%;" class="c_200_1">
+		Congress agree to it.
+	</div>
+
+	<div id="t_200_36" style="position: absolute; left: 4.22%; top:73.11%;" class="c_200_0">
+		LAWMAKING
+	</div>
+
+	<div id="t_200_37" style="position: absolute; left: 4.22%; top:74.86%;" class="c_200_1">
+        Congress has the power to
+	</div>
+
+	<div id="t_200_38" style="position: absolute; left: 4.22%; top:76.38%;" class="c_200_1">
+        pass bills for the president to
+	</div>
+
+    <div id="t_200_39" style="position: absolute; left: 4.22%; top:77.90%;" class="c_200_1">
+        sign. If the president doesn&rsquo;t
+	</div>
+
+	<div id="t_200_40" style="position: absolute; left: 4.22%; top:79.41%;" class="c_200_1">
+        like the bill, he or she can
+	</div>
+
+	<div id="t_200_41" style="position: absolute; left: 4.22%; top:80.93%;" class="c_200_1">
+        send it back to Congress
+	</div>
+
+	<div id="t_200_42" style="position: absolute; left: 4.22%; top:82.44%;" class="c_200_1">
+        (veto). Congress can pass
+	</div>
+
+	<div id="t_200_43" style="position: absolute; left: 4.22%; top:83.96%;" class="c_200_1">
+        the bill into law over the
+	</div>
+
+	<div id="t_200_44" style="position: absolute; left: 4.22%; top:85.47%;" class="c_200_1">
+		president&rsquo;s veto if two-thirds
+	</div>
+
+	<div id="t_200_45" style="position: absolute; left: 4.22%; top:86.99%;" class="c_200_1">
+        of the House, and two-thirds
+	</div>
+
+	<div id="t_200_46" style="position: absolute; left: 4.22%; top:88.50%;" class="c_200_1">
+        of the Senate, both vote to
+	</div>
+
+	<div id="t_200_47" style="position: absolute; left: 4.22%; top:90.02%;" class="c_200_1">
+        do so.
+	</div>
+
+	<div id="t_200_48" style="position: absolute; left: 6.79%; top: 96.48%; letter-spacing: -0.15em;" class="c_200_3">
+		200
+	</div>
+
+	<div id="t_200_49" style="position: absolute; left: 32.61%; top:4.11%;" class="c_200_4">
+		The Senate shall choose their other Officers, and also a President pro tempore, in the
+	</div>
+
+	<div id="t_200_50" style="position: absolute; left: 31.22%; top:5.63%;" class="c_200_4">
+		absence of the Vice President, or when he shall exercise the Office of President of the
+	</div>
+
+	<div id="t_200_51" style="position: absolute; left: 31.22%; top:7.14%;" class="c_200_4">
+		United States.
+	</div>
+
+	<div id="t_200_52" style="position: absolute; left: 32.61%; top:8.66%;" class="c_200_4">
+		The Senate shall have the sole Power to try all Impeachments. When sitting for that
+	</div>
+
+	<div id="t_200_53" style="position: absolute; left: 31.22%; top:10.17%;" class="c_200_4">
+		Purpose, they shall be on Oath or Affirmation. When the President of the United States is
+	</div>
+
+	<div id="t_200_54" style="position: absolute; left: 31.22%; top:11.69%;" class="c_200_4">
+		tried, the Chief Justice shall preside: And no Person shall be convicted without the
+	</div>
+
+	<div id="t_200_55" style="position: absolute; left: 31.22%; top:13.20%;" class="c_200_4">
+		Concurrence of two thirds of the Members present.
+	</div>
+
+	<div id="t_200_56" style="position: absolute; left: 32.61%; top:14.72%;" class="c_200_4">
+		Judgment in Cases of Impeachment shall not extend further than to removal from Office,
+	</div>
+
+	<div id="t_200_57" style="position: absolute; left: 31.22%; top:16.23%;" class="c_200_4">
+		and disqualification to hold and enjoy any Office of honor, Trust or Profit under the United
+	</div>
+
+	<div id="t_200_58" style="position: absolute; left: 31.22%; top:17.75%;" class="c_200_4">
+		States: but the Party convicted shall nevertheless be liable and subject to Indictment, Trial,
+	</div>
+
+	<div id="t_200_59" style="position: absolute; left: 31.22%; top:19.26%;" class="c_200_4">
+		Judgment and Punishment, according to Law.
+	</div>
+
+	<div id="t_200_60" style="position: absolute; left: 31.22%; top:21.77%;" class="c_200_5">
+		Section 4 - Elections, Meetings
+	</div>
+
+	<div id="t_200_61" style="position: absolute; left: 32.61%; top:23.28%;" class="c_200_4">
+		The Times, Places and Manner of holding Elections for Senators and Representatives,
+	</div>
+
+	<div id="t_200_62" style="position: absolute; left: 31.22%; top:24.80%;" class="c_200_4">
+		shall be prescribed in each State by the Legislature thereof; but the Congress may at any
+	</div>
+
+	<div id="t_200_63" style="position: absolute; left: 31.22%; top:26.31%;" class="c_200_4">
+		time by Law make or alter such Regulations, except as to the Place of choosing Senators.
+	</div>
+
+	<div id="t_200_64" style="position: absolute; left: 32.61%; top:27.83%;" class="c_200_4">
+		The Congress shall assemble at least once in every Year, and such Meeting shall (be on
+	</div>
+
+	<div id="t_200_65" style="position: absolute; left: 31.22%; top:29.34%;" class="c_200_4">
+		the first Monday in December,)<span class="c_200_6"> (The preceding words in parentheses were superseded by the</span>
+	</div>
+
+	<div id="t_200_66" style="position: absolute; left: 31.22%; top:30.86%;" class="c_200_7">
+		20th Amendment, section 2.) <span class="c_200_8">unless they shall by Law appoint a different Day.</span>
+	</div>
+
+	<div id="t_200_67" style="position: absolute; left: 31.22%; top:33.36%;" class="c_200_5">
+		Section 5 - Membership, Rules, Journals, Adjournment
+	</div>
+
+	<div id="t_200_68" style="position: absolute; left: 32.61%; top:34.88%;" class="c_200_4">
+		Each House shall be the Judge of the Elections, Returns and Qualifications of its own
+	</div>
+
+	<div id="t_200_69" style="position: absolute; left: 31.22%; top:36.40%;" class="c_200_4">
+		Members, and a Majority of each shall constitute a Quorum to do Business; but a smaller
+	</div>
+
+	<div id="t_200_70" style="position: absolute; left: 31.22%; top:37.91%;" class="c_200_4">
+		number may adjourn from day to day, and may be authorized to compel the Attendance
+	</div>
+
+	<div id="t_200_71" style="position: absolute; left: 31.22%; top:39.43%;" class="c_200_4">
+		of absent Members, in such Manner, and under such Penalties as each House may provide.
+	</div>
+
+	<div id="t_200_72" style="position: absolute; left: 32.61%; top:40.94%;" class="c_200_4">
+		Each House may determine the Rules of its Proceedings, punish its Members for
+	</div>
+
+	<div id="t_200_73" style="position: absolute; left: 31.22%; top:42.46%;" class="c_200_4">
+		disorderly Behavior, and, with the Concurrence of two-thirds, expel a Member.
+	</div>
+
+	<div id="t_200_74" style="position: absolute; left: 32.61%; top:43.97%;" class="c_200_4">
+		Each House shall keep a Journal of its Proceedings, and from time to time publish the
+	</div>
+
+	<div id="t_200_75" style="position: absolute; left: 31.22%; top:45.49%;" class="c_200_4">
+		same, excepting such Parts as may in their Judgment require Secrecy; and the Yeas and
+	</div>
+
+	<div id="t_200_76" style="position: absolute; left: 31.22%; top:47.00%;" class="c_200_4">
+		Nays of the Members of either House on any question shall, at the Desire of one fifth of
+	</div>
+
+	<div id="t_200_77" style="position: absolute; left: 31.22%; top:48.52%;" class="c_200_4">
+		those Present, be entered on the Journal. Neither House, during the Session of Congress,
+	</div>
+
+	<div id="t_200_78" style="position: absolute; left: 31.22%; top:50.03%;" class="c_200_4">
+		shall, without the Consent of the other, adjourn for more than three days, nor to any
+	</div>
+
+	<div id="t_200_79" style="position: absolute; left: 31.22%; top:51.55%;" class="c_200_4">
+		other Place than that in which the two Houses shall be sitting.
+	</div>
+
+	<div id="t_200_80" style="position: absolute; left: 31.22%; top:54.05%;" class="c_200_5">
+		Section 6 - Compensation
+	</div>
+
+	<div id="t_200_81" style="position: absolute; left: 32.61%; top:55.57%;" class="c_200_4">
+		(The Senators and Representatives shall receive a Compensation for their Services, to be
+	</div>
+
+	<div id="t_200_82" style="position: absolute; left: 31.22%; top:57.08%;" class="c_200_4">
+		ascertained by Law, and paid out of the Treasury of the United States.)<span class="c_200_6"> (The preceding</span>
+	</div>
+
+	<div id="t_200_83" style="position: absolute; left: 31.22%; top:58.60%;" class="c_200_7">
+		words in parentheses were modified by the 27th Amendment.) <span class="c_200_8">They shall in all Cases, except</span>
+	</div>
+
+	<div id="t_200_84" style="position: absolute; left: 31.22%; top:60.11%;" class="c_200_4">
+		Treason, Felony and Breach of the Peace, be privileged from Arrest during their
+	</div>
+
+	<div id="t_200_85" style="position: absolute; left: 31.22%; top:61.63%;" class="c_200_4">
+		Attendance at the Session of their respective Houses, and in going to and returning from
+	</div>
+
+	<div id="t_200_86" style="position: absolute; left: 31.22%; top:63.15%;" class="c_200_4">
+		the same; and for any Speech or Debate in either House, they shall not be questioned in
+	</div>
+
+	<div id="t_200_87" style="position: absolute; left: 31.22%; top:64.66%;" class="c_200_4">
+		any other Place.
+	</div>
+
+	<div id="t_200_88" style="position: absolute; left: 32.61%; top:66.18%;" class="c_200_4">
+		No Senator or Representative shall, during the Time for which he was elected, be
+	</div>
+
+	<div id="t_200_89" style="position: absolute; left: 31.22%; top:67.69%;" class="c_200_4">
+		appointed to any civil Office under the Authority of the United States which shall have
+	</div>
+
+	<div id="t_200_90" style="position: absolute; left: 31.22%; top:69.21%;" class="c_200_4">
+		been created, or the Emoluments whereof shall have been increased during such time;
+	</div>
+
+	<div id="t_200_91" style="position: absolute; left: 31.22%; top:70.72%;" class="c_200_4">
+		and no Person holding any Office under the United States, shall be a Member of either
+	</div>
+
+	<div id="t_200_92" style="position: absolute; left: 31.22%; top:72.24%;" class="c_200_4">
+		House during his Continuance in Office.
+	</div>
+
+	<div id="t_200_93" style="position: absolute; left: 31.22%; top:74.74%;" class="c_200_5">
+		Section 7 - Revenue Bills, Legislative Process, Presidential Veto
+	</div>
+
+	<div id="t_200_94" style="position: absolute; left: 32.61%; top:76.26%;" class="c_200_4">
+		All bills for raising Revenue shall originate in the House of Representatives; but the
+	</div>
+
+	<div id="t_200_95" style="position: absolute; left: 31.22%; top:77.77%;" class="c_200_4">
+		Senate may propose or concur with Amendments as on other Bills.
+	</div>
+
+	<div id="t_200_96" style="position: absolute; left: 32.61%; top:79.29%;" class="c_200_4">
+		Every Bill which shall have passed the House of Representatives and the Senate, shall,
+	</div>
+
+	<div id="t_200_97" style="position: absolute; left: 31.22%; top:80.80%;" class="c_200_4">
+		before it become a Law, be presented to the President of the United States; If he approve
+	</div>
+
+	<div id="t_200_98" style="position: absolute; left: 31.22%; top:82.32%;" class="c_200_4">
+		he shall sign it, but if not he shall return it, with his Objections to that House in which it
+	</div>
+
+	<div id="t_200_99" style="position: absolute; left: 31.22%; top:83.83%;" class="c_200_4">
+		shall have originated, who shall enter the Objections at large on their Journal, and proceed
+	</div>
+
+	<div id="t_200_100" style="position: absolute; left: 31.22%; top:85.35%;" class="c_200_4">
+		to reconsider it. If after such Reconsideration two thirds of that House shall agree to pass
+	</div>
+
+	<div id="t_200_101" style="position: absolute; left: 31.22%; top:86.86%;" class="c_200_4">
+		the Bill, it shall be sent, together with the Objections, to the other House, by which it shall
+	</div>
+
+	<div id="t_200_102" style="position: absolute; left: 31.22%; top:88.38%;" class="c_200_4">
+		likewise be reconsidered, and if approved by two thirds of that House, it shall become a
+	</div>
+
+	<div id="t_200_103" style="position: absolute; left: 31.22%; top:89.89%;" class="c_200_4">
+		Law. But in all such Cases the Votes of both Houses shall be determined by Yeas and Nays,
+	</div>
+
+	<div id="t_200_104" style="position: absolute; left: 31.22%; top:91.41%;" class="c_200_4">
+		and the Names of the Persons voting for and against the Bill shall be entered on the
+	</div>
+
+	<div id="t_200_105" style="position: absolute; left: 31.22%; top:92.92%;" class="c_200_4">
+		Journal of each House respectively.
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_201">
+                                                                                                <div class="pageData">
+
+	<div id="t_201_0" style="position: absolute; left: 12.66%; top:4.85%;" class="c_201_0">
+		If any bill shall not be returned by the President within ten Days (Sundays
+	</div>
+
+	<div id="t_201_1" style="position: absolute; left: 11.27%; top:6.37%;" class="c_201_0">
+		excepted) after it shall have been presented to him, the Same shall be a Law, in like
+	</div>
+
+	<div id="t_201_2" style="position: absolute; left: 11.27%; top:7.88%;" class="c_201_0">
+		Manner as if he had signed it, unless the Congress by their Adjournment prevent its
+	</div>
+
+	<div id="t_201_3" style="position: absolute; left: 11.27%; top:9.40%;" class="c_201_0">
+		Return, in which Case it shall not be a Law.
+	</div>
+
+	<div id="t_201_4" style="position: absolute; left: 12.66%; top:10.91%;" class="c_201_0">
+		Every Order, Resolution, or Vote to which the Concurrence of the Senate and
+	</div>
+
+	<div id="t_201_5" style="position: absolute; left: 11.27%; top:12.43%;" class="c_201_0">
+		House of Representatives may be necessary (except on a question of Adjournment)
+	</div>
+
+	<div id="t_201_6" style="position: absolute; left: 11.27%; top:13.94%;" class="c_201_0">
+		shall be presented to the President of the United States; and before the Same shall
+	</div>
+
+	<div id="t_201_7" style="position: absolute; left: 11.27%; top:15.46%;" class="c_201_0">
+		take Effect, shall be approved by him, or being disapproved by him, shall be
+	</div>
+
+	<div id="t_201_8" style="position: absolute; left: 11.27%; top:16.97%;" class="c_201_0">
+		repassed by two thirds of the Senate and House of Representatives, according to the
+	</div>
+
+	<div id="t_201_9" style="position: absolute; left: 11.27%; top:18.49%;" class="c_201_0">
+		Rules and Limitations prescribed in the Case of a Bill.
+	</div>
+
+	<div id="t_201_10" style="position: absolute; left: 11.27%; top:21.51%;" class="c_201_1">
+		Section 8 - Powers of Congress
+	</div>
+
+	<div id="t_201_11" style="position: absolute; left: 12.66%; top:23.03%;" class="c_201_0">
+		The Congress shall have Power To lay and collect Taxes, Duties, Imposts and
+	</div>
+
+	<div id="t_201_12" style="position: absolute; left: 11.27%; top:24.55%;" class="c_201_0">
+		Excises, to pay the Debts and provide for the common Defence and general Welfare
+	</div>
+
+	<div id="t_201_13" style="position: absolute; left: 11.27%; top:26.06%;" class="c_201_0">
+		of the United States; but all Duties, Imposts and Excises shall be uniform throughout
+	</div>
+
+	<div id="t_201_14" style="position: absolute; left: 11.27%; top:27.58%;" class="c_201_0">
+		the United States;
+	</div>
+
+	<div id="t_201_15" style="position: absolute; left: 12.66%; top:29.09%;" class="c_201_0">
+		To borrow money on the credit of the United States;
+	</div>
+
+	<div id="t_201_16" style="position: absolute; left: 12.66%; top:30.61%;" class="c_201_0">
+		To regulate Commerce with foreign Nations, and among the several States, and
+	</div>
+
+	<div id="t_201_17" style="position: absolute; left: 11.27%; top:32.12%;" class="c_201_0">
+		with the Indian Tribes;
+	</div>
+
+	<div id="t_201_18" style="position: absolute; left: 12.66%; top:33.64%;" class="c_201_0">
+		To establish an uniform Rule of Naturalization, and uniform Laws on the subject of
+	</div>
+
+	<div id="t_201_19" style="position: absolute; left: 11.27%; top:35.15%;" class="c_201_0">
+		Bankruptcies throughout the United States;
+	</div>
+
+	<div id="t_201_20" style="position: absolute; left: 12.66%; top:36.67%;" class="c_201_0">
+		To coin Money, regulate the Value thereof, and of foreign Coin, and fix the
+	</div>
+
+	<div id="t_201_21" style="position: absolute; left: 11.27%; top:38.18%;" class="c_201_0">
+		Standard of Weights and Measures;
+	</div>
+
+	<div id="t_201_22" style="position: absolute; left: 12.66%; top:39.70%;" class="c_201_0">
+		To provide for the Punishment of counterfeiting the Securities and current Coin of
+	</div>
+
+	<div id="t_201_23" style="position: absolute; left: 11.27%; top:41.21%;" class="c_201_0">
+		the United States;
+	</div>
+
+	<div id="t_201_24" style="position: absolute; left: 12.66%; top:42.73%;" class="c_201_0">
+		To establish Post Offices and Post Roads;
+	</div>
+
+	<div id="t_201_25" style="position: absolute; left: 12.66%; top:44.24%;" class="c_201_0">
+		To promote the Progress of Science and useful Arts, by securing for limited Times
+	</div>
+
+	<div id="t_201_26" style="position: absolute; left: 11.27%; top:45.76%;" class="c_201_0">
+		to Authors and Inventors the exclusive Right to their respective Writings and
+	</div>
+
+	<div id="t_201_27" style="position: absolute; left: 11.27%; top:47.28%;" class="c_201_0">
+		Discoveries;
+	</div>
+
+	<div id="t_201_28" style="position: absolute; left: 12.66%; top:48.79%;" class="c_201_0">
+		To constitute Tribunals inferior to the supreme Court;
+	</div>
+
+	<div id="t_201_29" style="position: absolute; left: 12.66%; top:50.31%;" class="c_201_0">
+		To define and punish Piracies and Felonies committed on the high Seas, and
+	</div>
+
+	<div id="t_201_30" style="position: absolute; left: 11.27%; top:51.82%;" class="c_201_0">
+		Offenses against the Law of Nations;
+	</div>
+
+	<div id="t_201_31" style="position: absolute; left: 12.66%; top:53.34%;" class="c_201_0">
+		To declare War, grant Letters of Marque and Reprisal, and make Rules concerning
+	</div>
+
+	<div id="t_201_32" style="position: absolute; left: 11.27%; top:54.85%;" class="c_201_0">
+		Captures on Land and Water;
+	</div>
+
+	<div id="t_201_33" style="position: absolute; left: 12.66%; top:56.37%;" class="c_201_0">
+		To raise and support Armies, but no Appropriation of Money to that Use shall be
+	</div>
+
+	<div id="t_201_34" style="position: absolute; left: 11.27%; top:57.88%;" class="c_201_0">
+		for a longer Term than two Years;
+	</div>
+
+	<div id="t_201_35" style="position: absolute; left: 12.66%; top:59.40%;" class="c_201_0">
+		To provide and maintain a Navy;
+	</div>
+
+	<div id="t_201_36" style="position: absolute; left: 12.66%; top:60.91%;" class="c_201_0">
+		To make Rules for the Government and Regulation of the land and naval Forces;
+	</div>
+
+	<div id="t_201_37" style="position: absolute; left: 12.66%; top:62.43%;" class="c_201_0">
+		To provide for calling forth the Militia to execute the Laws of the Union, suppress
+	</div>
+
+	<div id="t_201_38" style="position: absolute; left: 11.27%; top:63.94%;" class="c_201_0">
+		Insurrections and repel Invasions;
+	</div>
+
+	<div id="t_201_39" style="position: absolute; left: 12.66%; top:65.46%;" class="c_201_0">
+		To provide for organizing, arming, and disciplining the Militia, and for governing
+	</div>
+
+	<div id="t_201_40" style="position: absolute; left: 11.27%; top:66.97%;" class="c_201_0">
+		such Part of them as may be employed in the Service of the United States, reserving
+	</div>
+
+	<div id="t_201_41" style="position: absolute; left: 11.27%; top:68.49%;" class="c_201_0">
+		to the States respectively, the Appointment of the Officers, and the Authority of
+	</div>
+
+	<div id="t_201_42" style="position: absolute; left: 11.27%; top:70.00%;" class="c_201_0">
+		training the Militia according to the discipline prescribed by Congress;
+	</div>
+
+	<div id="t_201_43" style="position: absolute; left: 12.66%; top:71.52%;" class="c_201_0">
+		To exercise exclusive Legislation in all Cases whatsoever, over such District (not
+	</div>
+
+	<div id="t_201_44" style="position: absolute; left: 11.27%; top:73.03%;" class="c_201_0">
+		exceeding ten Miles square) as may, by Cession of particular States, and the
+	</div>
+
+	<div id="t_201_45" style="position: absolute; left: 11.27%; top:74.55%;" class="c_201_0">
+		acceptance of Congress, become the Seat of the Government of the United States,
+	</div>
+
+	<div id="t_201_46" style="position: absolute; left: 11.27%; top:76.06%;" class="c_201_0">
+		and to exercise like Authority over all Places purchased by the Consent of the
+	</div>
+
+	<div id="t_201_47" style="position: absolute; left: 11.27%; top:77.58%;" class="c_201_0">
+		Legislature of the State in which the Same shall be, for the Erection of Forts,
+	</div>
+
+	<div id="t_201_48" style="position: absolute; left: 11.27%; top:79.09%;" class="c_201_0">
+		Magazines, Arsenals, dock-Yards, and other needful Buildings; And
+	</div>
+
+	<div id="t_201_49" style="position: absolute; left: 12.66%; top:80.61%;" class="c_201_0">
+		To make all Laws which shall be necessary and proper for carrying into Execution
+	</div>
+
+	<div id="t_201_50" style="position: absolute; left: 11.27%; top:82.12%;" class="c_201_0">
+		the foregoing Powers, and all other Powers vested by this Constitution in the
+	</div>
+
+	<div id="t_201_51" style="position: absolute; left: 11.27%; top:83.64%;" class="c_201_0">
+		Government of the United States, or in any Department or Officer thereof.
+	</div>
+
+	<div id="t_201_52" style="position: absolute; left: 75.23%; top:5.30%;" class="c_201_2">
+		POCKET VETO
+	</div>
+
+	<div id="t_201_53" style="position: absolute; left: 75.23%; top:7.05%;" class="c_201_3">
+		If the president takes no
+	</div>
+
+	<div id="t_201_54" style="position: absolute; left: 75.23%; top:8.56%;" class="c_201_3">
+		action on a bill passed by
+	</div>
+
+	<div id="t_201_55" style="position: absolute; left: 75.23%; top:10.08%;" class="c_201_3">
+		Congress within 10 days
+	</div>
+
+	<div id="t_201_56" style="position: absolute; left: 75.23%; top:11.60%;" class="c_201_3">
+		while Congress is in session,
+	</div>
+
+	<div id="t_201_57" style="position: absolute; left: 75.23%; top:13.11%;" class="c_201_3">
+		it becomes a law without
+	</div>
+
+	<div id="t_201_58" style="position: absolute; left: 75.23%; top:14.63%;" class="c_201_3">
+		his signature. If Congress is
+	</div>
+
+	<div id="t_201_59" style="position: absolute; left: 75.23%; top:16.14%;" class="c_201_3">
+		not in session when this
+	</div>
+
+	<div id="t_201_60" style="position: absolute; left: 75.23%; top:17.66%;" class="c_201_3">
+		happens the bill dies. (This
+	</div>
+
+	<div id="t_201_61" style="position: absolute; left: 75.23%; top:19.17%;" class="c_201_3">
+		is called a &ldquo;pocket veto.&rdquo;)
+	</div>
+
+	<div id="t_201_62" style="position: absolute; left: 74.65%; top:26.42%;" class="c_201_2">
+		POWER
+	</div>
+
+	<div id="t_201_63" style="position: absolute; left: 74.65%; top:28.18%;" class="c_201_3">
+		Congress has the power to
+	</div>
+
+	<div id="t_201_64" style="position: absolute; left: 74.65%; top:29.69%;" class="c_201_3">
+		help and protect the
+	</div>
+
+	<div id="t_201_65" style="position: absolute; left: 74.65%; top:31.21%;" class="c_201_3">
+		country. This power
+	</div>
+
+	<div id="t_201_66" style="position: absolute; left: 74.65%; top:32.72%;" class="c_201_3">
+		includes taxing to raise
+	</div>
+
+	<div id="t_201_67" style="position: absolute; left: 74.65%; top:34.24%;" class="c_201_3">
+		money, forming an army,
+	</div>
+
+	<div id="t_201_68" style="position: absolute; left: 74.65%; top:35.75%;" class="c_201_3">
+		and declaring war.
+	</div>
+
+	<div id="t_201_69" style="position: absolute; left: 72.62%; top: 66.94%; letter-spacing: 0.01em;" class="c_201_4">
+		James
+	</div>
+
+	<div id="t_201_70" style="position: absolute; left: 72.62%; top: 68.58%; letter-spacing: 0.01em;" class="c_201_4">
+		Madison
+	</div>
+
+	<div id="t_201_71" style="position: absolute; left: 73.81%; top:74.48%;" class="c_201_2">
+		ELASTIC CLAUSE
+	</div>
+
+	<div id="t_201_72" style="position: absolute; left: 73.81%; top:76.24%;" class="c_201_3">
+		This clause allows Congress
+	</div>
+
+	<div id="t_201_73" style="position: absolute; left: 73.81%; top:77.75%;" class="c_201_3">
+		to stretch its power to
+	</div>
+
+	<div id="t_201_74" style="position: absolute; left: 73.81%; top:79.27%;" class="c_201_3">
+		make all laws that become
+	</div>
+
+	<div id="t_201_75" style="position: absolute; left: 73.81%; top:80.78%;" class="c_201_3">
+		necessary as time passes
+	</div>
+
+	<div id="t_201_76" style="position: absolute; left: 73.81%; top:82.30%;" class="c_201_3">
+		and the country&rsquo;s needs
+	</div>
+
+	<div id="t_201_77" style="position: absolute; left: 73.81%; top:83.81%;" class="c_201_3">
+		change.
+	</div>
+
+	<div id="t_201_78" style="position: absolute; left: 94.92%; top: 96.48%; letter-spacing: -0.15em;" class="c_201_5">
+		201
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="200.html?page=right"; onclick="goto('200.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="202.html"; onclick="goto('202.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="202.html"; onclick="goto('202.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_100.css">
+                <link rel="stylesheet" href="css/civics_101.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="98.html?page=right"; onclick="goto('98.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="100.html"; onclick="goto('100.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="98.html?page=right"; onclick="goto('98.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_100_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_101_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_100_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="100.html?page=right"; onclick="goto('100.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="102.html"; onclick="goto('102.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="102.html"; onclick="goto('102.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="98.html?page=right"; onclick="goto('98.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="100.html"; onclick="goto('100.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="98.html?page=right"; onclick="goto('98.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_100">
+                                                                                                <div class="pageData">
+
+	<div id="t_100_0" style="position: absolute; left: 5.47%; top:2.00%;" class="c_100_0">
+		Members of the Virginia General
+	</div>
+
+	<div id="t_100_1" style="position: absolute; left: 5.47%; top:3.77%;" class="c_100_0">
+		Assembly are elected to make
+	</div>
+
+	<div id="t_100_2" style="position: absolute; left: 5.47%; top:5.53%;" class="c_100_0">
+		state laws.
+	</div>
+
+	<div id="t_100_3" style="position: absolute; left: 5.47%; top:8.19%;" class="c_100_0">
+		Citizens learn the lawmaking
+	</div>
+
+	<div id="t_100_4" style="position: absolute; left: 5.47%; top:9.95%;" class="c_100_0">
+		process and influence public
+	</div>
+
+	<div id="t_100_5" style="position: absolute; left: 5.47%; top:11.72%;" class="c_100_0">
+		policy through direct
+	</div>
+
+	<div id="t_100_6" style="position: absolute; left: 5.47%; top:13.49%;" class="c_100_0">
+		participation and/or simulation.
+	</div>
+
+	<div id="t_100_7" style="position: absolute; left: 5.47%; top:16.14%;" class="c_100_0">
+		The lawmaking process requires
+	</div>
+
+	<div id="t_100_8" style="position: absolute; left: 5.47%; top:17.91%;" class="c_100_0">
+		collaboration and compromise.
+	</div>
+
+	<div id="t_100_9" style="position: absolute; left: 46.14%; top:82.44%;" class="c_100_1">
+		&rsquo;
+	</div>
+
+	<div id="t_100_10" style="position: absolute; left: 13.25%; top:39.20%; letter-spacing: 0.09em;" class="c_100_2">
+		GENERAL
+	</div>
+
+	<div id="t_100_11" style="position: absolute; left: 12.70%; top:40.85%; letter-spacing: 0.09em;" class="c_100_2">
+		ASSEMBLY
+	</div>
+
+	<div id="t_100_12" style="position: absolute; left: 13.88%; top:42.49%; letter-spacing: 0.09em;" class="c_100_2">
+		DETAILS
+	</div>
+
+	<div id="t_100_13" style="position: absolute; left: 6.99%; top:44.26%; letter-spacing:-0.07em;" class="c_100_3">
+		&bull;MISSION: <span class="c_100_4">Senators and members</span>
+	</div>
+
+	<div id="t_100_14" style="position: absolute; left: 6.99%; top:46.15%; letter-spacing:-0.07em;" class="c_100_5">
+		of the House of Delegates are there
+	</div>
+
+	<div id="t_100_15" style="position: absolute; left: 6.99%; top:48.05%; letter-spacing:-0.06em;" class="c_100_5">
+		to write laws and take action in
+	</div>
+
+	<div id="t_100_16" style="position: absolute; left: 6.99%; top:49.94%; letter-spacing:-0.06em;" class="c_100_5">
+		response to problems or issues.
+	</div>
+
+	<div id="t_100_17" style="position: absolute; left: 6.99%; top:53.10%; letter-spacing:-0.07em;" class="c_100_3">
+		&bull; <span class="c_100_4">Bills can originate in either the</span>
+	</div>
+
+	<div id="t_100_18" style="position: absolute; left: 6.99%; top:54.99%; letter-spacing:-0.06em;" class="c_100_5">
+		Senate or the House of Delegates.
+	</div>
+
+	<div id="t_100_19" style="position: absolute; left: 6.99%; top:58.15%; letter-spacing:-0.06em;" class="c_100_3">
+		&bull; <span class="c_100_4">The state constitution specifies</span>
+	</div>
+
+	<div id="t_100_20" style="position: absolute; left: 6.99%; top:60.04%; letter-spacing:-0.06em;" class="c_100_5">
+		that the General Assembly meets
+	</div>
+
+	<div id="t_100_21" style="position: absolute; left: 6.99%; top:61.94%; letter-spacing:-0.06em;" class="c_100_5">
+		annually. Its regular session is a
+	</div>
+
+	<div id="t_100_22" style="position: absolute; left: 6.99%; top:63.83%; letter-spacing:-0.06em;" class="c_100_5">
+		maximum of 60 days in even-
+	</div>
+
+	<div id="t_100_23" style="position: absolute; left: 6.99%; top:65.73%; letter-spacing:-0.08em;" class="c_100_5">
+		numbered years and 30 days in odd-
+	</div>
+
+	<div id="t_100_24" style="position: absolute; left: 6.99%; top:67.62%; letter-spacing:-0.08em;" class="c_100_5">
+		numbered years, unless two-thirds of
+	</div>
+
+	<div id="t_100_25" style="position: absolute; left: 6.99%; top:69.51%; letter-spacing:-0.08em;" class="c_100_5">
+		the members of both houses vote to
+	</div>
+
+	<div id="t_100_26" style="position: absolute; left: 6.99%; top:71.41%; letter-spacing:-0.08em;" class="c_100_5">
+		extend it. The governor can also call
+	</div>
+
+	<div id="t_100_27" style="position: absolute; left: 6.99%; top:73.30%; letter-spacing:-0.06em;" class="c_100_5">
+		for a special session if there is an
+	</div>
+
+	<div id="t_100_28" style="position: absolute; left: 6.99%; top:75.20%; letter-spacing:-0.06em;" class="c_100_5">
+		emergency.
+	</div>
+
+	<div id="t_100_29" style="position: absolute; left: 6.99%; top:78.35%; letter-spacing:-0.05em;" class="c_100_3">
+		&bull; <span class="c_100_4">Sessions begin on the second</span>
+	</div>
+
+	<div id="t_100_30" style="position: absolute; left: 6.99%; top:80.25%; letter-spacing:-0.09em;" class="c_100_5">
+		Wednesday in January, but there is a
+	</div>
+
+	<div id="t_100_31" style="position: absolute; left: 6.99%; top:82.14%; letter-spacing:-0.06em;" class="c_100_5">
+		lot of work to do all year long. It&rsquo;s
+	</div>
+
+	<div id="t_100_32" style="position: absolute; left: 6.99%; top:84.03%; letter-spacing:-0.06em;" class="c_100_5">
+		important to get all Virginians
+	</div>
+
+	<div id="t_100_33" style="position: absolute; left: 6.99%; top:85.93%; letter-spacing:-0.06em;" class="c_100_5">
+		involved in the process!
+	</div>
+
+	<div id="t_100_34" style="position: absolute; left: 4.74%; top:92.84%;" class="c_100_6">
+		100
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 0%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_100_members_of_the_virginia.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_100_at_work_in_the_virginia.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 39%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_100_general_assembly_details.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_101">
+                                                                                                <div class="pageData">
+
+	<div id="t_101_0" style="position: absolute; left: 18.88%; top:31.18%;" class="c_101_0">
+		IMPORTANT AREAS FOR THE GOOD OF THE STATE
+	</div>
+
+	<div id="t_101_1" style="position: absolute; left: 31.47%; top: 33.39%;" class="c_101_1">
+		&bull; <span class="c_101_2">Some key issues to deal with at the state level.</span>
+	</div>
+
+	<div id="t_101_2" style="position: absolute; left: 16.66%; top:35.09%;" class="c_101_0">
+		EDUCATION<span class="c_101_3">&ndash;&ndash;</span><span class="c_101_4">We need to make sure our citizens have the skills needed</span>
+	</div>
+
+	<div id="t_101_3" style="position: absolute; left: 16.66%; top:37.44%;" class="c_101_5">
+		to do well in today&rsquo;s economy.
+	</div>
+
+	<div id="t_101_4" style="position: absolute; left: 16.66%; top:39.06%;" class="c_101_6">
+		GOAL<span class="c_101_7">: </span><span class="c_101_8">Establish minimum standards for all local schools.</span>
+	</div>
+
+	<div id="t_101_5" style="position: absolute; left: 16.66%; top:41.66%;" class="c_101_0">
+		PUBLIC HEALTH<span class="c_101_3">&ndash;&ndash;</span><span class="c_101_4">Protecting the health of all Virginians is vital.</span>
+	</div>
+
+	<div id="t_101_6" style="position: absolute; left: 16.66%; top:44.01%;" class="c_101_6">
+		GOALS: <span class="c_101_8">Ensure food and water safety, prepare for emergencies, and</span>
+	</div>
+
+	<div id="t_101_7" style="position: absolute; left: 16.66%; top:45.90%;" class="c_101_5">
+		provide health services for those in need.
+	</div>
+
+	<div id="t_101_8" style="position: absolute; left: 16.66%; top:48.22%;" class="c_101_0">
+		ENVIRONMENT<span class="c_101_3">&ndash;&ndash;</span><span class="c_101_4">We must look after our natural resources.</span>
+	</div>
+
+	<div id="t_101_9" style="position: absolute; left: 16.66%; top:50.57%;" class="c_101_6">
+		GOAL: <span class="c_101_8">Improve the water quality in the Chesapeake Bay.</span>
+	</div>
+
+	<div id="t_101_10" style="position: absolute; left: 16.66%; top:52.89%;" class="c_101_0">
+		BUDGET<span class="c_101_3">&ndash;&ndash;</span><span class="c_101_4">How do we allocate money to pay for state programs?</span>
+	</div>
+
+	<div id="t_101_11" style="position: absolute; left: 16.66%; top:55.24%;" class="c_101_6">
+		GOAL: <span class="c_101_8">Approve a biennial (two year) budget after it is proposed by the</span>
+	</div>
+
+	<div id="t_101_12" style="position: absolute; left: 16.66%; top:57.14%;" class="c_101_5">
+		governor.
+	</div>
+
+	<div id="t_101_13" style="position: absolute; left: 16.66%; top:59.46%;" class="c_101_0">
+		REVENUE<span class="c_101_3">&ndash;&ndash;</span><span class="c_101_4">Where will we get the money to pay for all this?</span>
+	</div>
+
+	<div id="t_101_14" style="position: absolute; left: 16.66%; top:61.81%;" class="c_101_6">
+		GOAL: <span class="c_101_8">Look into raising taxes, cutting spending, or finding other sources</span>
+	</div>
+
+	<div id="t_101_15" style="position: absolute; left: 16.66%; top:63.70%;" class="c_101_5">
+		of revenue to balance the budget.
+	</div>
+
+	<div id="t_101_16" style="position: absolute; left: 23.66%; top:68.12%;" class="c_101_0">
+		IT&rsquo;S MEETING TIME
+	</div>
+
+	<div id="t_101_17" style="position: absolute; left: 14.27%; top: 70.84%;" class="c_101_9">
+		Members of the General Assembly often deal with
+	</div>
+
+	<div id="t_101_18" style="position: absolute; left: 12.96%; top: 72.74%;" class="c_101_9">
+		lobbyists, who are paid to represent an organization,
+	</div>
+
+	<div id="t_101_19" style="position: absolute; left: 12.96%; top: 74.63%;" class="c_101_9">
+		business, or other group, in the hopes of persuading a
+	</div>
+
+	<div id="t_101_20" style="position: absolute; left: 12.96%; top: 76.53%;" class="c_101_9">
+		lawmaker to vote a certain way.
+	</div>
+
+	<div id="t_101_21" style="position: absolute; left: 14.27%; top: 78.42%;" class="c_101_9">
+		Meeting with lobbyists is very much a part of the
+	</div>
+
+	<div id="t_101_22" style="position: absolute; left: 12.96%; top: 80.32%;" class="c_101_9">
+		legislative process, and Virginia law requires them to
+	</div>
+
+	<div id="t_101_23" style="position: absolute; left: 12.96%; top: 82.21%;" class="c_101_9">
+		register with the Office of the Secretary of the
+	</div>
+
+	<div id="t_101_24" style="position: absolute; left: 12.96%; top: 84.1%;" class="c_101_9">
+		Commonwealth and file annual reports of their
+	</div>
+
+	<div id="t_101_25" style="position: absolute; left: 12.96%; top: 86%;" class="c_101_9">
+		activities. Virginia law also restricts the amount and
+	</div>
+
+	<div id="t_101_26" style="position: absolute; left: 12.96%; top: 87.89%;" class="c_101_9">
+		types of gifts lobbyists may give to Virginia officials.
+	</div>
+
+	<div id="t_101_27" style="position: absolute; left: 14.71%; top: 89.79%;" class="c_101_9">
+		Meeting with voters is another part of the job.
+	</div>
+
+	<div id="t_101_28" style="position: absolute; left: 12.96%; top: 91.68%;" class="c_101_9">
+		Helping the people they represent is often the best
+	</div>
+
+	<div id="t_101_29" style="position: absolute; left: 12.96%; top: 93.58%;" class="c_101_9">
+		part of a day in the life of Virginia lawmakers.
+	</div>
+
+	<div id="t_101_30" style="position: absolute; left: 93.38%; top:92.83%;" class="c_101_10">
+		101
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 11%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_101_education_environment_public_health.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 13%; top: 30.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_101_important_areas.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 67%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_101_its_meeting_time.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_100_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_101_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_100_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="100.html?page=right"; onclick="goto('100.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="102.html"; onclick="goto('102.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="102.html"; onclick="goto('102.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

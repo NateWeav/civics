@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_206.css">
+                <link rel="stylesheet" href="css/civics_207.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="204.html?page=right"; onclick="goto('204.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="206.html"; onclick="goto('206.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="204.html?page=right"; onclick="goto('204.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="208.html"; onclick="goto('208.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="208.html"; onclick="goto('208.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="204.html?page=right"; onclick="goto('204.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="206.html"; onclick="goto('206.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="204.html?page=right"; onclick="goto('204.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_206">
+                                                                                                <div class="pageData">
+
+	<div id="t_206_0" style="position: absolute; left: 5.14%; top:3.03%;" class="c_206_0">
+		An amendment is a change or an
+	</div>
+
+	<div id="t_206_1" style="position: absolute; left: 5.14%; top:4.67%;" class="c_206_0">
+		addition to a law.
+	</div>
+
+	<div id="t_206_2" style="position: absolute; left: 6.34%; top:7.51%;" class="c_206_1">
+		FIRST AMENDMENT
+	</div>
+
+	<div id="t_206_3" style="position: absolute; left: 6.34%; top:9.27%;" class="c_206_2">
+		We are allowed to practice
+	</div>
+
+	<div id="t_206_4" style="position: absolute; left: 6.34%; top:10.78%;" class="c_206_2">
+		any religion we choose. The
+	</div>
+
+	<div id="t_206_5" style="position: absolute; left: 6.34%; top:12.30%;" class="c_206_2">
+		government can&rsquo;t stop us
+	</div>
+
+	<div id="t_206_6" style="position: absolute; left: 6.34%; top:13.81%;" class="c_206_2">
+		from saying or writing what
+	</div>
+
+	<div id="t_206_7" style="position: absolute; left: 6.34%; top:15.33%;" class="c_206_2">
+		we think. We are allowed to
+	</div>
+
+	<div id="t_206_8" style="position: absolute; left: 6.34%; top:16.84%;" class="c_206_2">
+		meet peacefully in groups.
+	</div>
+
+	<div id="t_206_9" style="position: absolute; left: 6.36%; top:21.72%;" class="c_206_1">
+		SECOND AMENDMENT
+	</div>
+
+	<div id="t_206_10" style="position: absolute; left: 6.36%; top:23.47%;" class="c_206_2">
+		When the Constitution was
+	</div>
+
+	<div id="t_206_11" style="position: absolute; left: 6.36%; top:24.99%;" class="c_206_2">
+		adopted, the U.S. had no
+	</div>
+
+	<div id="t_206_12" style="position: absolute; left: 6.36%; top:26.50%;" class="c_206_2">
+		national army. This gives us
+	</div>
+
+	<div id="t_206_13" style="position: absolute; left: 6.36%; top:28.02%;" class="c_206_2">
+		the right to bear arms to
+	</div>
+
+	<div id="t_206_14" style="position: absolute; left: 6.36%; top:29.53%;" class="c_206_2">
+		defend ourselves.
+	</div>
+
+	<div id="t_206_15" style="position: absolute; left: 6.27%; top:33.15%;" class="c_206_1">
+		FOURTH AMENDMENT
+	</div>
+
+	<div id="t_206_16" style="position: absolute; left: 6.27%; top:34.90%;" class="c_206_2">
+		The government cannot
+	</div>
+
+	<div id="t_206_17" style="position: absolute; left: 6.27%; top:36.41%;" class="c_206_2">
+		search us or our home
+	</div>
+
+	<div id="t_206_18" style="position: absolute; left: 6.27%; top:37.93%;" class="c_206_2">
+		without proper permission.
+	</div>
+
+	<div id="t_206_19" style="position: absolute; left: 6.33%; top:43.96%;" class="c_206_1">
+		FIFTH AMENDMENT
+	</div>
+
+	<div id="t_206_20" style="position: absolute; left: 6.33%; top:45.71%;" class="c_206_2">
+		People accused of crimes are
+	</div>
+
+	<div id="t_206_21" style="position: absolute; left: 6.33%; top:47.23%;" class="c_206_2">
+		protected from government
+	</div>
+
+	<div id="t_206_22" style="position: absolute; left: 6.33%; top:48.74%;" class="c_206_2">
+		abuse.
+	</div>
+
+	<div id="t_206_23" style="position: absolute; left: 6.59%; top:59.68%;" class="c_206_1">
+		SIXTH AND SEVENTH
+	</div>
+
+	<div id="t_206_24" style="position: absolute; left: 6.59%; top:61.20%;" class="c_206_1">
+		AMENDMENTS
+	</div>
+
+	<div id="t_206_25" style="position: absolute; left: 6.59%; top:62.95%;" class="c_206_2">
+		The people have a right to a
+	</div>
+
+	<div id="t_206_26" style="position: absolute; left: 6.59%; top:64.46%;" class="c_206_2">
+		speedy trial by a jury.
+	</div>
+
+	<div id="t_206_27" style="position: absolute; left: 6.56%; top:72.51%;" class="c_206_1">
+		EIGHTH AMENDMENT
+	</div>
+
+	<div id="t_206_28" style="position: absolute; left: 6.56%; top:74.26%;" class="c_206_2">
+		Any government punishment
+	</div>
+
+	<div id="t_206_29" style="position: absolute; left: 6.56%; top:75.78%;" class="c_206_2">
+		must be fair.
+	</div>
+
+	<div id="t_206_30" style="position: absolute; left: 6.75%; top:82.03%;" class="c_206_1">
+		NINTH AND TENTH
+	</div>
+
+	<div id="t_206_31" style="position: absolute; left: 6.75%; top:83.55%;" class="c_206_1">
+		AMENDMENTS
+	</div>
+
+	<div id="t_206_32" style="position: absolute; left: 6.75%; top:85.30%;" class="c_206_2">
+		The rights of people and
+	</div>
+
+	<div id="t_206_33" style="position: absolute; left: 6.75%; top:86.82%;" class="c_206_2">
+		powers of states, if not listed
+	</div>
+
+	<div id="t_206_34" style="position: absolute; left: 6.75%; top:88.33%;" class="c_206_2">
+		here as granted the federal
+	</div>
+
+	<div id="t_206_35" style="position: absolute; left: 6.75%; top:89.85%;" class="c_206_2">
+		government, belong to the
+	</div>
+
+	<div id="t_206_36" style="position: absolute; left: 6.75%; top:91.36%;" class="c_206_2">
+		people or the states.
+	</div>
+
+	<div id="t_206_37" style="position: absolute; left: 5.24%; top: 96.48%; letter-spacing: -0.15em;" class="c_206_3">
+		206
+	</div>
+
+	<div id="t_206_38" style="position: absolute; left: 33.36%; top:5.00%;" class="c_206_4">
+		AMENDMENT 1<span class="c_206_5">. </span><span class="c_206_6">Freedom of Religion,</span>
+	</div>
+
+	<div id="t_206_39" style="position: absolute; left: 33.36%; top:6.52%;" class="c_206_4">
+		Press, Expression<span class="c_206_5">.</span>
+	</div>
+
+	<div id="t_206_40" style="position: absolute; left: 35.32%; top:8.03%;" class="c_206_7">
+		Congress shall make no law respecting an
+	</div>
+
+	<div id="t_206_41" style="position: absolute; left: 33.36%; top:9.55%;" class="c_206_7">
+		establishment of religion, or prohibiting the
+	</div>
+
+	<div id="t_206_42" style="position: absolute; left: 33.36%; top:11.06%;" class="c_206_7">
+		free exercise thereof; or abridging the
+	</div>
+
+	<div id="t_206_43" style="position: absolute; left: 33.36%; top:12.58%;" class="c_206_7">
+		freedom of speech, or of the press; or the
+	</div>
+
+	<div id="t_206_44" style="position: absolute; left: 33.36%; top:14.10%;" class="c_206_7">
+		right of the people peaceably to assemble,
+	</div>
+
+	<div id="t_206_45" style="position: absolute; left: 33.36%; top:15.61%;" class="c_206_7">
+		and to petition the Government for a
+	</div>
+
+	<div id="t_206_46" style="position: absolute; left: 33.36%; top:17.13%;" class="c_206_7">
+		redress of grievances.
+	</div>
+
+	<div id="t_206_47" style="position: absolute; left: 33.36%; top:19.63%;" class="c_206_4">
+		AMENDMENT 2<span class="c_206_5">. </span><span class="c_206_6">Right to Bear Arms.</span>
+	</div>
+
+	<div id="t_206_48" style="position: absolute; left: 34.83%; top:21.15%;" class="c_206_7">
+		A well regulated Militia, being necessary
+	</div>
+
+	<div id="t_206_49" style="position: absolute; left: 33.36%; top:22.66%;" class="c_206_7">
+		to the security of a free State, the right of
+	</div>
+
+	<div id="t_206_50" style="position: absolute; left: 33.36%; top:24.18%;" class="c_206_7">
+		the people to keep and bear Arms, shall not
+	</div>
+
+	<div id="t_206_51" style="position: absolute; left: 33.36%; top:25.69%;" class="c_206_7">
+		be infringed.
+	</div>
+
+	<div id="t_206_52" style="position: absolute; left: 33.36%; top:28.19%;" class="c_206_4">
+		AMENDMENT 3<span class="c_206_5">. </span><span class="c_206_6">Quartering of Soldiers.</span>
+	</div>
+
+	<div id="t_206_53" style="position: absolute; left: 69.10%; top:4.11%;" class="c_206_8">
+		The Bill
+	</div>
+
+	<div id="t_206_54" style="position: absolute; left: 69.10%; top:9.16%;" class="c_206_8">
+		of Rights
+	</div>
+
+	<div id="t_206_55" style="position: absolute; left: 69.10%; top:16.21%;" class="c_206_9">
+		Proposed by
+	</div>
+
+	<div id="t_206_56" style="position: absolute; left: 69.10%; top:18.33%;" class="c_206_9">
+		James Madison
+	</div>
+
+	<div id="t_206_57" style="position: absolute; left: 69.10%; top:20.45%;" class="c_206_9">
+		and approved
+	</div>
+
+	<div id="t_206_58" style="position: absolute; left: 69.10%; top:22.57%;" class="c_206_9">
+		December 15,
+	</div>
+
+	<div id="t_206_59" style="position: absolute; left: 69.10%; top:24.69%;" class="c_206_9">
+		1791.
+	</div>
+
+	<div id="t_206_60" style="position: absolute; left: 34.83%; top:29.71%;" class="c_206_7">
+		No Soldier shall, in time of peace be quartered in any house, without the
+	</div>
+
+	<div id="t_206_61" style="position: absolute; left: 33.36%; top:31.23%;" class="c_206_7">
+		consent of the Owner, nor in time of war, but in a
+	</div>
+
+	<div id="t_206_62" style="position: absolute; left: 33.36%; top:32.74%;" class="c_206_7">
+		manner to be prescribed by law.
+	</div>
+
+	<div id="t_206_63" style="position: absolute; left: 33.36%; top:35.25%;" class="c_206_4">
+		AMENDMENT 4. Search and Seizure.
+	</div>
+
+	<div id="t_206_64" style="position: absolute; left: 34.83%; top:36.77%;" class="c_206_7">
+		The right of the people to be secure in their persons, houses, papers, and effects,
+	</div>
+
+	<div id="t_206_65" style="position: absolute; left: 33.36%; top:38.28%;" class="c_206_7">
+		against unreasonable searches and seizures, shall not be violated, and no Warrants
+	</div>
+
+	<div id="t_206_66" style="position: absolute; left: 33.36%; top:39.80%;" class="c_206_7">
+		shall issue, but upon probable cause, supported by Oath or affirmation, and
+	</div>
+
+	<div id="t_206_67" style="position: absolute; left: 33.36%; top:41.31%;" class="c_206_7">
+		particularly describing the place to be searched, and the persons or things to be
+	</div>
+
+	<div id="t_206_68" style="position: absolute; left: 33.36%; top:42.83%;" class="c_206_7">
+		seized.
+	</div>
+
+	<div id="t_206_69" style="position: absolute; left: 33.36%; top:45.33%;" class="c_206_4">
+		AMENDMENT 5. Trial and Punishment<span class="c_206_5">, </span><span class="c_206_6">Compensation for Takings</span><span class="c_206_5">.</span>
+	</div>
+
+	<div id="t_206_70" style="position: absolute; left: 34.83%; top:46.85%;" class="c_206_7">
+		No person shall be held to answer for a capital, or otherwise infamous crime,
+	</div>
+
+	<div id="t_206_71" style="position: absolute; left: 33.36%; top:48.36%;" class="c_206_7">
+		unless on a presentment or indictment of a Grand Jury, except in cases arising in
+	</div>
+
+	<div id="t_206_72" style="position: absolute; left: 33.36%; top:49.88%;" class="c_206_7">
+		the land or naval forces, or in the Militia, when in actual service in time of War or
+	</div>
+
+	<div id="t_206_73" style="position: absolute; left: 33.36%; top:51.39%;" class="c_206_7">
+		public danger; nor shall any person be subject for the same offense to be twice put
+	</div>
+
+	<div id="t_206_74" style="position: absolute; left: 33.36%; top:52.91%;" class="c_206_7">
+		in jeopardy of life or limb; nor shall be compelled in any criminal case to be a
+	</div>
+
+	<div id="t_206_75" style="position: absolute; left: 33.36%; top:54.42%;" class="c_206_7">
+		witness against himself, nor be deprived of life, liberty, or property, without due
+	</div>
+
+	<div id="t_206_76" style="position: absolute; left: 33.36%; top:55.94%;" class="c_206_7">
+		process of law; nor shall private property be taken for public use, without just
+	</div>
+
+	<div id="t_206_77" style="position: absolute; left: 33.36%; top:57.45%;" class="c_206_7">
+		compensation.
+	</div>
+
+	<div id="t_206_78" style="position: absolute; left: 33.36%; top:59.96%;" class="c_206_4">
+		AMENDMENT 6<span class="c_206_5">. </span><span class="c_206_6">Right to Speedy Trial, Confrontation of Witnesses.</span>
+	</div>
+
+	<div id="t_206_79" style="position: absolute; left: 34.83%; top:61.48%;" class="c_206_7">
+		In all criminal prosecutions, the accused shall enjoy the right to a speedy and
+	</div>
+
+	<div id="t_206_80" style="position: absolute; left: 33.36%; top:62.99%;" class="c_206_7">
+		public trial, by an impartial jury of the State and district wherein the crime shall
+	</div>
+
+	<div id="t_206_81" style="position: absolute; left: 33.36%; top:64.51%;" class="c_206_7">
+		have been committed, which district shall have been previously ascertained by law,
+	</div>
+
+	<div id="t_206_82" style="position: absolute; left: 33.36%; top:66.02%;" class="c_206_7">
+		and to be informed of the nature and cause of the accusation; to be confronted
+	</div>
+
+	<div id="t_206_83" style="position: absolute; left: 33.36%; top:67.54%;" class="c_206_7">
+		with the witnesses against him; to have compulsory process for obtaining witnesses
+	</div>
+
+	<div id="t_206_84" style="position: absolute; left: 33.36%; top:69.05%;" class="c_206_7">
+		in his favor, and to have the Assistance of Counsel for his defence.
+	</div>
+
+	<div id="t_206_85" style="position: absolute; left: 33.36%; top:71.55%;" class="c_206_4">
+		AMENDMENT 7. Trial by Jury in Civil Cases.
+	</div>
+
+	<div id="t_206_86" style="position: absolute; left: 34.83%; top:73.07%;" class="c_206_7">
+		In Suits at common law, where the value in controversy shall exceed twenty
+	</div>
+
+	<div id="t_206_87" style="position: absolute; left: 33.36%; top:74.59%;" class="c_206_7">
+		dollars, the right of trial by jury shall be preserved, and no fact tried by a jury, shall
+	</div>
+
+	<div id="t_206_88" style="position: absolute; left: 33.36%; top:76.10%;" class="c_206_7">
+		be otherwise re-examined in any Court of the United States, than according to the
+	</div>
+
+	<div id="t_206_89" style="position: absolute; left: 33.36%; top:77.62%;" class="c_206_7">
+		rules of the common law.
+	</div>
+
+	<div id="t_206_90" style="position: absolute; left: 33.36%; top:80.12%;" class="c_206_4">
+		AMENDMENT 8<span class="c_206_5">. </span><span class="c_206_6">Cruel and Unusual Punishment.</span>
+	</div>
+
+	<div id="t_206_91" style="position: absolute; left: 34.83%; top:81.64%;" class="c_206_7">
+		Excessive bail shall not be required, nor excessive fines imposed, nor cruel and
+	</div>
+
+	<div id="t_206_92" style="position: absolute; left: 33.36%; top:83.15%;" class="c_206_7">
+		unusual punishments inflicted.
+	</div>
+
+	<div id="t_206_93" style="position: absolute; left: 33.36%; top:85.66%;" class="c_206_4">
+		AMENDMENT 9<span class="c_206_5">. </span><span class="c_206_6">Construction of Constitution.</span>
+	</div>
+
+	<div id="t_206_94" style="position: absolute; left: 34.83%; top:87.18%;" class="c_206_7">
+		The enumeration in the Constitution, of certain rights, shall not be construed to
+	</div>
+
+	<div id="t_206_95" style="position: absolute; left: 33.36%; top:88.69%;" class="c_206_7">
+		deny or disparage others retained by the people.
+	</div>
+
+	<div id="t_206_96" style="position: absolute; left: 33.36%; top:91.19%;" class="c_206_4">
+		AMENDMENT 10. Powers of the States and People.
+	</div>
+
+	<div id="t_206_97" style="position: absolute; left: 34.83%; top:92.71%;" class="c_206_7">
+		The powers not delegated to the United States by the Constitution, nor
+	</div>
+
+	<div id="t_206_98" style="position: absolute; left: 33.36%; top:94.23%;" class="c_206_7">
+		prohibited by it to the States, are reserved to the States respectively, or to the
+	</div>
+
+	<div id="t_206_99" style="position: absolute; left: 33.36%; top:95.74%;" class="c_206_7">
+		people.
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_207">
+                                                                                                <div class="pageData">
+
+	<div id="t_207_0" style="position: absolute; left: 8.10%; top:1.10%;" class="c_207_0">
+		Additional
+	</div>
+
+	<div id="t_207_1" style="position: absolute; left: 8.10%; top:6.15%;" class="c_207_0">
+		Amendments
+	</div>
+
+	<div id="t_207_2" style="position: absolute; left: 8.10%; top:11.20%;" class="c_207_0">
+		to the
+	</div>
+
+	<div id="t_207_3" style="position: absolute; left: 8.10%; top:16.25%;" class="c_207_0">
+		Constitution
+	</div>
+
+	<div id="t_207_4" style="position: absolute; left: 8.10%; top:22.42%;" class="c_207_1">
+		More than 200 years of
+	</div>
+
+	<div id="t_207_5" style="position: absolute; left: 8.10%; top:24.54%;" class="c_207_1">
+		change for a changing world.
+	</div>
+
+	<div id="t_207_6" style="position: absolute; left: 7.78%; top:29.99%;" class="c_207_2">
+		In the years since the Bill of Rights
+	</div>
+
+	<div id="t_207_7" style="position: absolute; left: 7.78%; top:31.63%;" class="c_207_2">
+		was ratified, other changes have also
+	</div>
+
+	<div id="t_207_8" style="position: absolute; left: 7.78%; top:33.27%;" class="c_207_2">
+		been made to the Constitution.
+	</div>
+
+	<div id="t_207_9" style="position: absolute; left: 7.78%; top:34.92%;" class="c_207_2">
+		These changes are usually very
+	</div>
+
+	<div id="t_207_10" style="position: absolute; left: 7.78%; top:36.56%;" class="c_207_2">
+		important, and they are not made
+	</div>
+
+	<div id="t_207_11" style="position: absolute; left: 7.78%; top:38.20%;" class="c_207_2">
+		very often.
+	</div>
+
+	<div id="t_207_12" style="position: absolute; left: 8.48%; top:41.83%;" class="c_207_3">
+		12TH AMENDMENT
+	</div>
+
+	<div id="t_207_13" style="position: absolute; left: 8.48%; top:43.58%;" class="c_207_4">
+		When the Constitution was
+	</div>
+
+	<div id="t_207_14" style="position: absolute; left: 8.48%; top:45.09%;" class="c_207_4">
+		written, the person who
+	</div>
+
+	<div id="t_207_15" style="position: absolute; left: 8.48%; top:46.61%;" class="c_207_4">
+		finished second in the
+	</div>
+
+	<div id="t_207_16" style="position: absolute; left: 8.48%; top:48.12%;" class="c_207_4">
+		presidential election became
+	</div>
+
+	<div id="t_207_17" style="position: absolute; left: 8.48%; top:49.64%;" class="c_207_4">
+		vice president. This
+	</div>
+
+	<div id="t_207_18" style="position: absolute; left: 8.48%; top:51.15%;" class="c_207_4">
+		amendment changed this.
+	</div>
+
+	<div id="t_207_19" style="position: absolute; left: 8.48%; top:52.67%;" class="c_207_4">
+		People now vote separately
+	</div>
+
+	<div id="t_207_20" style="position: absolute; left: 8.48%; top:54.18%;" class="c_207_4">
+		for the president and the vice
+	</div>
+
+	<div id="t_207_21" style="position: absolute; left: 8.48%; top:55.70%;" class="c_207_4">
+		president.
+	</div>
+
+	<div id="t_207_22" style="position: absolute; left: 10.54%; top:57.21%;" class="c_207_4">
+		If there is no Electoral
+	</div>
+
+	<div id="t_207_23" style="position: absolute; left: 8.48%; top:58.73%;" class="c_207_4">
+		College majority, the House
+	</div>
+
+	<div id="t_207_24" style="position: absolute; left: 8.48%; top:60.24%;" class="c_207_4">
+		of Representatives will decide
+	</div>
+
+	<div id="t_207_25" style="position: absolute; left: 8.48%; top:61.76%;" class="c_207_4">
+		who becomes president.
+	</div>
+
+	<div id="t_207_26" style="position: absolute; left: 8.48%; top:63.27%;" class="c_207_4">
+		Today the winning candidate
+	</div>
+
+	<div id="t_207_27" style="position: absolute; left: 8.48%; top:64.79%;" class="c_207_4">
+		for president must win 270
+	</div>
+
+	<div id="t_207_28" style="position: absolute; left: 8.48%; top:66.31%;" class="c_207_4">
+		out of 538 electoral votes to
+	</div>
+
+	<div id="t_207_29" style="position: absolute; left: 8.48%; top:67.82%;" class="c_207_4">
+		win a majority.
+	</div>
+
+	<div id="t_207_30" style="position: absolute; left: 8.48%; top:74.14%;" class="c_207_3">
+		13TH, 14TH, AND 15TH
+	</div>
+
+	<div id="t_207_31" style="position: absolute; left: 8.48%; top:75.66%;" class="c_207_3">
+		AMENDMENTS
+	</div>
+
+	<div id="t_207_32" style="position: absolute; left: 8.48%; top:77.41%;" class="c_207_4">
+		Slavery is ended. African
+	</div>
+
+	<div id="t_207_33" style="position: absolute; left: 8.48%; top:78.93%;" class="c_207_4">
+		Americans, like white people
+	</div>
+
+	<div id="t_207_34" style="position: absolute; left: 8.48%; top:80.44%;" class="c_207_4">
+		born in the United States, are
+	</div>
+
+	<div id="t_207_35" style="position: absolute; left: 8.48%; top:81.96%;" class="c_207_4">
+		citizens, and they have the
+	</div>
+
+	<div id="t_207_36" style="position: absolute; left: 8.48%; top:83.47%;" class="c_207_4">
+		same rights as other citizens,
+	</div>
+
+	<div id="t_207_37" style="position: absolute; left: 8.48%; top:84.99%;" class="c_207_4">
+		including voting rights.
+	</div>
+
+	<div id="t_207_38" style="position: absolute; left: 41.76%; top:5.42%;" class="c_207_5">
+		AMENDMENT 11. Judicial Limits. <span class="c_207_6">Ratified 2/7/1795.</span>
+	</div>
+
+	<div id="t_207_39" style="position: absolute; left: 43.13%; top:6.93%;" class="c_207_7">
+		The Judicial power of the United States shall not be construed to extend to
+	</div>
+
+	<div id="t_207_40" style="position: absolute; left: 41.76%; top:8.45%;" class="c_207_7">
+		any suit in law or equity, commenced or prosecuted against one of the United
+	</div>
+
+	<div id="t_207_41" style="position: absolute; left: 41.76%; top:9.96%;" class="c_207_7">
+		States by Citizens of another State, or by Citizens or Subjects of any Foreign
+	</div>
+
+	<div id="t_207_42" style="position: absolute; left: 41.76%; top:11.48%;" class="c_207_7">
+		State.
+	</div>
+
+	<div id="t_207_43" style="position: absolute; left: 41.76%; top:13.98%;" class="c_207_5">
+		AMENDMENT 12. Choosing the President, Vice President. <span class="c_207_6">Ratified</span>
+	</div>
+
+	<div id="t_207_44" style="position: absolute; left: 41.76%; top:15.50%;" class="c_207_7">
+		6/15/1804.
+	</div>
+
+	<div id="t_207_45" style="position: absolute; left: 43.13%; top:17.02%;" class="c_207_7">
+		The Electors shall meet in their respective states, and vote by ballot for
+	</div>
+
+	<div id="t_207_46" style="position: absolute; left: 41.76%; top:18.53%;" class="c_207_7">
+		President and Vice President, one of whom, at least, shall not be an inhabitant
+	</div>
+
+	<div id="t_207_47" style="position: absolute; left: 41.76%; top:20.05%;" class="c_207_7">
+		of the same state with themselves; they shall name in their ballots the person
+	</div>
+
+	<div id="t_207_48" style="position: absolute; left: 41.76%; top:21.56%;" class="c_207_7">
+		voted for as President, and in distinct ballots the person voted for as Vice
+	</div>
+
+	<div id="t_207_49" style="position: absolute; left: 41.76%; top:23.08%;" class="c_207_7">
+		President, and they shall make distinct lists of all persons voted for as President,
+	</div>
+
+	<div id="t_207_50" style="position: absolute; left: 41.76%; top:24.59%;" class="c_207_7">
+		and of all persons voted for as Vice President and of the number of votes for
+	</div>
+
+	<div id="t_207_51" style="position: absolute; left: 41.76%; top:26.11%;" class="c_207_7">
+		each, which lists they shall sign and certify, and transmit sealed to the seat of
+	</div>
+
+	<div id="t_207_52" style="position: absolute; left: 41.76%; top:27.62%;" class="c_207_7">
+		the government of the United States, directed to the President of the Senate;
+	</div>
+
+	<div id="t_207_53" style="position: absolute; left: 43.13%; top:29.14%;" class="c_207_7">
+		The President of the Senate shall, in the presence of the Senate and House of
+	</div>
+
+	<div id="t_207_54" style="position: absolute; left: 36.03%; top:30.65%;" class="c_207_7">
+		Representatives, open all the certificates and the votes shall then be counted;
+	</div>
+
+	<div id="t_207_55" style="position: absolute; left: 37.39%; top:32.17%;" class="c_207_7">
+		The person having the greatest Number of votes for President, shall be the President,
+	</div>
+
+	<div id="t_207_56" style="position: absolute; left: 36.03%; top:33.68%;" class="c_207_7">
+		if such number be a majority of the whole number of Electors appointed; and if no
+	</div>
+
+	<div id="t_207_57" style="position: absolute; left: 36.03%; top:35.20%;" class="c_207_7">
+		person have such majority, then from the persons having the highest numbers not
+	</div>
+
+	<div id="t_207_58" style="position: absolute; left: 36.03%; top:36.71%;" class="c_207_7">
+		exceeding three on the list of those voted for as President, the House of Representatives
+	</div>
+
+	<div id="t_207_59" style="position: absolute; left: 36.03%; top:38.23%;" class="c_207_7">
+		shall choose immediately, by ballot, the President. But in choosing the President, the
+	</div>
+
+	<div id="t_207_60" style="position: absolute; left: 36.03%; top:39.74%;" class="c_207_7">
+		votes shall be taken by states, the representation from each state having one vote; a
+	</div>
+
+	<div id="t_207_61" style="position: absolute; left: 36.03%; top:41.26%;" class="c_207_7">
+		quorum for this purpose shall consist of a member or members from two-thirds of the
+	</div>
+
+	<div id="t_207_62" style="position: absolute; left: 36.03%; top:42.77%;" class="c_207_7">
+		states, and a majority of all the states shall be necessary to a choice. And if the House of
+	</div>
+
+	<div id="t_207_63" style="position: absolute; left: 36.03%; top:44.29%;" class="c_207_7">
+		Representatives shall not choose a President whenever the right of choice shall devolve
+	</div>
+
+	<div id="t_207_64" style="position: absolute; left: 36.03%; top:45.80%;" class="c_207_7">
+		upon them, before the fourth day of March next following, then the Vice President
+	</div>
+
+	<div id="t_207_65" style="position: absolute; left: 36.03%; top:47.32%;" class="c_207_7">
+		shall act as President, as in the case of the death or other constitutional disability of the
+	</div>
+
+	<div id="t_207_66" style="position: absolute; left: 36.03%; top:48.83%;" class="c_207_7">
+		President.
+	</div>
+
+	<div id="t_207_67" style="position: absolute; left: 37.39%; top:50.35%;" class="c_207_7">
+		The person having the greatest number of votes as Vice President, shall be the Vice
+	</div>
+
+	<div id="t_207_68" style="position: absolute; left: 36.03%; top:51.86%;" class="c_207_7">
+		President, if such number be a majority of the whole number of Electors appointed,
+	</div>
+
+	<div id="t_207_69" style="position: absolute; left: 36.03%; top:53.38%;" class="c_207_7">
+		and if no person have a majority, then from the two highest numbers on the list, the
+	</div>
+
+	<div id="t_207_70" style="position: absolute; left: 36.03%; top:54.90%;" class="c_207_7">
+		Senate shall choose the Vice President; a quorum for the purpose shall consist of two-
+	</div>
+
+	<div id="t_207_71" style="position: absolute; left: 36.03%; top:56.41%;" class="c_207_7">
+		thirds of the whole number of Senators, and a majority of the whole number shall be
+	</div>
+
+	<div id="t_207_72" style="position: absolute; left: 36.03%; top:57.93%;" class="c_207_7">
+		necessary to a choice. But no person constitutionally ineligible to the office of President
+	</div>
+
+	<div id="t_207_73" style="position: absolute; left: 36.03%; top:59.44%;" class="c_207_7">
+		shall be eligible to that of Vice President of the United States.
+	</div>
+
+	<div id="t_207_74" style="position: absolute; left: 36.03%; top:61.94%;" class="c_207_5">
+		AMENDMENT 13. Slavery Abolished. <span class="c_207_6">Ratified 12/6/1865.</span>
+	</div>
+
+	<div id="t_207_75" style="position: absolute; left: 37.39%; top:63.46%;" class="c_207_7">
+		1. Neither slavery nor involuntary servitude, except as a punishment for crime
+	</div>
+
+	<div id="t_207_76" style="position: absolute; left: 36.03%; top:64.98%;" class="c_207_7">
+		whereof the party shall have been duly convicted, shall exist within the United States,
+	</div>
+
+	<div id="t_207_77" style="position: absolute; left: 36.03%; top:66.49%;" class="c_207_7">
+		or any place subject to their jurisdiction.
+	</div>
+
+	<div id="t_207_78" style="position: absolute; left: 37.39%; top:68.01%;" class="c_207_7">
+		2. Congress shall have power to enforce this article by appropriate legislation.
+	</div>
+
+	<div id="t_207_79" style="position: absolute; left: 36.03%; top:70.51%;" class="c_207_5">
+		AMENDMENT 14. Citizenship Rights. <span class="c_207_6">Ratified 7/9/1868.</span>
+	</div>
+
+	<div id="t_207_80" style="position: absolute; left: 37.39%; top:72.03%;" class="c_207_7">
+		1. All persons born or naturalized in the United States, and subject to the jurisdiction
+	</div>
+
+	<div id="t_207_81" style="position: absolute; left: 36.03%; top:73.54%;" class="c_207_7">
+		thereof, are citizens of the United States and of the State wherein they reside. No State
+	</div>
+
+	<div id="t_207_82" style="position: absolute; left: 36.03%; top:75.06%;" class="c_207_7">
+		shall make or enforce any law which shall abridge the privileges or immunities of
+	</div>
+
+	<div id="t_207_83" style="position: absolute; left: 36.03%; top:76.57%;" class="c_207_7">
+		citizens of the United States; nor shall any State deprive any person of life, liberty, or
+	</div>
+
+	<div id="t_207_84" style="position: absolute; left: 36.03%; top:78.09%;" class="c_207_7">
+		property, without due process of law; nor deny to any person within its jurisdiction the
+	</div>
+
+	<div id="t_207_85" style="position: absolute; left: 36.03%; top:79.60%;" class="c_207_7">
+		equal protection of the laws.
+	</div>
+
+	<div id="t_207_86" style="position: absolute; left: 37.39%; top:81.12%;" class="c_207_7">
+		2. Representatives shall be apportioned among the several States according to their
+	</div>
+
+	<div id="t_207_87" style="position: absolute; left: 36.03%; top:82.63%;" class="c_207_7">
+		respective numbers, counting the whole number of persons in each State, excluding
+	</div>
+
+	<div id="t_207_88" style="position: absolute; left: 36.03%; top:84.15%;" class="c_207_7">
+		Indians not taxed. But when the right to vote at any election for the choice of electors
+	</div>
+
+	<div id="t_207_89" style="position: absolute; left: 36.03%; top:85.67%;" class="c_207_7">
+		for President and Vice President of the United States, Representatives in Congress, the
+	</div>
+
+	<div id="t_207_90" style="position: absolute; left: 36.03%; top:87.18%;" class="c_207_7">
+		Executive and Judicial officers of a State, or the members of the Legislature thereof, is
+	</div>
+
+	<div id="t_207_91" style="position: absolute; left: 36.03%; top:88.70%;" class="c_207_7">
+		denied to any of the male inhabitants of such State, being twenty-one years of age,
+	</div>
+
+	<div id="t_207_92" style="position: absolute; left: 36.03%; top:90.21%;" class="c_207_7">
+		and citizens of the United States, or in any way abridged, except for participation in
+	</div>
+
+	<div id="t_207_93" style="position: absolute; left: 36.03%; top:91.73%;" class="c_207_7">
+		rebellion, or other crime, the basis of representation therein shall be reduced in the
+	</div>
+
+	<div id="t_207_94" style="position: absolute; left: 36.03%; top:93.24%;" class="c_207_7">
+		proportion which the number of such male citizens shall bear to the whole number of
+	</div>
+
+	<div id="t_207_95" style="position: absolute; left: 36.03%; top:94.76%;" class="c_207_7">
+		male citizens twenty-one years of age in such State.
+	</div>
+
+	<div id="t_207_96" style="position: absolute; left: 93.38%; top: 96.48%; letter-spacing: -0.15em;" class="c_207_8">
+		207
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="208.html"; onclick="goto('208.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="208.html"; onclick="goto('208.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

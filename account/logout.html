@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/js.cookie.js"></script>
+    <script src="/common.js"></script>
+    <script>
+        $(document).ready(function(){
+            $("button").click(function(){
+                var userTokenName = getSite();
+                Cookies.remove(userTokenName, { path: '/', domain: '.efiveponds.com' });
+                Cookies.remove(userTokenName);
+                Cookies.remove('token', { path: '/' });
+                clearGroupToken();
+                $.get({
+                    url: "/api/getsigned.php",
+                    data: { host: window.location.hostname, site: getSite(), token: ''},
+                    dataType: "json",
+                    success : function (data) {
+                        data.forEach(setCookie);
+                        window.location.href = "/";
+                    }
+                });
+            });
+        });
+    </script>
+    <style>
+
+        input[type=text], input[type=password] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .container {
+            padding: 16px;
+            border: 3px solid #f1f1f1;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h2>Logout Form</h2>
+
+    <div class="container">
+        <label><b>Logout</b></label>
+        <button type="submit">Logout</button>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_34.css">
+                <link rel="stylesheet" href="css/civics_35.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="32.html?page=right"; onclick="goto('32.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="34.html"; onclick="goto('34.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="32.html?page=right"; onclick="goto('32.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_34_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_35_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_34_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="34.html?page=right"; onclick="goto('34.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="36.html"; onclick="goto('36.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="36.html"; onclick="goto('36.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="32.html?page=right"; onclick="goto('32.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="34.html"; onclick="goto('34.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="32.html?page=right"; onclick="goto('32.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_34">
+                                                                                                <div class="pageData">
+
+	<div id="t_34_0" style="position: absolute; left: 5.88%; top:4.30%;" class="c_34_0">
+		American constitutional government is
+	</div>
+
+	<div id="t_34_1" style="position: absolute; left: 5.88%; top:6.07%;" class="c_34_0">
+		founded on concepts articulated in
+	</div>
+
+	<div id="t_34_2" style="position: absolute; left: 5.88%; top:7.84%;" class="c_34_0">
+		earlier documents.
+	</div>
+
+	<div id="t_34_3" style="position: absolute; left: 7.88%; top: 11.15%; letter-spacing: -0.02em;" class="c_34_1">
+		Rules for a
+	</div>
+
+	<div id="t_34_4" style="position: absolute; left: 7.88%; top: 16.46%; letter-spacing: -0.02em;" class="c_34_1">
+		New Country
+	</div>
+
+	<div id="t_34_5" style="position: absolute; left: 7.88%; top: 24.94%; letter-spacing: 0.01em;" class="c_34_2">
+		The Articles of Confederation
+	</div>
+
+	<div id="t_34_6" style="position: absolute; left: 7.88%; top: 26.84%; letter-spacing: 0.01em;" class="c_34_2">
+		established the first form of national
+	</div>
+
+	<div id="t_34_7" style="position: absolute; left: 7.88%; top: 28.73%; letter-spacing: 0.01em;" class="c_34_2">
+		government for the brand-new United
+	</div>
+
+	<div id="t_34_8" style="position: absolute; left: 7.88%; top: 30.63%; letter-spacing: 0.01em;" class="c_34_2">
+		States of America. Unfortunately, the
+	</div>
+
+	<div id="t_34_9" style="position: absolute; left: 7.88%; top: 32.52%; letter-spacing: 0.01em;" class="c_34_2">
+		plan had some very big flaws.
+	</div>
+
+	<div id="t_34_10" style="position: absolute; left: 42.04%; top: 5.72%;" class="c_34_3">
+		A few days after the signing of the Declaration of
+	</div>
+
+	<div id="t_34_11" style="position: absolute; left: 40.72%; top: 7.62%;" class="c_34_3">
+		Independence, a committee appointed by the Continental
+	</div>
+
+	<div id="t_34_12" style="position: absolute; left: 40.72%; top: 9.51%;" class="c_34_3">
+		Congress presented a plan for how our new country would
+	</div>
+
+	<div id="t_34_13" style="position: absolute; left: 40.72%; top: 11.41%;" class="c_34_3">
+		work. For the next 14 months, as war raged on, the committee
+	</div>
+
+	<div id="t_34_14" style="position: absolute; left: 40.72%; top: 13.3%;" class="c_34_3">
+		members argued over the details of an effective plan of
+	</div>
+
+	<div id="t_34_15" style="position: absolute; left: 40.72%; top: 15.19%;" class="c_34_3">
+		government for the new nation. They called their plan the
+	</div>
+
+	<div id="t_34_16" style="position: absolute; left: 40.72%; top:16.89%;" class="c_34_4">
+		Articles of Confederation<span class="c_34_5">.</span>
+	</div>
+
+	<div id="t_34_17" style="position: absolute; left: 49.30%; top:19.23%;" class="c_34_6">
+		A FEAR OF TOO MUCH POWER
+	</div>
+
+	<div id="t_34_18" style="position: absolute; left: 44.04%; top: 21.63%;" class="c_34_3">
+		The delegates were afraid to establish a central authority.
+	</div>
+
+	<div id="t_34_19" style="position: absolute; left: 42.72%; top: 23.53%;" class="c_34_3">
+		After all, they had just gotten rid of their king! They rejected the
+	</div>
+
+	<div id="t_34_20" style="position: absolute; left: 42.72%; top: 25.42%;" class="c_34_3">
+		idea of the states forming a republic. How would elected
+	</div>
+
+	<div id="t_34_21" style="position: absolute; left: 42.72%; top: 27.32%;" class="c_34_3">
+		representatives stay in touch with the people they
+	</div>
+
+	<div id="t_34_22" style="position: absolute; left: 42.72%; top: 29.21%;" class="c_34_3">
+		represented? Impossible! Instead, they gave power to the
+	</div>
+
+	<div id="t_34_23" style="position: absolute; left: 42.72%; top: 31.1%;" class="c_34_3">
+		states. Each state would remain independent. We were
+	</div>
+
+	<div id="t_34_24" style="position: absolute; left: 42.72%; top: 33%;" class="c_34_3">
+		basically thirteen &ldquo;countries&rdquo; that came together only if there
+	</div>
+
+	<div id="t_34_25" style="position: absolute; left: 42.72%; top: 34.89%;" class="c_34_3">
+		were major disputes.
+	</div>
+
+	<div id="t_34_26" style="position: absolute; left: 49.39%; top:36.68%;" class="c_34_6">
+		WHAT <span class="c_34_7">COULD</span> <span class="c_34_8">CONGRESS DO?</span>
+	</div>
+
+	<div id="t_34_27" style="position: absolute; left: 63.44%; top: 39.08%;" class="c_34_3">
+		Not much! Congress could make
+	</div>
+
+	<div id="t_34_28" style="position: absolute; left: 62.13%; top: 40.98%;" class="c_34_3">
+		treaties and alliances with other
+	</div>
+
+	<div id="t_34_29" style="position: absolute; left: 62.13%; top: 42.87%;" class="c_34_3">
+		countries and open diplomatic
+	</div>
+
+	<div id="t_34_30" style="position: absolute; left: 62.13%; top: 44.77%;" class="c_34_3">
+		relations with Europe. It could deal
+	</div>
+
+	<div id="t_34_31" style="position: absolute; left: 62.13%; top: 46.66%;" class="c_34_3">
+		with territorial disputes and
+	</div>
+
+	<div id="t_34_32" style="position: absolute; left: 62.13%; top: 48.55%;" class="c_34_3">
+		handle the increasingly fragile
+	</div>
+
+	<div id="t_34_33" style="position: absolute; left: 62.13%; top: 50.45%;" class="c_34_3">
+		relationships with the Indian
+	</div>
+
+	<div id="t_34_34" style="position: absolute; left: 62.13%; top: 52.34%;" class="c_34_3">
+		nations. The central government
+	</div>
+
+	<div id="t_34_35" style="position: absolute; left: 62.13%; top: 54.24%;" class="c_34_3">
+		could not collect taxes and, as a
+	</div>
+
+	<div id="t_34_36" style="position: absolute; left: 62.13%; top: 56.13%;" class="c_34_3">
+		result, had no way to pay for
+	</div>
+
+	<div id="t_34_37" style="position: absolute; left: 62.13%; top: 58.03%;" class="c_34_3">
+		anything. Congress had no ability
+	</div>
+
+	<div id="t_34_38" style="position: absolute; left: 62.13%; top: 59.92%;" class="c_34_3">
+		to enforce laws and no power to
+	</div>
+
+	<div id="t_34_39" style="position: absolute; left: 62.13%; top: 61.82%;" class="c_34_3">
+		stop the states from
+	</div>
+
+	<div id="t_34_40" style="position: absolute; left: 62.13%; top: 63.71%;" class="c_34_3">
+		restricting trade.
+	</div>
+
+	<div id="t_34_41" style="position: absolute; left: 20.59%; top:66.65%;" class="c_34_9">
+		History lovers gather to
+	</div>
+
+	<div id="t_34_42" style="position: absolute; left: 20.59%; top:68.29%;" class="c_34_9">
+		re-create the Revolutionary
+	</div>
+
+	<div id="t_34_43" style="position: absolute; left: 20.59%; top:69.93%;" class="c_34_9">
+		War&rsquo;s great battles.
+	</div>
+
+	<div id="t_34_44" style="position: absolute; left: 20.98%; top:85.59%;" class="c_34_10">
+		What were the immediate causes
+	</div>
+
+	<div id="t_34_45" style="position: absolute; left: 20.98%; top:87.23%;" class="c_34_10">
+		and effects of the war?
+	</div>
+
+	<div id="t_34_46" style="position: absolute; left: 5.30%; top: 94.70%;" class="c_34_11">
+		34
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 2%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_34_american_constitutional_government.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_34_rules_for_a_new_country.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 38%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_34_a_few_days_after.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 39%; top: 19%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_34_a_fear_of_too_much_power.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 17%; top: 63%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_34_history_lovers_gather.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 17%; top: 82%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_34_what_were_the_immediate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_35">
+                                                                                                <div class="pageData">
+
+	<div id="t_35_0" style="position: absolute; left: 20.50%; top:6.19%;" class="c_35_0">
+		DOOMED TO FAIL
+	</div>
+
+	<div id="t_35_1" style="position: absolute; left: 12.60%; top: 8.6%;" class="c_35_1">
+		Even getting all the states to agree to the
+	</div>
+
+	<div id="t_35_2" style="position: absolute; left: 11.29%; top: 10.49%;" class="c_35_1">
+		plan was difficult. It took over three years to
+	</div>
+
+	<div id="t_35_3" style="position: absolute; left: 11.29%; top: 12.38%;" class="c_35_1">
+		come up with a document that everyone
+	</div>
+
+	<div id="t_35_4" style="position: absolute; left: 11.29%; top: 14.28%;" class="c_35_1">
+		would sign. In 1781 the Articles were finally
+	</div>
+
+	<div id="t_35_5" style="position: absolute; left: 11.29%; top: 16.17%;" class="c_35_1">
+		approved. Two years later, the <span class="c_35_2">Treaty of Paris</span>
+	</div>
+
+	<div id="t_35_6" style="position: absolute; left: 11.29%; top: 18.07%;" class="c_35_1">
+		officially ended the American Revolution. The
+	</div>
+
+	<div id="t_35_7" style="position: absolute; left: 11.29%; top: 19.96%;" class="c_35_1">
+		former colonies had stood together, united in
+	</div>
+
+	<div id="t_35_8" style="position: absolute; left: 11.29%; top: 21.86%;" class="c_35_1">
+		war. Now could they stay united in peace?
+	</div>
+
+	<div id="t_35_9" style="position: absolute; left: 15.93%; top:24.29%;" class="c_35_3">
+		5 Reasons
+	</div>
+
+	<div id="t_35_10" style="position: absolute; left: 15.16%; top:29.72%;" class="c_35_3">
+		for Failure
+	</div>
+
+	<div id="t_35_11" style="position: absolute; left: 15.25%; top:37.50%;" class="c_35_4">
+		A PLAN TOO WEAK TO WORK
+	</div>
+
+	<div id="t_35_12" style="position: absolute; left: 16.73%; top:42.53%;" class="c_35_5">
+		1. A WEAK NATIONAL
+	</div>
+
+	<div id="t_35_13" style="position: absolute; left: 21.17%; top:44.55%;" class="c_35_5">
+		GOVERNMENT
+	</div>
+
+	<div id="t_35_14" style="position: absolute; left: 12.58%; top: 47.07%;" class="c_35_1">
+		None of the states wanted to lose control of
+	</div>
+
+	<div id="t_35_15" style="position: absolute; left: 11.27%; top: 48.97%;" class="c_35_1">
+		their own interests. Very few laws applied to
+	</div>
+
+	<div id="t_35_16" style="position: absolute; left: 11.27%; top: 50.86%;" class="c_35_1">
+		all the states, and the national government
+	</div>
+
+	<div id="t_35_17" style="position: absolute; left: 11.27%; top: 52.76%;" class="c_35_1">
+		had no easy way to enforce those laws.
+	</div>
+
+	<div id="t_35_18" style="position: absolute; left: 56.09%; top:20.49%;" class="c_35_6">
+		British troops, carrying a white flag of
+	</div>
+
+	<div id="t_35_19" style="position: absolute; left: 56.09%; top:22.13%;" class="c_35_6">
+		surrender, petition George Washington for a
+	</div>
+
+	<div id="t_35_20" style="position: absolute; left: 56.09%; top:23.77%;" class="c_35_6">
+		cease-fire, ending the War of Independence.
+	</div>
+
+	<div id="t_35_21" style="position: absolute; left: 54.97%; top:30.90%;" class="c_35_5">
+		3. NO NATIONAL CURRENCY
+	</div>
+
+	<div id="t_35_22" style="position: absolute; left: 54.40%; top: 33.42%;" class="c_35_1">
+		Since there was no U.S. dollar, different
+	</div>
+
+	<div id="t_35_23" style="position: absolute; left: 53.08%; top: 35.31%;" class="c_35_1">
+		kinds of money were used. British and
+	</div>
+
+	<div id="t_35_24" style="position: absolute; left: 53.08%; top: 37.21%;" class="c_35_1">
+		Spanish money were widely accepted, and the
+	</div>
+
+	<div id="t_35_25" style="position: absolute; left: 53.08%; top: 39.1%;" class="c_35_1">
+		individual states even had the ability to issue
+	</div>
+
+	<div id="t_35_26" style="position: absolute; left: 53.08%; top: 41%;" class="c_35_1">
+		their own currency. It was very confusing.
+	</div>
+
+	<div id="t_35_27" style="position: absolute; left: 56.53%; top:44.11%;" class="c_35_5">
+		4. ONE STATE, ONE VOTE
+	</div>
+
+	<div id="t_35_28" style="position: absolute; left: 54.26%; top: 46.63%;" class="c_35_1">
+		Large states with many people, such as
+	</div>
+
+	<div id="t_35_29" style="position: absolute; left: 52.94%; top: 48.53%;" class="c_35_1">
+		Virginia and New York, and tiny states with
+	</div>
+
+	<div id="t_35_30" style="position: absolute; left: 52.94%; top: 50.42%;" class="c_35_1">
+		small populations, like Rhode Island, had the
+	</div>
+
+	<div id="t_35_31" style="position: absolute; left: 52.94%; top: 52.31%;" class="c_35_1">
+		same say in government.
+	</div>
+
+	<div id="t_35_32" style="position: absolute; left: 16.62%; top:55.84%;" class="c_35_5">
+		2. A WEAK CONGRESS
+	</div>
+
+	<div id="t_35_33" style="position: absolute; left: 12.35%; top: 58.37%;" class="c_35_1">
+		Congress could not collect taxes, so it had
+	</div>
+
+	<div id="t_35_34" style="position: absolute; left: 11.03%; top: 60.26%;" class="c_35_1">
+		no money to do anything. The states were
+	</div>
+
+	<div id="t_35_35" style="position: absolute; left: 11.03%; top: 62.16%;" class="c_35_1">
+		acting like individual nations, not a unified
+	</div>
+
+	<div id="t_35_36" style="position: absolute; left: 11.03%; top: 64.05%;" class="c_35_1">
+		national economy. The best Congress could do
+	</div>
+
+	<div id="t_35_37" style="position: absolute; left: 11.03%; top: 65.94%;" class="c_35_1">
+		was ask each state to chip in for its expenses.
+	</div>
+
+	<div id="t_35_38" style="position: absolute; left: 61.58%; top:55.78%;" class="c_35_5">
+		5. NO EXECUTIVE
+	</div>
+
+	<div id="t_35_39" style="position: absolute; left: 57.70%; top:58.05%;" class="c_35_5">
+		OR JUDICIAL BRANCHES
+	</div>
+
+	<div id="t_35_40" style="position: absolute; left: 54.26%; top: 60.32%;" class="c_35_1">
+		Who would make sure national laws were
+	</div>
+
+	<div id="t_35_41" style="position: absolute; left: 52.94%; top: 62.22%;" class="c_35_1">
+		being followed? There was no executive
+	</div>
+
+	<div id="t_35_42" style="position: absolute; left: 52.94%; top: 64.11%;" class="c_35_1">
+		branch and no high court to interpret and
+	</div>
+
+	<div id="t_35_43" style="position: absolute; left: 52.94%; top: 66.01%;" class="c_35_1">
+		apply the laws.
+	</div>
+
+	<div id="t_35_44" style="position: absolute; left: 15.98%; top:71.46%;" class="c_35_0">
+		THE BREAKING POINT
+	</div>
+
+	<div id="t_35_45" style="position: absolute; left: 10.14%; top: 73.61%;" class="c_35_1">
+		Alexander Hamilton and James Madison,
+	</div>
+
+	<div id="t_35_46" style="position: absolute; left: 8.82%; top: 75.5%;" class="c_35_1">
+		along with representatives from five states, had
+	</div>
+
+	<div id="t_35_47" style="position: absolute; left: 8.82%; top: 77.4%;" class="c_35_1">
+		doubts about the new government and said so.
+	</div>
+
+	<div id="t_35_48" style="position: absolute; left: 8.82%; top: 79.29%;" class="c_35_1">
+		In late August of 1786, a revolt by farmers in
+	</div>
+
+	<div id="t_35_49" style="position: absolute; left: 8.82%; top: 81.19%;" class="c_35_1">
+		Massachusetts who had fallen into debt due to
+	</div>
+
+	<div id="t_35_50" style="position: absolute; left: 8.82%; top: 83.08%;" class="c_35_1">
+		rising taxes, made the shortcomings of the
+	</div>
+
+	<div id="t_35_51" style="position: absolute; left: 8.82%; top: 84.98%;" class="c_35_1">
+		Articles clear. In February 1787, Congress met
+	</div>
+
+	<div id="t_35_52" style="position: absolute; left: 8.82%; top: 86.87%;" class="c_35_1">
+		to revise the Articles of Confederation. That
+	</div>
+
+	<div id="t_35_53" style="position: absolute; left: 8.82%; top: 88.76%;" class="c_35_1">
+		meeting would lead to the creation of a
+	</div>
+
+	<div id="t_35_54" style="position: absolute; left: 8.82%; top: 90.66%;" class="c_35_1">
+		brilliant new document&mdash;the <span class="c_35_2">Constitution of</span>
+	</div>
+
+	<div id="t_35_55" style="position: absolute; left: 8.82%; top:92.35%;" class="c_35_7">
+		the United States<span class="c_35_8">.</span>
+	</div>
+
+	<div id="t_35_56" style="position: absolute; left: 48.97%; top:88.67%;" class="c_35_6">
+		News of Shays&rsquo;
+	</div>
+
+	<div id="t_35_57" style="position: absolute; left: 48.97%; top:90.31%;" class="c_35_6">
+		Rebellion, in 1786, frightened
+	</div>
+
+	<div id="t_35_58" style="position: absolute; left: 48.97%; top:91.95%;" class="c_35_6">
+		many American citizens.
+	</div>
+
+	<div id="t_35_59" style="position: absolute; left: 93.60%; top: 94.70%;" class="c_35_9">
+		35
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 11%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_35_doomed_to_fail.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 52%; top: 17%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_35_british_troops_carrying.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 9%; top: 25%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_35_5_reasons_for_failure.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 7%; top: 69%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_35_the_breaking_point.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 43.5%; top: 87%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_35_news_of_shays.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_34_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_35_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_34_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="34.html?page=right"; onclick="goto('34.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="36.html"; onclick="goto('36.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="36.html"; onclick="goto('36.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

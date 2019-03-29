@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_20.css">
+                <link rel="stylesheet" href="css/civics_21.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="18.html?page=right"; onclick="goto('18.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="20.html"; onclick="goto('20.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="18.html?page=right"; onclick="goto('18.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_20_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_21_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_20_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="20.html?page=right"; onclick="goto('20.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="22.html"; onclick="goto('22.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="22.html"; onclick="goto('22.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="18.html?page=right"; onclick="goto('18.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="20.html"; onclick="goto('20.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="18.html?page=right"; onclick="goto('18.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_20">
+                                                                                                <div class="pageData">
+
+	<div id="t_20_0" style="position: absolute; left: 43.55%; top:4.13%;" class="c_20_0">
+		A basic responsibility of citizenship is to
+	</div>
+
+	<div id="t_20_1" style="position: absolute; left: 43.55%; top:5.90%;" class="c_20_0">
+		contribute to the common good.
+	</div>
+
+	<div id="t_20_2" style="position: absolute; left: 33.40%; top: 8.10%; letter-spacing: -0.02em;" class="c_20_1">
+		Make Your Voice Heard
+	</div>
+
+	<div id="t_20_3" style="position: absolute; left: 30.47%; top: 14.90%; letter-spacing: 0.01em;" class="c_20_2">
+		People have risked their lives for the privilege of voting, and yet over
+	</div>
+
+	<div id="t_20_4" style="position: absolute; left: 30.47%; top: 16.67%; letter-spacing: 0.01em;" class="c_20_2">
+		20 percent of Americans eligible to vote have never even registered.
+	</div>
+
+	<div id="t_20_5" style="position: absolute; left: 40.67%; top:19.20%;" class="c_20_3">
+		AN AMERICAN CIVIC TRAGEDY
+	</div>
+
+	<div id="t_20_6" style="position: absolute; left: 31.84%; top: 21.67%;" class="c_20_4">
+		There are certain responsibilities that come with citizenship. Unlike
+	</div>
+
+	<div id="t_20_7" style="position: absolute; left: 29.97%; top: 23.56%;" class="c_20_4">
+		civic duties&mdash;those things we MUST do&mdash;civic responsibilities are
+	</div>
+
+	<div id="t_20_8" style="position: absolute; left: 29.97%; top: 25.46%;" class="c_20_4">
+		voluntary and fulfilled by choice. Voting is one of those important
+	</div>
+
+	<div id="t_20_9" style="position: absolute; left: 29.97%; top: 27.35%;" class="c_20_4">
+		choices &mdash; a very precious right. So why <span class="c_20_5">wouldn&rsquo;t</span><span class="c_20_6"> you want to get</span>
+	</div>
+
+	<div id="t_20_10" style="position: absolute; left: 29.97%; top: 29.25%;" class="c_20_4">
+		involved? The first step is simple. If you are an American citizen, you can
+	</div>
+
+	<div id="t_20_11" style="position: absolute; left: 29.97%; top: 31.14%;" class="c_20_4">
+		register to vote the moment you turn 18. Do it!
+	</div>
+
+	<div id="t_20_12" style="position: absolute; left: 69.89%; top:34.22%;" class="c_20_7">
+		&ldquo;Democracy must be
+	</div>
+
+	<div id="t_20_13" style="position: absolute; left: 69.89%; top:36.74%;" class="c_20_7">
+		something more than two
+	</div>
+
+	<div id="t_20_14" style="position: absolute; left: 69.89%; top:39.27%;" class="c_20_7">
+		wolves and a sheep
+	</div>
+
+	<div id="t_20_15" style="position: absolute; left: 69.89%; top:41.79%;" class="c_20_7">
+		voting on what to have
+	</div>
+
+	<div id="t_20_16" style="position: absolute; left: 69.89%; top:44.32%;" class="c_20_7">
+		for dinner.&rdquo;
+	</div>
+
+	<div id="t_20_17" style="position: absolute; left: 82.92%; top:45.21%;" class="c_20_8">
+		&ndash;James Bovard
+	</div>
+
+	<div id="t_20_18" style="position: absolute; left: 54.37%; top:50.34%;" class="c_20_9">
+		*
+	</div>
+
+	<div id="t_20_19" style="position: absolute; left: 55.20%; top:50.19%;" class="c_20_10">
+		VOTING RATES BY AGE: 1964&ndash;2016
+	</div>
+
+	<div id="t_20_20" style="position: absolute; left: 17.57%; top:33.62%;" class="c_20_3">
+		GO BEYOND THE VOTING BOOTH
+	</div>
+
+	<div id="t_20_21" style="position: absolute; left: 9.50%; top: 36.09%;" class="c_20_4">
+		&ldquo;Do I look like a politician to you?&rdquo; So asks Ritchie Torres, the youngest
+	</div>
+
+	<div id="t_20_22" style="position: absolute; left: 8.25%; top: 37.98%;" class="c_20_4">
+		member of the New York City Council. &ldquo;I&rsquo;m a 25-year-old college dropout
+	</div>
+
+	<div id="t_20_23" style="position: absolute; left: 8.25%; top: 39.88%;" class="c_20_4">
+		who grew up in public housing&hellip;I&rsquo;m Afro-Latino. I hardly have the
+	</div>
+
+	<div id="t_20_24" style="position: absolute; left: 8.25%; top: 41.77%;" class="c_20_4">
+		characteristics people associate with a politician, but here I am.&rdquo; Torres
+	</div>
+
+	<div id="t_20_25" style="position: absolute; left: 8.25%; top: 43.67%;" class="c_20_4">
+		is proof that you are not too young to get involved in government.
+	</div>
+
+	<div id="t_20_26" style="position: absolute; left: 8.25%; top: 45.56%;" class="c_20_4">
+		Participate in political campaigns. You can hand out campaign literature
+	</div>
+
+	<div id="t_20_27" style="position: absolute; left: 8.25%; top: 47.45%;" class="c_20_4">
+		at the local mall or help place signs around town.
+	</div>
+
+	<div id="t_20_28" style="position: absolute; left: 8.25%; top: 49.35%;" class="c_20_4">
+		Age does not matter. Passion does.
+	</div>
+
+	<div id="t_20_29" style="position: absolute; left: 9.57%; top: 51.24%;" class="c_20_4">
+		Do you remember your right of petition?
+	</div>
+
+	<div id="t_20_30" style="position: absolute; left: 8.25%; top: 53.14%;" class="c_20_4">
+		Communicate with government officials. Rally
+	</div>
+
+	<div id="t_20_31" style="position: absolute; left: 8.25%; top: 55.03%;" class="c_20_4">
+		your neighbors to influence government actions.
+	</div>
+
+	<div id="t_20_32" style="position: absolute; left: 8.25%; top: 56.93%;" class="c_20_4">
+		Stay informed about current issues, but always
+	</div>
+
+	<div id="t_20_33" style="position: absolute; left: 8.25%; top: 58.82%;" class="c_20_4">
+		respect others&rsquo; right to different opinions. Once
+	</div>
+
+	<div id="t_20_34" style="position: absolute; left: 8.25%; top: 60.72%;" class="c_20_4">
+		you are 18 you can also make big contributions
+	</div>
+
+	<div id="t_20_35" style="position: absolute; left: 8.25%; top: 62.61%;" class="c_20_4">
+		by serving in voluntary, appointed government
+	</div>
+
+	<div id="t_20_36" style="position: absolute; left: 8.25%; top: 64.5%;" class="c_20_4">
+		positions, such as the Peace Corps, which
+	</div>
+
+	<div id="t_20_37" style="position: absolute; left: 8.25%; top: 66.4%;" class="c_20_4">
+		sends people to parts of the world in dire need.
+	</div>
+
+	<div id="t_20_38" style="position: absolute; left: 8.25%; top: 68.29%;" class="c_20_4">
+		Serving as a volunteer is a privilege as well as a
+	</div>
+
+	<div id="t_20_39" style="position: absolute; left: 8.25%; top: 70.19%;" class="c_20_4">
+		responsibility.
+	</div>
+
+	<div id="t_20_57" style="position: absolute; left: 52.20%; top:67.73%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-90deg); -webkit-transform: rotate(-90deg); transform: rotate(-90deg);" class="c_20_15">
+		Percentage of Voters
+	</div>
+
+	<div id="t_20_58" style="position: absolute; left: 20.71%; top:86.31%;" class="c_20_20">
+		Young civil rights activists volunteered
+	</div>
+
+	<div id="t_20_59" style="position: absolute; left: 20.71%; top:87.95%;" class="c_20_20">
+		to go to Selma, Alabama, in 1962.
+	</div>
+
+	<div id="t_20_60" style="position: absolute; left: 20.71%; top:89.59%;" class="c_20_20">
+		Only 156 of its 15,000 eligible black
+	</div>
+
+	<div id="t_20_61" style="position: absolute; left: 20.71%; top:91.23%;" class="c_20_20">
+		residents had been permitted to
+	</div>
+
+	<div id="t_20_62" style="position: absolute; left: 20.71%; top:92.87%;" class="c_20_20">
+		register to vote. These young people
+	</div>
+
+	<div id="t_20_63" style="position: absolute; left: 20.71%; top:94.52%;" class="c_20_20">
+		risked their lives to change that.
+	</div>
+
+	<div id="t_20_64" style="position: absolute; left: 4.85%; top:94.52%;" class="c_20_21">
+		20
+	</div>
+
+	<div id="t_20_65" style="position: absolute; left: 65.08%; top:74.72%;" class="c_20_22">
+		Presidential Election Year
+	</div>
+
+	<div id="t_20_66" style="position: absolute; left: 60.11%; top:77.30%;" class="c_20_23">
+		65 and
+	</div>
+
+	<div id="t_20_67" style="position: absolute; left: 60.49%; top:78.31%;" class="c_20_23">
+		older
+	</div>
+
+	<div id="t_20_68" style="position: absolute; left: 69.82%; top:77.22%;" class="c_20_23">
+		45&ndash;64
+	</div>
+
+	<div id="t_20_69" style="position: absolute; left: 70.07%; top:78.23%;" class="c_20_23">
+		years
+	</div>
+
+	<div id="t_20_70" style="position: absolute; left: 79.97%; top:77.22%;" class="c_20_23">
+		25&ndash;44
+	</div>
+
+	<div id="t_20_71" style="position: absolute; left: 80.22%; top:78.23%;" class="c_20_23">
+		years
+	</div>
+
+	<div id="t_20_72" style="position: absolute; left: 89.07%; top:77.14%;" class="c_20_23">
+		18&ndash;24
+	</div>
+
+	<div id="t_20_73" style="position: absolute; left: 89.26%; top:78.15%;" class="c_20_23">
+		years
+	</div>
+
+	<div id="t_20_74" style="position: absolute; left: 64.44%; top:81.02%;" class="c_20_3">
+		Analyze This!
+	</div>
+
+	<div id="t_20_75" style="position: absolute; left: 52.94%; top:83.38%;" class="c_20_24">
+		Which age group&rsquo;s voting frequency increased over
+	</div>
+
+	<div id="t_20_76" style="position: absolute; left: 52.94%; top:85.28%;" class="c_20_24">
+		the years? Which group&rsquo;s voting declined the most?
+	</div>
+
+	<div id="t_20_77" style="position: absolute; left: 52.94%; top:87.17%;" class="c_20_24">
+		Which group always seems to vote the least? How
+	</div>
+
+	<div id="t_20_78" style="position: absolute; left: 52.94%; top:89.07%;" class="c_20_24">
+		might you get people who seldom or never vote to
+	</div>
+
+	<div id="t_20_79" style="position: absolute; left: 52.94%; top:90.96%;" class="c_20_24">
+		go to the polls? Create a VOTE campaign!
+	</div>
+
+	<div id="t_20_80" style="position: absolute; left: 50.00%; top:96.43%;" class="c_20_25">
+		Graph Source: U.S. Census Bureau, Current Population Survey, Select Years
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 38%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_20_a_basic_responsibility.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 28%; top: 7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_20_make_your_voice_heard.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 32%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_20_go_beyond_the_voting.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 64.5%; top: 32.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_20_democracy_must_be.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 50%; top: 79%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_20_voting_rates_by_age.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 15%; top: 86%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_20_young_civil_rights_activists.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_21">
+                                                                                                <div class="pageData">
+
+	<div id="t_21_0" style="position: absolute; left: 11.47%; top:2.84%;" class="c_21_0">
+		Voting
+	</div>
+
+	<div id="t_21_1" style="position: absolute; left: 8.07%; top:13.70%;" class="c_21_0">
+		America
+	</div>
+
+	<div id="t_21_2" style="position: absolute; left: 17.80%; top:8.27%;" class="c_21_0">
+		in
+	</div>
+
+	<div id="t_21_3" style="position: absolute; left: 10.22%; top:21.33%;" class="c_21_1">
+		NOT ALWAYS &ldquo;FAIR&rdquo;
+	</div>
+
+	<div id="t_21_4" style="position: absolute; left: 52.00%; top:8.50%;" class="c_21_2">
+		COLONIAL AMERICA
+	</div>
+
+	<div id="t_21_5" style="position: absolute; left: 39.30%; top: 10.97%;" class="c_21_3">
+		In most places, only Christian, white, male landowners could
+	</div>
+
+	<div id="t_21_6" style="position: absolute; left: 37.98%; top: 12.87%;" class="c_21_3">
+		participate in politics.
+	</div>
+
+	<div id="t_21_7" style="position: absolute; left: 39.30%; top: 17.79%;" class="c_21_3">
+		The Constitution left it up to the states to determine who could
+	</div>
+
+	<div id="t_21_8" style="position: absolute; left: 57.18%; top:15.32%;" class="c_21_2">
+		1788 &ndash;1867
+	</div>
+
+	<div id="t_21_9" style="position: absolute; left: 37.98%; top: 19.68%;" class="c_21_3">
+		vote. In the first half of the nineteenth century, state after state
+	</div>
+
+	<div id="t_21_10" style="position: absolute; left: 37.98%; top: 21.58%;" class="c_21_3">
+		began permitting men who did not own land to vote. Immigrant
+	</div>
+
+	<div id="t_21_11" style="position: absolute; left: 37.98%; top: 23.47%;" class="c_21_3">
+		men could vote if they became citizens, sometimes even before.
+	</div>
+
+	<div id="t_21_12" style="position: absolute; left: 45.89%; top:26.71%;" class="c_21_2">
+		1868: THE 14TH AMENDMENT
+	</div>
+
+	<div id="t_21_13" style="position: absolute; left: 38.19%; top: 29.18%;" class="c_21_3">
+		The Civil Rights Act of 1866 said that all African Americans were
+	</div>
+
+	<div id="t_21_14" style="position: absolute; left: 36.76%; top: 31.07%;" class="c_21_3">
+		citizens, but that did not mean they could vote. While black men
+	</div>
+
+	<div id="t_21_15" style="position: absolute; left: 36.76%; top: 32.96%;" class="c_21_3">
+		had been able to vote in some Northern states for years, they could
+	</div>
+
+	<div id="t_21_16" style="position: absolute; left: 36.76%; top: 34.86%;" class="c_21_3">
+		not in the South. To rejoin the Union, Congress required that former
+	</div>
+
+	<div id="t_21_17" style="position: absolute; left: 36.76%; top: 36.75%;" class="c_21_3">
+		Confederate states had to ratify the 13th and 14th Amendments.
+	</div>
+
+	<div id="t_21_18" style="position: absolute; left: 42.92%; top:39.37%;" class="c_21_2">
+		1870: THE 15TH AMENDMENT,
+	</div>
+
+	<div id="t_21_19" style="position: absolute; left: 40.63%; top:41.39%;" class="c_21_2">
+		POLL TAXES, AND LITERACY TESTS
+	</div>
+
+	<div id="t_21_20" style="position: absolute; left: 33.63%; top: 43.86%;" class="c_21_3">
+		Now that no state could prevent men from voting because of race, great
+	</div>
+
+	<div id="t_21_21" style="position: absolute; left: 32.35%; top: 45.76%;" class="c_21_3">
+		 numbers of black men began to vote, run for office, and win elections.
+    </div>
+
+	<div id="t_21_22" style="position: absolute; left: 25.21%; top: 47.65%;" class="c_21_3">
+		Women, both black and white, still could not vote. Before long, many states in the
+	</div>
+
+	<div id="t_21_23" style="position: absolute; left: 17.44%; top: 49.55%;" class="c_21_3">
+		South, including Virginia, contrived ways to reduce the black vote. They demanded the 
+	</div>
+
+	<div id="t_21_24" style="position: absolute; left: 11.44%; top: 51.44%;" class="c_21_3">
+		payment of expensive poll taxes or gave tests with questions that were impossible to answer.
+	</div>
+
+	<div id="t_21_25" style="position: absolute; left: 13.64%; top: 56.84%;" class="c_21_3">
+		American Indians were finally recognized as &ldquo;persons&rdquo; in the eyes of the
+	</div>
+
+	<div id="t_21_26" style="position: absolute; left: 35.65%; top:54.37%;" class="c_21_2">
+		1879: AMERICAN INDIANS
+	</div>
+
+	<div id="t_21_27" style="position: absolute; left: 12.24%; top: 58.74%;" class="c_21_3">
+		U.S. government, but it would be many more years until they could vote.
+	</div>
+
+	<div id="t_21_28" style="position: absolute; left: 24.50%; top:61.84%;" class="c_21_2">
+		1920: THE 19TH AMENDMENT
+	</div>
+
+	<div id="t_21_29" style="position: absolute; left: 13.46%; top: 64.31%;" class="c_21_3">
+		All women, white and black, in every state, finally could vote.  Still, in states
+	</div>
+
+	<div id="t_21_30" style="position: absolute; left: 12.14%; top: 66.21%;" class="c_21_3">
+		where black men faced voter supression, black women had similar obstacles.
+	</div>
+
+	<div id="t_21_31" style="position: absolute; left: 30.33%; top:69.03%;" class="c_21_2">
+		1965: THE VOTING RIGHTS ACT
+	</div>
+
+	<div id="t_21_32" style="position: absolute; left: 31.65%; top: 71.5%;" class="c_21_3">
+		With states controlling voting policy, discrimination at the polls
+	</div>
+
+	<div id="t_21_33" style="position: absolute; left: 30.33%; top: 73.4%;" class="c_21_3">
+		continued. Events such as &ldquo;Bloody Sunday&rdquo; in Selma, Alabama,
+	</div>
+
+	<div id="t_21_34" style="position: absolute; left: 30.33%; top: 75.29%;" class="c_21_3">
+		persuaded President Lyndon Johnson to propose a Voting Rights
+	</div>
+
+	<div id="t_21_35" style="position: absolute; left: 30.33%; top: 77.19%;" class="c_21_3">
+		Act. It provided federal supervision of voter registration and
+	</div>
+
+	<div id="t_21_36" style="position: absolute; left: 30.33%; top: 79.08%;" class="c_21_3">
+		abolished unfair literacy tests. These efforts, plus voter registration
+	</div>
+
+	<div id="t_21_37" style="position: absolute; left: 30.33%; top: 80.97%;" class="c_21_3">
+		drives and rallies, tripled the number of black voters by 1968.
+	</div>
+
+	<div id="t_21_38" style="position: absolute; left: 12.58%; top:84.59%;" class="c_21_2">
+		2013: THE SUPREME COURT CHANGES THE VOTING RIGHTS ACT
+	</div>
+
+	<div id="t_21_39" style="position: absolute; left: 12.23%; top: 87.06%;" class="c_21_3">
+		Some provisions of the Voting Rights Act were struck down when the court, in a close vote, let 15
+	</div>
+
+	<div id="t_21_40" style="position: absolute; left: 10.92%; top: 88.96%;" class="c_21_3">
+		states (mostly in the South) change their election laws without federal approval. Eight did. Still, the
+	</div>
+
+	<div id="t_21_41" style="position: absolute; left: 10.92%; top: 90.85%;" class="c_21_3">
+		U.S. Department of Justice <span class="c_21_4">can</span> <span class="c_21_5">sue states to protect a citizen&rsquo;s right to vote in federal elections.</span>
+	</div>
+
+	<div id="t_21_42" style="position: absolute; left: 93.43%; top:94.9%;" class="c_21_6">
+		21
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 4%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_21_voting_in_america.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_20_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_21_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_20_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="20.html?page=right"; onclick="goto('20.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="22.html"; onclick="goto('22.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="22.html"; onclick="goto('22.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

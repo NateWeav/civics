@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_108.css">
+                <link rel="stylesheet" href="css/civics_109.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="106.html?page=right"; onclick="goto('106.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="108.html"; onclick="goto('108.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="106.html?page=right"; onclick="goto('106.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_108_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_109_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_108_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="108.html?page=right"; onclick="goto('108.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="110.html"; onclick="goto('110.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="110.html"; onclick="goto('110.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="106.html?page=right"; onclick="goto('106.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="108.html"; onclick="goto('108.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="106.html?page=right"; onclick="goto('106.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_108">
+                                                                                                <div class="pageData">
+
+	<div id="t_108_0" style="position: absolute; left: 5.85%; top:4.82%;" class="c_108_0">
+		The units of local government in Virginia
+	</div>
+
+	<div id="t_108_1" style="position: absolute; left: 5.85%; top:6.59%;" class="c_108_0">
+		are created by the General Assembly.
+	</div>
+
+	<div id="t_108_2" style="position: absolute; left: 5.85%; top:9.11%;" class="c_108_0">
+		Local governments exercise legislative,
+	</div>
+
+	<div id="t_108_3" style="position: absolute; left: 5.85%; top:10.88%;" class="c_108_0">
+		executive, and judicial powers.
+	</div>
+
+	<div id="t_108_4" style="position: absolute; left: 30.80%; top:19.85%;" class="c_108_1">
+		A raging fire. A howling blizzard.
+	</div>
+
+	<div id="t_108_5" style="position: absolute; left: 30.80%; top:21.49%;" class="c_108_1">
+		A football team on the verge of a big
+	</div>
+
+	<div id="t_108_6" style="position: absolute; left: 30.80%; top:23.13%;" class="c_108_1">
+		win. What do these three photos
+	</div>
+
+	<div id="t_108_7" style="position: absolute; left: 30.80%; top:24.77%;" class="c_108_1">
+		have in common? Civics!
+	</div>
+
+	<div id="t_108_8" style="position: absolute; left: 9.42%; top:42.11%; letter-spacing:-0.04em;" class="c_108_2">
+		Virginia Counties &amp; Cities
+	</div>
+
+	<div id="t_108_9" style="position: absolute; left: 10.15%; top:43.81%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_10" style="position: absolute; left: 12.01%; top:44.23%;" class="c_108_2">
+		Independent City
+	</div>
+
+	<div id="t_108_11" style="position: absolute; left: 12.07%; top:46.09%;" class="c_108_2">
+		County
+	</div>
+
+	<div id="t_108_12" style="position: absolute; left: 44.50%; top: 29.45%; letter-spacing: 0.01em;" class="c_108_4">
+		When you see a house on fire, you don&rsquo;t call the
+	</div>
+
+	<div id="t_108_13" style="position: absolute; left: 46.84%; top: 31.22%; letter-spacing: 0.01em;" class="c_108_4">
+		president or the governor. You call your&hellip;
+	</div>
+
+	<div id="t_108_14" style="position: absolute; left: 42.85%; top: 32.25%; letter-spacing: -0.02em;" class="c_108_5">
+		County, City,
+	</div>
+
+	<div id="t_108_15" style="position: absolute; left: 52.00%; top: 37.68%; letter-spacing: -0.02em;" class="c_108_5">
+		Town
+	</div>
+
+	<div id="t_108_16" style="position: absolute; left: 28.49%; top:50.61%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_17" style="position: absolute; left: 38.50%; top:55.60%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_18" style="position: absolute; left: 72.27%; top:47.30%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_19" style="position: absolute; left: 64.61%; top:55.00%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_20" style="position: absolute; left: 84.65%; top:36.57%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_21" style="position: absolute; left: 83.29%; top:44.57%;" class="c_108_3">
+		&bull; &bull;
+	</div>
+
+	<div id="t_108_22" style="position: absolute; left: 86.89%; top:54.46%;" class="c_108_3">
+		&bull;
+	</div>
+
+	<div id="t_108_23" style="position: absolute; left: 10.14%; top: 59.56%;" class="c_108_6">
+		Think about your life. Think about the things you do every day
+	</div>
+
+	<div id="t_108_24" style="position: absolute; left: 8.82%; top: 61.46%;" class="c_108_6">
+		and the places you go. Now imagine your life without those
+	</div>
+
+	<div id="t_108_25" style="position: absolute; left: 8.82%; top: 63.35%;" class="c_108_6">
+		things&mdash;no school, no ball fields, no library, no police or fire
+	</div>
+
+	<div id="t_108_26" style="position: absolute; left: 8.82%; top: 65.25%;" class="c_108_6">
+		department. No parks. In many places, no water! Government
+	</div>
+
+	<div id="t_108_27" style="position: absolute; left: 8.82%; top: 67.14%;" class="c_108_6">
+		at the local level affects your life every day.
+	</div>
+
+	<div id="t_108_28" style="position: absolute; left: 10.14%; top: 71.68%;" class="c_108_6">
+		Our state is divided in an unusual way. Like other states,
+	</div>
+
+	<div id="t_108_29" style="position: absolute; left: 24.02%; top:69.21%;" class="c_108_7">
+		THE VIRGINIA WAY
+	</div>
+
+	<div id="t_108_30" style="position: absolute; left: 8.82%; top: 73.58%;" class="c_108_6">
+		we have lots of counties&mdash;95 of them to be exact! Counties divide
+	</div>
+
+	<div id="t_108_31" style="position: absolute; left: 8.82%; top: 75.47%;" class="c_108_6">
+		a state into smaller sections. We also have &ldquo;independent cities&rdquo;
+	</div>
+
+	<div id="t_108_32" style="position: absolute; left: 8.82%; top: 77.37%;" class="c_108_6">
+		that are separate from counties.
+	</div>
+
+	<div id="t_108_33" style="position: absolute; left: 10.14%; top: 79.26%;" class="c_108_6">
+		Independent cities can offer many of the same services that a
+	</div>
+
+	<div id="t_108_34" style="position: absolute; left: 8.82%; top: 81.16%;" class="c_108_6">
+		county does, plus a few more, such as public transportation. There are
+	</div>
+
+	<div id="t_108_35" style="position: absolute; left: 8.82%; top: 83.05%;" class="c_108_6">
+		38 independent cities. It can get confusing because there are counties
+	</div>
+
+	<div id="t_108_36" style="position: absolute; left: 8.82%; top:84.55%;" class="c_108_8">
+		and <span class="c_108_9">independent cities with the same name, such as Fairfax, Franklin,</span>
+	</div>
+
+	<div id="t_108_37" style="position: absolute; left: 8.82%; top: 86.84%;" class="c_108_6">
+		Richmond, and Roanoke, but they are separate entities.
+	</div>
+
+	<div id="t_108_38" style="position: absolute; left: 10.14%; top: 88.73%;" class="c_108_6">
+		Local governments work the same way as the state and federal
+	</div>
+
+	<div id="t_108_39" style="position: absolute; left: 8.82%; top: 90.63%;" class="c_108_6">
+		governments do. Those three branches you now know all about&mdash;
+	</div>
+
+	<div id="t_108_40" style="position: absolute; left: 8.82%; top: 92.52%;" class="c_108_6">
+		legislative, executive, and judicial&mdash;help keep you safe and sound.
+	</div>
+
+	<div id="t_108_41" style="position: absolute; left: 65.02%; top:58.12%;" class="c_108_10">
+		Meeting
+	</div>
+
+	<div id="t_108_42" style="position: absolute; left: 71.65%; top:63.55%;" class="c_108_10">
+		Our
+	</div>
+
+	<div id="t_108_43" style="position: absolute; left: 68.07%; top:68.98%;" class="c_108_10">
+		Needs
+	</div>
+
+	<div id="t_108_44" style="position: absolute; left: 65.54%; top:76.58%;" class="c_108_11">
+		COUNTY/CITY SERVICES
+	</div>
+
+	<div id="t_108_45" style="position: absolute; left: 69.12%; top:79.97%;" class="c_108_12">
+		&bull; <span class="c_108_13">We depend on local</span>
+	</div>
+
+	<div id="t_108_46" style="position: absolute; left: 69.12%; top:81.61%;" class="c_108_14">
+		governments for many of our
+	</div>
+
+	<div id="t_108_47" style="position: absolute; left: 69.12%; top:83.26%;" class="c_108_14">
+		basic needs.
+	</div>
+
+	<div id="t_108_48" style="position: absolute; left: 69.12%; top: 85.2%;" class="c_108_6">
+		To the right are some of the
+	</div>
+
+	<div id="t_108_49" style="position: absolute; left: 69.12%; top: 87.1%;" class="c_108_6">
+		services that Hanover
+	</div>
+
+	<div id="t_108_50" style="position: absolute; left: 69.12%; top: 88.99%;" class="c_108_6">
+		County offers its residents.
+	</div>
+
+	<div id="t_108_51" style="position: absolute; left: 69.12%; top: 90.88%;" class="c_108_6">
+		How does your county or
+	</div>
+
+	<div id="t_108_52" style="position: absolute; left: 69.12%; top: 92.78%;" class="c_108_6">
+		independent city compare?
+	</div>
+
+	<div id="t_108_53" style="position: absolute; left: 69.12%; top: 94.67%;" class="c_108_6">
+		Find out!
+	</div>
+
+	<div id="t_108_54" style="position: absolute; left: 4.97%; top:94.57%;" class="c_108_15">
+		108
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_108_the_units_of_local_gov.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 26.5%; top: 16.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_108_a_raging_fire.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 37%; top: 34%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_108_county_city_town.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 59%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_108_think_about_your_life.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 60%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_108_meeting_our_needs.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_109">
+                                                                                                <div class="pageData">
+
+	<div id="t_109_0" style="position: absolute; left: 30.73%; top:13.55%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_1" style="position: absolute; left: 49.56%; top:18.80%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_2" style="position: absolute; left: 53.42%; top:19.38%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_3" style="position: absolute; left: 46.50%; top:20.09%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_4" style="position: absolute; left: 45.73%; top:20.37%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_5" style="position: absolute; left: 45.90%; top:27.83%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_6" style="position: absolute; left: 16.12%; top:25.35%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_7" style="position: absolute; left: 15.63%; top:31.62%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_8" style="position: absolute; left: 11.47%; top:30.15%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_9" style="position: absolute; left: 24.14%; top:32.14%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_10" style="position: absolute; left: 3.94%; top:36.29%;" class="c_109_0">
+		&bull; &bull;
+	</div>
+
+	<div id="t_109_11" style="position: absolute; left: 9.11%; top:42.10%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_12" style="position: absolute; left: 4.79%; top:55.92%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_13" style="position: absolute; left: 49.52%; top:44.52%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_14" style="position: absolute; left: 47.30%; top:44.89%;" class="c_109_0">
+		&bull;&bull;
+	</div>
+
+	<div id="t_109_15" style="position: absolute; left: 62.32%; top:45.09%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_16" style="position: absolute; left: 45.90%; top:54.03%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_17" style="position: absolute; left: 56.92%; top:54.61%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_18" style="position: absolute; left: 61.80%; top:54.52%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_19" style="position: absolute; left: 70.09%; top:47.09%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_20" style="position: absolute; left: 67.06%; top:48.05%;" class="c_109_0">
+		&bull; &bull;
+	</div>
+
+	<div id="t_109_21" style="position: absolute; left: 69.35%; top:51.30%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_22" style="position: absolute; left: 67.58%; top:54.33%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_23" style="position: absolute; left: 71.76%; top:50.44%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_24" style="position: absolute; left: 72.29%; top:53.57%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_25" style="position: absolute; left: 74.10%; top:52.28%;" class="c_109_0">
+		&bull;
+	</div>
+
+	<div id="t_109_26" style="position: absolute; left: 10.41%; top:62.00%;" class="c_109_1">
+		PUBLIC SCHOOLS
+	</div>
+
+	<div id="t_109_27" style="position: absolute; left: 44.75%; top:62.03%;" class="c_109_1">
+		POLICE
+	</div>
+
+	<div id="t_109_28" style="position: absolute; left: 70.64%; top:61.72%;" class="c_109_1">
+		FIRE &amp; EMS
+	</div>
+
+	<div id="t_109_29" style="position: absolute; left: 16.21%; top:73.57%;" class="c_109_1">
+		LIBRARY
+	</div>
+
+	<div id="t_109_30" style="position: absolute; left: 38.12%; top:73.46%;" class="c_109_1">
+		WATER &amp;SEWERS
+	</div>
+
+	<div id="t_109_31" style="position: absolute; left: 65.19%; top:73.45%;" class="c_109_1">
+		PARKS/RECREATION
+	</div>
+
+	<div id="t_109_32" style="position: absolute; left: 9.38%; top:84.61%;" class="c_109_1">
+		BUILDING PERMITS
+	</div>
+
+	<div id="t_109_33" style="position: absolute; left: 37.45%; top:84.64%;" class="c_109_1">
+		TRASH/RECYCLING
+	</div>
+
+	<div id="t_109_34" style="position: absolute; left: 66.07%; top:84.80%;" class="c_109_1">
+		ANIMAL CONTROL
+	</div>
+
+	<div id="t_109_35" style="position: absolute; left: 93.27%; top:94.57%;" class="c_109_2">
+		109
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 4%; top: 61.25%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_109_public_school_etc.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_108_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_109_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_108_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="108.html?page=right"; onclick="goto('108.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="110.html"; onclick="goto('110.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="110.html"; onclick="goto('110.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

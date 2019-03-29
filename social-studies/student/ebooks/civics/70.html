@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_70.css">
+                <link rel="stylesheet" href="css/civics_71.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="68.html?page=right"; onclick="goto('68.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="70.html"; onclick="goto('70.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="68.html?page=right"; onclick="goto('68.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_70_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_71_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_70_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="70.html?page=right"; onclick="goto('70.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="72.html"; onclick="goto('72.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="72.html"; onclick="goto('72.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="68.html?page=right"; onclick="goto('68.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="70.html"; onclick="goto('70.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="68.html?page=right"; onclick="goto('68.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_70">
+                                                                                                <div class="pageData">
+
+	<div id="t_70_0" style="position: absolute; left: 5.78%; top:3.83%;" class="c_70_0">
+		The lawmaking process requires
+	</div>
+
+	<div id="t_70_1" style="position: absolute; left: 5.78%; top:5.60%;" class="c_70_0">
+		collaboration and compromise.
+	</div>
+
+	<div id="t_70_2" style="position: absolute; left: 5.78%; top:8.12%;" class="c_70_0">
+		National laws are made by
+	</div>
+
+	<div id="t_70_3" style="position: absolute; left: 5.78%; top:9.89%;" class="c_70_0">
+		Congress.
+	</div>
+
+	<div id="t_70_4" style="position: absolute; left: 34.93%; top: 3.77%; letter-spacing: -0.02em;" class="c_70_1">
+		The Legislative Branch
+	</div>
+
+	<div id="t_70_5" style="position: absolute; left: 35.50%; top: 10.92%; letter-spacing: 0.01em;" class="c_70_2">
+		What goes on inside the Capitol when Congress is in session?
+	</div>
+
+	<div id="t_70_6" style="position: absolute; left: 7.27%; top:13.42%;" class="c_70_3">
+		Word to Know
+	</div>
+
+	<div id="t_70_7" style="position: absolute; left: 7.27%; top:16.87%;" class="c_70_4">
+		<span class="c_70_5">&nbsp;&nbsp;&nbsp;&nbsp;bill</span>
+	</div>
+
+	<div id="t_70_8" style="position: absolute; left: 6.87%; top:15.12%; font-size: 2.5em;" class="c_70_4">&#8227;</div>
+	<div id="t_70_9" style="position: absolute; left: 7.27%; top:19.32%;" class="c_70_6">
+		A draft for a proposed
+	</div>
+
+	<div id="t_70_10" style="position: absolute; left: 7.27%; top:21.46%;" class="c_70_6">
+		law to be shared for
+	</div>
+
+	<div id="t_70_11" style="position: absolute; left: 7.27%; top:23.61%;" class="c_70_6">
+		discussion
+	</div>
+
+	<div id="t_70_12" style="position: absolute; left: 28.37%; top: 13.89%;" class="c_70_7">
+		The number of representatives in the House is fixed by law at 435 people,
+	</div>
+
+	<div id="t_70_13" style="position: absolute; left: 27.05%; top: 15.78%;" class="c_70_7">
+		proportionally representing the population of each state. Representatives
+	</div>
+
+	<div id="t_70_14" style="position: absolute; left: 27.05%; top: 17.67%;" class="c_70_7">
+		serve for a two-year term. There are also 100 senators&mdash;two from each state&mdash;
+	</div>
+
+	<div id="t_70_15" style="position: absolute; left: 27.05%; top: 19.57%;" class="c_70_7">
+		who serve for six years. So 535 people are tasked with the job of serving over
+	</div>
+
+	<div id="t_70_16" style="position: absolute; left: 27.05%; top: 21.46%;" class="c_70_7">
+		320 million people. Their biggest challenge is the making of laws for the nation.
+	</div>
+
+	<div id="t_70_17" style="position: absolute; left: 40.94%; top:23.54%;" class="c_70_8">
+		10 STEPS FROM IDEA TO LAW
+	</div>
+
+	<div id="t_70_18" style="position: absolute; left: 27.93%; top: 26.26%;" class="c_70_7">
+		Laws are written to solve problems or protect us from harm. How do ideas
+	</div>
+
+	<div id="t_70_19" style="position: absolute; left: 27.05%; top: 28.15%;" class="c_70_7">
+		become federal law? It can take years! Here is how the process happens.
+	</div>
+
+	<div id="t_70_20" style="position: absolute; left: 17.04%; top:31.99%;" class="c_70_9">
+		1. PROPOSE A BILL
+	</div>
+
+	<div id="t_70_21" style="position: absolute; left: 20.09%; top: 35.89%;" class="c_70_10">
+		&bull; <span class="c_70_11">Anyone can propose a bill. Even you!</span>
+	</div>
+
+	<div id="t_70_22" style="position: absolute; left: 19.61%; top: 37.78%;" class="c_70_7">
+		Most bills can start in either the
+	</div>
+
+	<div id="t_70_23" style="position: absolute; left: 19.61%; top: 39.68%;" class="c_70_7">
+		House or Senate, but tax bills
+	</div>
+
+	<div id="t_70_24" style="position: absolute; left: 19.61%; top: 41.57%;" class="c_70_7">
+		must start in the House.
+	</div>
+
+	<div id="t_70_25" style="position: absolute; left: 32.35%; top: 43.47%;" class="c_70_7">
+		Thousands of
+	</div>
+
+	<div id="t_70_26" style="position: absolute; left: 32.35%; top: 45.36%;" class="c_70_7">
+		ideas are
+	</div>
+
+	<div id="t_70_27" style="position: absolute; left: 32.35%; top: 47.26%;" class="c_70_7">
+		submitted, but
+	</div>
+
+	<div id="t_70_28" style="position: absolute; left: 32.35%; top: 49.15%;" class="c_70_7">
+		most are rejected.
+	</div>
+
+	<div id="t_70_29" style="position: absolute; left: 56.71%; top:32.38%;" class="c_70_9">
+		2. PUT IT IN THE HOPPER
+	</div>
+
+	<div id="t_70_30" style="position: absolute; left: 52.09%; top: 35.96%;" class="c_70_10">
+		&bull; <span class="c_70_11">Next stop? This small box! The bill is officially</span>
+	</div>
+
+	<div id="t_70_31" style="position: absolute; left: 52.09%; top:37.80%;" class="c_70_12">
+		in the system.
+	</div>
+
+	<div id="t_70_32" style="position: absolute; left: 52.09%; top: 40.25%;" class="c_70_7">
+		The bill goes into this
+	</div>
+
+	<div id="t_70_33" style="position: absolute; left: 52.09%; top: 42.14%;" class="c_70_7">
+		&ldquo;hopper&rdquo; and gets
+	</div>
+
+	<div id="t_70_34" style="position: absolute; left: 52.09%; top: 44.04%;" class="c_70_7">
+		assigned a number.
+	</div>
+
+	<div id="t_70_35" style="position: absolute; left: 52.09%; top: 45.93%;" class="c_70_7">
+		A bit old-fashioned
+	</div>
+
+	<div id="t_70_36" style="position: absolute; left: 52.09%; top: 47.83%;" class="c_70_7">
+		perhaps, but still a
+	</div>
+
+	<div id="t_70_37" style="position: absolute; left: 52.09%; top: 49.72%;" class="c_70_7">
+		cherished tradition.
+	</div>
+
+	<div id="t_70_38" style="position: absolute; left: 12.34%; top:53.28%;" class="c_70_9">
+		3. TO THE HOUSE SPEAKER
+	</div>
+
+	<div id="t_70_39" style="position: absolute; left: 56.90%; top:53.41%;" class="c_70_9">
+		4. IN COMMITTEE LIMBO
+	</div>
+
+	<div id="t_70_40" style="position: absolute; left: 26.94%; top: 57.86%;" class="c_70_10">
+		&bull; <span class="c_70_11">Being Speaker of the</span>
+	</div>
+
+	<div id="t_70_41" style="position: absolute; left: 26.73%; top:59.45%;" class="c_70_12">
+		House is a powerful
+	</div>
+
+	<div id="t_70_42" style="position: absolute; left: 21.57%; top:61.35%;" class="c_70_12">
+		position. That person represents
+	</div>
+
+	<div id="t_70_43" style="position: absolute; left: 21.18%; top:63.24%;" class="c_70_12">
+		the majority party and
+	</div>
+
+	<div id="t_70_44" style="position: absolute; left: 8.82%; top:65.14%;" class="c_70_12">
+		runs things in the House.
+	</div>
+
+	<div id="t_70_45" style="position: absolute; left: 8.82%; top: 67.59%;" class="c_70_7">
+		The Speaker sends the bill to one of
+	</div>
+
+	<div id="t_70_46" style="position: absolute; left: 8.82%; top: 69.48%;" class="c_70_7">
+		20 possible committees, depending
+	</div>
+
+	<div id="t_70_47" style="position: absolute; left: 8.82%; top: 71.38%;" class="c_70_7">
+		on its subject matter.
+	</div>
+
+	<div id="t_70_48" style="position: absolute; left: 51.97%; top: 57.65%;" class="c_70_10">
+		&bull; <span class="c_70_11">Many bills die in committee.</span>
+	</div>
+
+	<div id="t_70_49" style="position: absolute; left: 51.97%; top: 59.55%;" class="c_70_7">
+		The committees can decide
+	</div>
+
+	<div id="t_70_50" style="position: absolute; left: 51.97%; top: 61.44%;" class="c_70_7">
+		whether to go forward
+	</div>
+
+	<div id="t_70_51" style="position: absolute; left: 51.97%; top: 63.33%;" class="c_70_7">
+		or ignore the bill. If
+	</div>
+
+	<div id="t_70_52" style="position: absolute; left: 51.97%; top: 65.23%;" class="c_70_7">
+		they go ahead, a lot
+	</div>
+
+	<div id="t_70_53" style="position: absolute; left: 51.97%; top: 67.12%;" class="c_70_7">
+		of changes will be
+	</div>
+
+	<div id="t_70_54" style="position: absolute; left: 51.97%; top: 69.02%;" class="c_70_7">
+		made. You can count
+	</div>
+
+	<div id="t_70_55" style="position: absolute; left: 51.97%; top: 70.91%;" class="c_70_7">
+		on that!
+	</div>
+
+	<div id="t_70_56" style="position: absolute; left: 10.76%; top:74.29%;" class="c_70_9">
+		5. TO THE RULES COMMITTEE
+	</div>
+
+	<div id="t_70_57" style="position: absolute; left: 60.23%; top:74.34%;" class="c_70_9">
+		6. TO THE &ldquo;FLOOR&rdquo;
+	</div>
+
+	<div id="t_70_58" style="position: absolute; left: 20.19%; top: 78.28%;" class="c_70_10">
+		&bull; <span class="c_70_11">Very powerful people!</span>
+	</div>
+
+	<div id="t_70_59" style="position: absolute; left: 8.82%; top: 80.17%;" class="c_70_7">
+		After making it through a committee, this group
+	</div>
+
+	<div id="t_70_60" style="position: absolute; left: 8.82%; top: 82.07%;" class="c_70_7">
+		sets a date on the calendar and makes &ldquo;special&rdquo;
+	</div>
+
+	<div id="t_70_61" style="position: absolute; left: 25.20%; top: 83.96%;" class="c_70_7">
+		rules that might make the
+	</div>
+
+	<div id="t_70_62" style="position: absolute; left: 25.20%; top: 85.86%;" class="c_70_7">
+		bill easier or harder to
+	</div>
+
+	<div id="t_70_63" style="position: absolute; left: 25.20%; top: 87.75%;" class="c_70_7">
+		pass&mdash;such as saying that
+	</div>
+
+	<div id="t_70_64" style="position: absolute; left: 25.20%; top: 89.64%;" class="c_70_7">
+		the bill must be voted upon
+	</div>
+
+	<div id="t_70_65" style="position: absolute; left: 25.20%; top:91.14%;" class="c_70_13">
+		exactly <span class="c_70_14">as it is written.</span>
+	</div>
+
+	<div id="t_70_66" style="position: absolute; left: 52.03%; top: 78.58%;" class="c_70_10">
+		&bull; <span class="c_70_11">Time to vote!</span>
+	</div>
+
+	<div id="t_70_67" style="position: absolute; left: 52.03%; top: 80.48%;" class="c_70_7">
+		The Speaker of the
+	</div>
+
+	<div id="t_70_68" style="position: absolute; left: 52.03%; top: 82.37%;" class="c_70_7">
+		House sets a time
+	</div>
+
+	<div id="t_70_69" style="position: absolute; left: 52.03%; top: 84.26%;" class="c_70_7">
+		limit for debate,
+	</div>
+
+	<div id="t_70_70" style="position: absolute; left: 52.03%; top: 86.16%;" class="c_70_7">
+		makes sure people
+	</div>
+
+	<div id="t_70_71" style="position: absolute; left: 52.03%; top: 88.05%;" class="c_70_7">
+		stick to their limits,
+	</div>
+
+	<div id="t_70_72" style="position: absolute; left: 52.03%; top: 89.95%;" class="c_70_7">
+		and then calls a vote.
+	</div>
+
+	<div id="t_70_73" style="position: absolute; left: 4.78%; top: 94.16%;" class="c_70_15">
+		70
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 0.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_the_lawmaking_process.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 14%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_word_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 34%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_the_legislative_branch.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 31.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_propose_a_bill.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 49%; top: 31.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_put_it_in_the_hopper.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 52.6%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_to_the_house_speaker.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 49%; top: 52.6%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_in_committee_limbo.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5.5%; top: 73.75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_to_the_rules_committee.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 49%; top: 73.75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_70_to_the_floor.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_71">
+                                                                                                <div class="pageData">
+
+	<div id="t_71_0" style="position: absolute; left: 14.72%; top:6.17%;" class="c_71_0">
+		7. OFF TO THE SENATE?
+	</div>
+
+	<div id="t_71_1" style="position: absolute; left: 9.31%; top: 9.98%;" class="c_71_1">
+		&bull; <span class="c_71_2">Did the bill pass in the House?</span>
+	</div>
+
+	<div id="t_71_2" style="position: absolute; left: 9.31%; top:11.44%;" class="c_71_3">
+		If it did, now it&rsquo;s the Senate&rsquo;s turn.
+	</div>
+
+	<div id="t_71_3" style="position: absolute; left: 9.31%; top: 13.76%;" class="c_71_4">
+		A simple majority vote
+	</div>
+
+	<div id="t_71_4" style="position: absolute; left: 9.31%; top: 15.66%;" class="c_71_4">
+		allows a bill to
+	</div>
+
+	<div id="t_71_5" style="position: absolute; left: 9.31%; top: 17.55%;" class="c_71_4">
+		move from the House
+	</div>
+
+	<div id="t_71_6" style="position: absolute; left: 9.31%; top: 19.45%;" class="c_71_4">
+		side to the Senate
+	</div>
+
+	<div id="t_71_7" style="position: absolute; left: 9.31%; top: 21.34%;" class="c_71_4">
+		side.
+	</div>
+
+	<div id="t_71_8" style="position: absolute; left: 13.34%; top:28.23%;" class="c_71_0">
+		8. BACK TO A COMMITTEE
+	</div>
+
+	<div id="t_71_9" style="position: absolute; left: 9.24%; top: 32%;" class="c_71_1">
+		&bull; <span class="c_71_2">The bill is evaluated again&hellip;and changed.</span>
+	</div>
+
+	<div id="t_71_10" style="position: absolute; left: 9.24%; top: 33.89%;" class="c_71_4">
+		There are many different Senate
+	</div>
+
+	<div id="t_71_11" style="position: absolute; left: 9.24%; top: 35.79%;" class="c_71_4">
+		committees. Most senators
+	</div>
+
+	<div id="t_71_12" style="position: absolute; left: 9.24%; top: 37.68%;" class="c_71_4">
+		serve on at least five. More
+	</div>
+
+	<div id="t_71_13" style="position: absolute; left: 9.24%; top: 39.58%;" class="c_71_4">
+		changes to the bill are
+	</div>
+
+	<div id="t_71_14" style="position: absolute; left: 9.24%; top: 41.47%;" class="c_71_4">
+		made here. A simple
+	</div>
+
+	<div id="t_71_15" style="position: absolute; left: 9.24%; top: 43.37%;" class="c_71_4">
+		majority moves the bill
+	</div>
+
+	<div id="t_71_16" style="position: absolute; left: 9.24%; top: 45.26%;" class="c_71_4">
+		along for a vote.
+	</div>
+
+	<div id="t_71_17" style="position: absolute; left: 11.56%; top:48.67%;" class="c_71_0">
+		9. SENATE &ldquo;FLOOR&rdquo; ACTION
+	</div>
+
+	<div id="t_71_18" style="position: absolute; left: 13.84%; top: 52.27%;" class="c_71_1">
+		&bull; <span class="c_71_2">Lots of drama here. More debating the bill.</span>
+	</div>
+
+	<div id="t_71_19" style="position: absolute; left: 25.04%; top: 54.16%;" class="c_71_4">
+		A senator can filibuster (try
+	</div>
+
+	<div id="t_71_20" style="position: absolute; left: 25.13%; top: 56.06%;" class="c_71_4">
+		to stop) a bill by talking and
+	</div>
+
+	<div id="t_71_21" style="position: absolute; left: 25.23%; top: 57.95%;" class="c_71_4">
+		talking. Until 60 other
+	</div>
+
+	<div id="t_71_22" style="position: absolute; left: 25.07%; top: 59.85%;" class="c_71_4">
+		senators vote to stop, that
+	</div>
+
+	<div id="t_71_23" style="position: absolute; left: 24.53%; top: 61.74%;" class="c_71_4">
+		person has the floor. The
+	</div>
+
+	<div id="t_71_24" style="position: absolute; left: 21.11%; top: 63.64%;" class="c_71_4">
+		record is 24 hours and 18 minutes!
+	</div>
+
+	<div id="t_71_25" style="position: absolute; left: 21.11%; top: 65.53%;" class="c_71_4">
+		If the Senate finally approves the
+	</div>
+
+	<div id="t_71_26" style="position: absolute; left: 21.11%; top: 67.43%;" class="c_71_4">
+		bill by a simple majority&hellip;
+	</div>
+
+	<div id="t_71_27" style="position: absolute; left: 10.45%; top:70.39%;" class="c_71_0">
+		10. IT GOES TO THE PRESIDENT
+	</div>
+
+	<div id="t_71_28" style="position: absolute; left: 13.04%; top: 74.28%;" class="c_71_1">
+		&bull; <span class="c_71_2">It&rsquo;s not over yet. The president has 10 days</span>
+	</div>
+
+	<div id="t_71_29" style="position: absolute; left: 22.28%; top:75.75%;" class="c_71_3">
+		to sign it into law.
+	</div>
+
+	<div id="t_71_30" style="position: absolute; left: 8.82%; top: 78.07%;" class="c_71_4">
+		If the president does not like the bill, it can be
+	</div>
+
+	<div id="t_71_31" style="position: absolute; left: 8.82%; top: 79.97%;" class="c_71_4">
+		vetoed (rejected). When that happens, it takes
+	</div>
+
+	<div id="t_71_32" style="position: absolute; left: 8.82%; top: 81.86%;" class="c_71_4">
+		a two-thirds majority in both the House and
+	</div>
+
+	<div id="t_71_33" style="position: absolute; left: 8.82%; top: 83.76%;" class="c_71_4">
+		Senate to override
+	</div>
+
+	<div id="t_71_34" style="position: absolute; left: 8.82%; top: 85.65%;" class="c_71_4">
+		the veto.
+	</div>
+
+	<div id="t_71_35" style="position: absolute; left: 8.82%; top: 87.54%;" class="c_71_4">
+		Not an easy
+	</div>
+
+	<div id="t_71_36" style="position: absolute; left: 8.82%; top: 89.44%;" class="c_71_4">
+		thing to do!
+	</div>
+
+	<div id="t_71_37" style="position: absolute; left: 59.87%; top:1.48%;" class="c_71_5">
+		Congress
+	</div>
+
+	<div id="t_71_38" style="position: absolute; left: 62.16%; top:7.29%;" class="c_71_5">
+		at Work
+	</div>
+
+	<div id="t_71_39" style="position: absolute; left: 62.04%; top:14.65%;" class="c_71_6">
+		THERE&rsquo;S MORE TO DO!
+	</div>
+
+	<div id="t_71_40" style="position: absolute; left: 58.99%; top:18.03%;" class="c_71_7">
+		APPROVING THE BUDGET
+	</div>
+
+	<div id="t_71_41" style="position: absolute; left: 53.97%; top: 20.63%;" class="c_71_4">
+		Just like your family, the government has a
+	</div>
+
+	<div id="t_71_42" style="position: absolute; left: 53.97%; top: 22.52%;" class="c_71_4">
+		budget. The president prepares it and the House
+	</div>
+
+	<div id="t_71_43" style="position: absolute; left: 53.97%; top: 24.41%;" class="c_71_4">
+		and Senate get to approve it&mdash;or not. Sometimes
+	</div>
+
+	<div id="t_71_44" style="position: absolute; left: 53.97%; top: 26.31%;" class="c_71_4">
+		budget fights lead to a government shutdown.
+	</div>
+
+	<div id="t_71_45" style="position: absolute; left: 57.62%; top:28.26%;" class="c_71_7">
+		CONFIRMING PRESIDENTIAL
+	</div>
+
+	<div id="t_71_46" style="position: absolute; left: 64.52%; top:30.15%;" class="c_71_7">
+		APPOINTMENTS
+	</div>
+
+	<div id="t_71_47" style="position: absolute; left: 53.97%; top: 32.87%;" class="c_71_4">
+		The Senate has the power of &ldquo;advice and
+	</div>
+
+	<div id="t_71_48" style="position: absolute; left: 53.97%; top: 34.77%;" class="c_71_4">
+		consent.&rdquo; It approves the president&rsquo;s choices for
+	</div>
+
+	<div id="t_71_49" style="position: absolute; left: 53.97%; top: 36.66%;" class="c_71_4">
+		Cabinet secretaries, federal judges, ambassadors,
+	</div>
+
+	<div id="t_71_50" style="position: absolute; left: 53.97%; top: 38.56%;" class="c_71_4">
+		and more. Selecting Supreme Court justices is
+	</div>
+
+	<div id="t_71_51" style="position: absolute; left: 53.97%; top: 40.45%;" class="c_71_4">
+		sometimes difficult. In 2016, a Republican Senate
+	</div>
+
+	<div id="t_71_52" style="position: absolute; left: 53.97%; top: 42.35%;" class="c_71_4">
+		refused to vote on President Obama&rsquo;s nominee.
+	</div>
+
+	<div id="t_71_53" style="position: absolute; left: 53.97%; top: 44.24%;" class="c_71_4">
+		Congress can also discipline or remove judges
+	</div>
+
+	<div id="t_71_54" style="position: absolute; left: 53.97%; top: 46.13%;" class="c_71_4">
+		and justices who misbehave or break the law.
+	</div>
+
+	<div id="t_71_55" style="position: absolute; left: 65.00%; top:48.08%;" class="c_71_7">
+		RAISING TAXES
+	</div>
+
+	<div id="t_71_56" style="position: absolute; left: 53.97%; top: 50.8%;" class="c_71_4">
+		In order to pay the government&rsquo;s expenses, taxes
+	</div>
+
+	<div id="t_71_57" style="position: absolute; left: 53.97%; top: 52.7%;" class="c_71_4">
+		and other levies must be collected.
+	</div>
+
+	<div id="t_71_58" style="position: absolute; left: 62.08%; top:54.65%;" class="c_71_7">
+		REGULATING TRADE
+	</div>
+
+	<div id="t_71_59" style="position: absolute; left: 53.97%; top: 57.37%;" class="c_71_4">
+		There are government regulations regarding
+	</div>
+
+	<div id="t_71_60" style="position: absolute; left: 53.97%; top: 59.26%;" class="c_71_4">
+		business dealings with other countries. The same
+	</div>
+
+	<div id="t_71_61" style="position: absolute; left: 53.97%; top: 61.16%;" class="c_71_4">
+		thing holds true for companies that do business
+	</div>
+
+	<div id="t_71_62" style="position: absolute; left: 53.97%; top: 63.05%;" class="c_71_4">
+		across state lines here in America.
+	</div>
+
+	<div id="t_71_63" style="position: absolute; left: 63.86%; top:64.87%;" class="c_71_7">
+		DECLARING WAR
+	</div>
+
+	<div id="t_71_64" style="position: absolute; left: 53.97%; top: 67.6%;" class="c_71_4">
+		This is the most difficult task for Congress. It has
+	</div>
+
+	<div id="t_71_65" style="position: absolute; left: 53.97%; top: 69.49%;" class="c_71_4">
+		formally declared war 11 times in U.S. history.
+	</div>
+
+	<div id="t_71_66" style="position: absolute; left: 75.20%; top:80.04%;" class="c_71_8">
+		On a &ldquo;date which will live in
+	</div>
+
+	<div id="t_71_67" style="position: absolute; left: 75.20%; top:81.68%;" class="c_71_8">
+		infamy,&rdquo; President Franklin
+	</div>
+
+	<div id="t_71_68" style="position: absolute; left: 75.20%; top:83.32%;" class="c_71_8">
+		Roosevelt asks for a
+	</div>
+
+	<div id="t_71_69" style="position: absolute; left: 75.20%; top:84.96%;" class="c_71_8">
+		declaration of war from
+	</div>
+
+	<div id="t_71_70" style="position: absolute; left: 75.20%; top:86.60%;" class="c_71_8">
+		Congress after the bombing
+	</div>
+
+	<div id="t_71_71" style="position: absolute; left: 75.20%; top:88.24%;" class="c_71_8">
+		of the U.S. naval base at
+	</div>
+
+	<div id="t_71_72" style="position: absolute; left: 75.20%; top:89.89%;" class="c_71_8">
+		Pearl Harbor in Hawaii.
+	</div>
+
+	<div id="t_71_73" style="position: absolute; left: 93.99%; top: 93.11%;" class="c_71_9">
+		71
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 5.5%; top: 5.25%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_71_off_to_the_senate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5.5%; top: 27.4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_71_back_to_a_committee.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5.5%; top: 47.7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_71_senate_floor_action.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5.5%; top: 69.7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_71_it_goes_to_the_president.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 55%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_71_congress_at_work.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 69.7%; top: 79%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_71_on_a_date_which.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_70_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_71_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_70_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="70.html?page=right"; onclick="goto('70.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="72.html"; onclick="goto('72.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="72.html"; onclick="goto('72.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_168.css">
+                <link rel="stylesheet" href="css/civics_169.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="166.html?page=right"; onclick="goto('166.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="168.html"; onclick="goto('168.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="166.html?page=right"; onclick="goto('166.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_168_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_169_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_168_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="168.html?page=right"; onclick="goto('168.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="170.html"; onclick="goto('170.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="170.html"; onclick="goto('170.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="166.html?page=right"; onclick="goto('166.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="168.html"; onclick="goto('168.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="166.html?page=right"; onclick="goto('166.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_168">
+                                                                                                <div class="pageData">
+
+	<div id="t_168_0" style="position: absolute; left: 27.33%; top: 4.71%; letter-spacing: -0.02em;" class="c_168_0">
+		Chapter 9 Review
+	</div>
+
+	<div id="t_168_1" style="position: absolute; left: 11.76%; top:12.25%;" class="c_168_1">
+		Use pages 152&ndash;153 to answer questions 1&ndash;2.
+	</div>
+
+	<div id="t_168_2" style="position: absolute; left: 11.76%; top: 14.2%;" class="c_168_2">
+		1. All individuals and organizations, including businesses and governments, are confronted with
+	</div>
+
+	<div id="t_168_3" style="position: absolute; left: 11.76%; top: 16.09%;" class="c_168_2">
+		scarcity at one time or another. Explain what scarcity is and what it forces consumers,
+	</div>
+
+	<div id="t_168_4" style="position: absolute; left: 11.76%; top: 17.99%;" class="c_168_2">
+		producers, and governments to do.
+	</div>
+
+	<div id="t_168_5" style="position: absolute; left: 11.76%; top: 19.88%;" class="c_168_2">
+		2. Write a paragraph about your consumption of a product you like. Use the following terms
+	</div>
+
+	<div id="t_168_6" style="position: absolute; left: 11.76%; top: 21.78%;" class="c_168_2">
+		in your paragraph:
+	</div>
+
+	<div id="t_168_7" style="position: absolute; left: 11.76%; top:23.52%;" class="c_168_4">
+        Resources &bull; Production &bull; Scarcity &bull; Choice &bull; Opportunity Cost &bull; Consumption
+	</div>
+
+	<div id="t_168_8" style="position: absolute; left: 11.76%; top:26.52%;" class="c_168_1">
+		Use pages 154&ndash;155 to answer questions 3&ndash;4 in complete sentences.
+	</div>
+
+	<div id="t_168_9" style="position: absolute; left: 11.76%; top: 28.47%;" class="c_168_2">
+		3. What are the basic questions of economics?
+	</div>
+
+	<div id="t_168_10" style="position: absolute; left: 11.76%; top: 30.36%;" class="c_168_2">
+		4. Explain the difference between a mixed economy and a command economy.
+	</div>
+
+	<div id="t_168_11" style="position: absolute; left: 11.76%; top:33.22%;" class="c_168_1">
+		Use pages 156&ndash;157 to answer questions 5&ndash;6.
+	</div>
+
+	<div id="t_168_12" style="position: absolute; left: 11.76%; top: 35.16%;" class="c_168_2">
+		5. Copy and complete the chart about the characteristics of the U.S. economy. In your own
+	</div>
+
+	<div id="t_168_13" style="position: absolute; left: 11.76%; top: 37.06%;" class="c_168_2">
+		words, explain the following terms and draw a picture to help you remember.
+	</div>
+
+	<div id="t_168_14" style="position: absolute; left: 38.72%; top:39.16%;" class="c_168_5">
+		EXPLANATION
+	</div>
+
+	<div id="t_168_15" style="position: absolute; left: 66.87%; top:39.16%;" class="c_168_5">
+		ILLUSTRATION
+	</div>
+
+	<div id="t_168_16" style="position: absolute; left: 17.86%; top:39.16%;" class="c_168_5">
+		TERM
+	</div>
+
+	<div id="t_168_17" style="position: absolute; left: 13.01%; top:42.98%;" class="c_168_6">
+		Private Property
+	</div>
+
+	<div id="t_168_18" style="position: absolute; left: 13.01%; top:46.52%;" class="c_168_6">
+		Profit Motive
+	</div>
+
+	<div id="t_168_19" style="position: absolute; left: 13.01%; top:50.31%; letter-spacing: -0.04em;" class="c_168_6">
+		Consumer Sovereignty
+	</div>
+
+	<div id="t_168_20" style="position: absolute; left: 13.01%; top:54.35%;" class="c_168_6">
+		Competition
+	</div>
+
+	<div id="t_168_21" style="position: absolute; left: 13.01%; top:57.88%;" class="c_168_6">
+		Free Enterprise
+	</div>
+
+	<div id="t_168_22" style="position: absolute; left: 11.76%; top: 61.43%;" class="c_168_2">
+		6. Government involvement in the economy is limited. When does the government intervene in
+	</div>
+
+	<div id="t_168_23" style="position: absolute; left: 11.76%; top: 63.32%;" class="c_168_2">
+		a market economy?
+	</div>
+
+	<div id="t_168_24" style="position: absolute; left: 11.76%; top:66.17%;" class="c_168_1">
+		Use pages 158&ndash;159 to answer questions 7&ndash;8.
+	</div>
+
+	<div id="t_168_25" style="position: absolute; left: 11.76%; top: 68.12%;" class="c_168_2">
+		7. Create a three-column chart on your paper to show the three types of business organizations.
+	</div>
+
+	<div id="t_168_26" style="position: absolute; left: 13.96%; top: 70.01%;" class="c_168_2">
+		Record each characteristic below in the correct column on the chart.
+	</div>
+
+	<div id="t_168_27" style="position: absolute; left: 12.75%; top:74.15%; letter-spacing: -0.04em;" class="c_168_6">
+		Ownership by 2 or more people
+	</div>
+
+	<div id="t_168_28" style="position: absolute; left: 41.54%; top:73.41%;" class="c_168_6">
+		All profit goes to the
+	</div>
+
+	<div id="t_168_29" style="position: absolute; left: 41.70%; top:74.93%;" class="c_168_6">
+		owner/entrepreneur
+	</div>
+
+	<div id="t_168_30" style="position: absolute; left: 13.24%; top:79.24%;" class="c_168_6">
+		Ownership by only 1 person
+	</div>
+
+	<div id="t_168_31" style="position: absolute; left: 37.87%; top:77.54%; letter-spacing: -0.04em;" class="c_168_6">
+		Owners share profits but liability
+	</div>
+
+	<div id="t_168_32" style="position: absolute; left: 63.00%; top:74.04%; letter-spacing: -0.05em;" class="c_168_6">
+		Owners share the risk and profits
+	</div>
+
+	<div id="t_168_33" style="position: absolute; left: 62.52%; top:78.22%; letter-spacing: -0.03em;" class="c_168_6">
+		Registered with the government
+	</div>
+
+	<div id="t_168_34" style="position: absolute; left: 66.20%; top:80.03%;" class="c_168_6">
+		and legally protected
+	</div>
+
+	<div id="t_168_35" style="position: absolute; left: 43.16%; top:79.20%;" class="c_168_6">
+		is limited to the
+	</div>
+
+	<div id="t_168_36" style="position: absolute; left: 38.57%; top:80.65%;" class="c_168_6">
+		amount of their investment
+	</div>
+
+	<div id="t_168_37" style="position: absolute; left: 11.76%; top: 83.27%;" class="c_168_2">
+		8. What is an entrepreneur? What type of business organization can an entrepreneur establish?
+	</div>
+
+	<div id="t_168_38" style="position: absolute; left: 11.76%; top:87.01%;" class="c_168_1">
+		Use pages 160&ndash;161 to answer question 9 in complete sentences.
+	</div>
+
+	<div id="t_168_39" style="position: absolute; left: 11.76%; top: 88.95%;" class="c_168_2">
+		9. What is an equilibrium price? Why is an equilibrium price good for buyers and good
+	</div>
+
+	<div id="t_168_40" style="position: absolute; left: 14.22%; top: 90.85%;" class="c_168_2">
+		for sellers?
+	</div>
+
+	<div id="t_168_41" style="position: absolute; left: 4.73%; top: 94.59%; letter-spacing: -0.15em;" class="c_168_7">
+		168
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 12%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_168_chapter_9_review.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 27%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_168_use_pages_154-155.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_168_use_pages_156-157.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 66%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_168_use_pages_158-159.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 88%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_168_use_pages_160-161.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_169">
+                                                                                                <div class="pageData">
+
+	<div id="t_169_0" style="position: absolute; left: 14.18%; top:6.54%;" class="c_169_0">
+		Use pages 162&ndash;163 to answer question 10.
+	</div>
+
+	<div id="t_169_1" style="position: absolute; left: 14.18%; top: 8.48%;" class="c_169_1">
+		10. Using the economic flow model, copy and complete the chart.
+	</div>
+
+	<div id="t_169_2" style="position: absolute; left: 15.53%; top:14.54%;" class="c_169_2">
+		Government
+	</div>
+
+	<div id="t_169_3" style="position: absolute; left: 15.53%; top:17.37%;" class="c_169_2">
+		Households
+	</div>
+
+	<div id="t_169_4" style="position: absolute; left: 15.53%; top:20.35%;" class="c_169_2">
+		Businesses
+	</div>
+
+	<div id="t_169_5" style="position: absolute; left: 50.05%; top:11.49%;" class="c_169_3">
+		INPUT
+	</div>
+
+	<div id="t_169_6" style="position: absolute; left: 49.00%; top:14.39%;" class="c_169_4">
+		Taxes
+	</div>
+
+	<div id="t_169_7" style="position: absolute; left: 75.10%; top:11.57%;" class="c_169_3">
+		OUTPUT
+	</div>
+
+	<div id="t_169_8" style="position: absolute; left: 66.66%; top:20.22%;" class="c_169_4">
+		Goods and services
+	</div>
+
+	<div id="t_169_9" style="position: absolute; left: 14.18%; top:23.58%;" class="c_169_0">
+		Use pages 164&ndash;165 to answer questions 11&ndash;12 in complete sentences.
+	</div>
+
+	<div id="t_169_10" style="position: absolute; left: 14.18%; top: 25.53%;" class="c_169_1">
+		11. What are the benefits of depositing money into a savings account?
+	</div>
+
+	<div id="t_169_11" style="position: absolute; left: 14.18%; top: 27.42%;" class="c_169_1">
+		12. What are two ways to bank? What is the difference between these financial institutions?
+	</div>
+
+	<div id="t_169_12" style="position: absolute; left: 14.18%; top:30.28%;" class="c_169_0">
+		Use pages 166&ndash;167 to answer question 13 in complete sentences.
+	</div>
+
+	<div id="t_169_13" style="position: absolute; left: 14.18%; top: 32.22%;" class="c_169_1">
+		13. Explain the impact of technological innovations on the global economy.
+	</div>
+
+	<div id="t_169_14" style="position: absolute; left: 27.75%; top: 34.84%; letter-spacing: -0.02em;" class="c_169_5">
+		Apply Your Learning
+	</div>
+
+	<div id="t_169_15" style="position: absolute; left: 14.35%; top: 42.37%;" class="c_169_1">
+		1. <span class="c_169_6">The United States maintains a global economy by negotiating trade agreements with</span>
+	</div>
+
+	<div id="t_169_16" style="position: absolute; left: 14.35%; top:44.26%;" class="c_169_7">
+		other nations. <span class="c_169_8">In 2016 the Trans-Pacific Partnership trade agreement was signed by 12 Pacific Rim</span>
+	</div>
+
+	<div id="t_169_17" style="position: absolute; left: 14.35%; top: 46.16%;" class="c_169_1">
+        countries and the United States, until President Donald Trump withdrew the U.S. from the pact.
+	</div>
+
+	<div id="t_169_18" style="position: absolute; left: 14.35%; top: 48.05%;" class="c_169_1">
+		Research the pros and cons of this trade agreement by using three different sources, including the
+	</div>
+
+	<div id="t_169_19" style="position: absolute; left: 14.35%; top: 49.95%;" class="c_169_1">
+		webpage of the Office of the United States Trade Representative<span class="c_169_6">.</span> <span class="c_169_8">After your research, formulate</span>
+	</div>
+
+	<div id="t_169_20" style="position: absolute; left: 14.35%; top: 51.84%;" class="c_169_1">
+		your opinion on the trade agreement. Write a paragraph that explains your opinion and cite your
+	</div>
+
+	<div id="t_169_21" style="position: absolute; left: 14.35%; top: 53.73%;" class="c_169_1">
+		sources when presenting your evidence.
+	</div>
+
+	<div id="t_169_22" style="position: absolute; left: 14.35%; top: 56.51%;" class="c_169_1">
+		2. <span class="c_169_6">Consumers, producers, and government decision-makers are forced to make choices because</span>
+	</div>
+
+	<div id="t_169_23" style="position: absolute; left: 14.35%; top:58.41%;" class="c_169_7">
+		of scarcity. <span class="c_169_8">Almost 98 percent of our clothing is made overseas. Evaluate this infographic.</span>
+	</div>
+
+	<div id="t_169_24" style="position: absolute; left: 23.70%; top:61.89%;" class="c_169_9">
+		SEWN IN THE U.S.A.
+	</div>
+
+	<div id="t_169_25" style="position: absolute; left: 39.10%; top:64.97%;" class="c_169_10">
+		$3.78
+	</div>
+
+	<div id="t_169_26" style="position: absolute; left: 39.10%; top:66.96%;" class="c_169_10">
+		$7.00
+	</div>
+
+	<div id="t_169_27" style="position: absolute; left: 32.69%; top:70.25%;" class="c_169_11">
+		$10.78
+	</div>
+
+	<div id="t_169_28" style="position: absolute; left: 15.57%; top:64.97%;" class="c_169_10">
+		FABRIC
+	</div>
+
+	<div id="t_169_29" style="position: absolute; left: 15.57%; top:66.96%;" class="c_169_10">
+		CUTTING/SEWING
+	</div>
+
+	<div id="t_169_30" style="position: absolute; left: 16.77%; top:70.45%;" class="c_169_3">
+		T O T A L
+	</div>
+
+	<div id="t_169_31" style="position: absolute; left: 16.77%; top:72.47%;" class="c_169_13">
+		FABRIC/LABOR
+	</div>
+
+	<div id="t_169_32" style="position: absolute; left: 59.56%; top:61.81%;" class="c_169_9">
+		SEWN IN BANGLADESH
+	</div>
+
+	<div id="t_169_33" style="position: absolute; left: 77.08%; top:64.90%;" class="c_169_10">
+		$1.50
+	</div>
+
+	<div id="t_169_34" style="position: absolute; left: 77.08%; top:66.89%;" class="c_169_10">
+		$0.50
+	</div>
+
+	<div id="t_169_35" style="position: absolute; left: 71.68%; top:70.17%;" class="c_169_11">
+		$2.00
+	</div>
+
+	<div id="t_169_36" style="position: absolute; left: 53.55%; top:64.90%;" class="c_169_10">
+		FABRIC
+	</div>
+
+	<div id="t_169_37" style="position: absolute; left: 53.55%; top:66.89%;" class="c_169_10">
+		CUTTING/SEWING
+	</div>
+
+	<div id="t_169_38" style="position: absolute; left: 54.75%; top:70.37%;" class="c_169_3">
+		T O T A L
+	</div>
+
+	<div id="t_169_39" style="position: absolute; left: 54.75%; top:72.39%;" class="c_169_13">
+		FABRIC/LABOR
+	</div>
+
+	<div id="t_169_40" style="position: absolute; left: 13.97%; top: 76.48%;" class="c_169_14">
+		&bull; <span class="c_169_8">According to the infographic, why would an American company choose to produce its</span>
+	</div>
+
+	<div id="t_169_41" style="position: absolute; left: 16.16%; top: 78.37%;" class="c_169_1">
+		goods overseas?
+	</div>
+
+	<div id="t_169_42" style="position: absolute; left: 13.97%; top: 80.26%;" class="c_169_14">
+		&bull; <span class="c_169_8">Compare the cost of resources used in America and Bangladesh. Which type of resource has</span>
+	</div>
+
+	<div id="t_169_43" style="position: absolute; left: 16.16%; top: 82.16%;" class="c_169_1">
+		the larger discrepancy? Explain your thoughts about this discrepancy.
+	</div>
+
+	<div id="t_169_44" style="position: absolute; left: 13.97%; top: 85.29%; letter-spacing: -0.02em;" class="c_169_5">
+		Imagine...
+	</div>
+
+	<div id="t_169_45" style="position: absolute; left: 39.44%; top: 86.13%;" class="c_169_1">
+        Imagine a world without banks. Where would people keep
+	</div>
+
+    <div id="t_169_45" style="position: absolute; left: 39.44%; top: 88.03%;" class="c_169_1">
+        their money? What kinds of problems would there be? Create a
+    </div>
+
+	<div id="t_169_46" style="position: absolute; left: 39.44%; top: 89.92%;" class="c_169_1">
+		small poster that illustrates all the benefits of private financial
+	</div>
+
+	<div id="t_169_47" style="position: absolute; left: 39.44%; top: 91.82%;" class="c_169_1">
+		institutions.
+	</div>
+
+	<div id="t_169_48" style="position: absolute; left: 92.79%; top: 94.91%; letter-spacing: -0.15em;" class="c_169_17">
+		169
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_169_use_pages_162-163.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 24%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_169_use_pages_164-165.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 30%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_169_use_pages_166-167.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 42%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_169_apply_your_learning.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_169_consumers_producers.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 87%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_169_imagine_a_world.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_168_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_169_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_168_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="168.html?page=right"; onclick="goto('168.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="170.html"; onclick="goto('170.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="170.html"; onclick="goto('170.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

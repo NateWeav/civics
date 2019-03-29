@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_42.css">
+                <link rel="stylesheet" href="css/civics_43.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="40.html?page=right"; onclick="goto('40.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="42.html"; onclick="goto('42.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="40.html?page=right"; onclick="goto('40.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_42_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_43_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_42_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="42.html?page=right"; onclick="goto('42.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="44.html"; onclick="goto('44.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="44.html"; onclick="goto('44.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="40.html?page=right"; onclick="goto('40.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="42.html"; onclick="goto('42.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="40.html?page=right"; onclick="goto('40.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_42">
+                                                                                                <div class="pageData">
+
+	<div id="t_42_0" style="position: absolute; left: 5.93%; top:4.40%;" class="c_42_0">
+		The Constitutions of Virginia and the
+	</div>
+
+	<div id="t_42_1" style="position: absolute; left: 5.93%; top:6.17%;" class="c_42_0">
+		United States can be amended through
+	</div>
+
+	<div id="t_42_2" style="position: absolute; left: 5.93%; top:7.94%;" class="c_42_0">
+		processes outlined in the Constitutions.
+	</div>
+
+	<div id="t_42_3" style="position: absolute; left: 5.93%; top:10.97%;" class="c_42_0">
+		The Virginia and United States
+	</div>
+
+	<div id="t_42_4" style="position: absolute; left: 5.93%; top:12.74%;" class="c_42_0">
+		Constitutions have been amended and
+	</div>
+
+	<div id="t_42_5" style="position: absolute; left: 5.93%; top:14.51%;" class="c_42_0">
+		revised several times.
+	</div>
+
+	<div id="t_42_6" style="position: absolute; left: 8.82%; top:17.20%;" class="c_42_1">
+		Words to Know
+	</div>
+
+	<div id="t_42_7" style="position: absolute; left: 8.82%; top:20.32%;" class="c_42_2">
+		<span class="c_42_3">&nbsp;&nbsp;&nbsp;&nbsp;ratification</span>
+	</div>
+
+	<div id="t_42_8" style="position: absolute; left: 8.42%; top:18.57%; font-size: 2.5em;" class="c_42_2">&#8227;</div>
+	<div id="t_42_9" style="position: absolute; left: 10.99%; top:22.65%;" class="c_42_4">
+		(<span class="c_42_5">Rat-uh-fick-kay-shun)</span>
+	</div>
+
+	<div id="t_42_10" style="position: absolute; left: 8.82%; top:24.79%;" class="c_42_6">
+		The formal consent or approval
+	</div>
+
+	<div id="t_42_11" style="position: absolute; left: 8.82%; top:26.81%;" class="c_42_6">
+		of something
+	</div>
+
+	<div id="t_42_12" style="position: absolute; left: 8.82%; top:29.41%;" class="c_42_2">
+		<span class="c_42_3">&nbsp;&nbsp;&nbsp;&nbsp;convention</span>
+	</div>
+
+	<div id="t_42_13" style="position: absolute; left: 8.42%; top:27.66%; font-size: 2.5em;" class="c_42_2">&#8227;</div>
+	<div id="t_42_14" style="position: absolute; left: 10.99%; top:31.74%;" class="c_42_4">
+		(<span class="c_42_5">Cun-ven-shun)</span>
+	</div>
+
+	<div id="t_42_15" style="position: absolute; left: 8.82%; top:33.88%;" class="c_42_6">
+		A gathering of people for
+	</div>
+
+	<div id="t_42_16" style="position: absolute; left: 8.82%; top:35.90%;" class="c_42_6">
+		political purposes
+	</div>
+
+	<div id="t_42_17" style="position: absolute; left: 37.97%; top: 5.47%; letter-spacing: -0.02em;" class="c_42_7">
+		A More Perfect Union
+	</div>
+
+	<div id="t_42_18" style="position: absolute; left: 38.12%; top: 12.58%; letter-spacing: 0.01em;" class="c_42_8">
+		Things change. Life changes. The Constitution has had to change, too.
+	</div>
+
+	<div id="t_42_19" style="position: absolute; left: 37.85%; top: 15.03%;" class="c_42_9">
+		The U.S. Constitution is a fairly short document written more than
+	</div>
+
+	<div id="t_42_20" style="position: absolute; left: 36.54%; top: 16.92%;" class="c_42_9">
+		230 years ago, but our country is a collection of living, breathing,
+	</div>
+
+	<div id="t_42_21" style="position: absolute; left: 36.54%; top: 18.82%;" class="c_42_9">
+		human beings whose needs, desires, and lives keep changing.
+	</div>
+
+	<div id="t_42_22" style="position: absolute; left: 36.54%; top: 20.71%;" class="c_42_9">
+		James Madison and his co-writers could not have envisioned our
+	</div>
+
+	<div id="t_42_23" style="position: absolute; left: 36.54%; top: 22.61%;" class="c_42_9">
+		modern world, but they knew the Constitution had to change
+	</div>
+
+	<div id="t_42_24" style="position: absolute; left: 36.54%; top: 24.5%;" class="c_42_9">
+		sometimes if it was to survive the test of time.
+	</div>
+
+	<div id="t_42_25" style="position: absolute; left: 46.93%; top:26.45%;" class="c_42_10">
+		THE AMENDMENT PROCESS:
+	</div>
+
+	<div id="t_42_26" style="position: absolute; left: 37.87%; top:28.47%;" class="c_42_10">
+		MAKING THE CONSTITUTION FIT THE TIMES
+	</div>
+
+	<div id="t_42_27" style="position: absolute; left: 38.29%; top: 31.19%;" class="c_42_9">
+		Some amendment struggles, such as the ones that dealt with the
+	</div>
+
+	<div id="t_42_28" style="position: absolute; left: 36.54%; top: 33.09%;" class="c_42_9">
+		aftermath of slavery, have been bitter and hard-fought. Some, like
+	</div>
+
+	<div id="t_42_29" style="position: absolute; left: 36.54%; top: 34.98%;" class="c_42_9">
+		the battle for equal rights for women, did not succeed. Some
+	</div>
+
+	<div id="t_42_30" style="position: absolute; left: 36.54%; top: 36.87%;" class="c_42_9">
+		changes were fairly easy to make. But every change to the
+	</div>
+
+	<div id="t_42_31" style="position: absolute; left: 36.54%; top: 38.77%;" class="c_42_9">
+		Constitution has a story to go with it.
+	</div>
+
+	<div id="t_42_32" style="position: absolute; left: 37.85%; top: 40.66%;" class="c_42_9">
+		The amendment process is complicated. There have been only 27
+	</div>
+
+	<div id="t_42_33" style="position: absolute; left: 36.54%; top: 42.56%;" class="c_42_9">
+		changes in the more than two centuries of the document&rsquo;s
+	</div>
+
+	<div id="t_42_34" style="position: absolute; left: 36.54%; top: 44.45%;" class="c_42_9">
+		existence. There are two ways to make a change. Congress may
+	</div>
+
+	<div id="t_42_35" style="position: absolute; left: 36.54%; top: 46.35%;" class="c_42_9">
+		send proposed amendments to the states, or states may vote to call
+	</div>
+
+	<div id="t_42_36" style="position: absolute; left: 36.54%; top: 48.24%;" class="c_42_9">
+		a constitutional convention. <span class="c_42_11">Ratification</span><span class="c_42_12">&mdash; the approval of three-</span>
+	</div>
+
+	<div id="t_42_37" style="position: absolute; left: 36.54%; top: 50.14%;" class="c_42_9">
+		quarters of the states&mdash;is needed for amendments to become laws.
+	</div>
+
+	<div id="t_42_38" style="position: absolute; left: 16.11%; top:53.77%;" class="c_42_13">
+		FROM PROPOSAL&hellip;
+	</div>
+
+	<div id="t_42_39" style="position: absolute; left: 51.42%; top:53.76%;" class="c_42_13">
+		&hellip;TO RATIFICATION
+	</div>
+
+	<div id="t_42_40" style="position: absolute; left: 5.19%; top: 58.36%;" class="c_42_14">
+		&bull; <span class="c_42_15">If two-thirds of</span>
+	</div>
+
+	<div id="t_42_41" style="position: absolute; left: 5.19%; top: 59.96%; letter-spacing: 0.01em;" class="c_42_8">
+		both houses of
+	</div>
+
+	<div id="t_42_42" style="position: absolute; left: 5.19%; top: 61.73%; letter-spacing: 0.01em;" class="c_42_8">
+		Congress want an
+	</div>
+
+	<div id="t_42_43" style="position: absolute; left: 5.19%; top: 63.49%; letter-spacing: 0.01em;" class="c_42_8">
+		amendment&hellip;
+	</div>
+
+	<div id="t_42_44" style="position: absolute; left: 5.45%; top:70.49%;" class="c_42_16">
+		OR
+	</div>
+
+	<div id="t_42_45" style="position: absolute; left: 49.50%; top: 58.8%;" class="c_42_14">
+		&bull; <span class="c_42_15">An amendment becomes law if at least 38 states</span>
+	</div>
+
+	<div id="t_42_46" style="position: absolute; left: 49.50%; top: 60.40%; letter-spacing: 0.01em;" class="c_42_8">
+		(three-quarters of all states) vote to ratify it.
+	</div>
+
+	<div id="t_42_47" style="position: absolute; left: 34.87%; top: 66.90%; letter-spacing: 0.01em;" class="c_42_8">
+		Any combination of
+	</div>
+
+	<div id="t_42_48" style="position: absolute; left: 34.87%; top: 68.67%; letter-spacing: 0.01em;" class="c_42_8">
+		proposal and ratification
+	</div>
+
+	<div id="t_42_49" style="position: absolute; left: 34.87%; top: 70.43%; letter-spacing: 0.01em;" class="c_42_8">
+		works!
+	</div>
+
+	<div id="t_42_50" style="position: absolute; left: 84.32%; top:70.12%;" class="c_42_16">
+		OR
+	</div>
+
+	<div id="t_42_51" style="position: absolute; left: 5.26%; top: 77.58%;" class="c_42_14">
+		&bull; <span class="c_42_15">If at least 34 states (two-thirds of all</span>
+	</div>
+
+	<div id="t_42_52" style="position: absolute; left: 5.26%; top: 79.18%; letter-spacing: 0.01em;" class="c_42_8">
+		states) request a national convention&hellip;
+	</div>
+
+	<div id="t_42_53" style="position: absolute; left: 54.75%; top: 77.72%;" class="c_42_14">
+		&bull; <span class="c_42_15">An amendment becomes law if at least 38</span>
+	</div>
+
+	<div id="t_42_54" style="position: absolute; left: 54.75%; top: 79.32%; letter-spacing: 0.01em;" class="c_42_8">
+		states ratify it at state conventions.
+	</div>
+
+	<div id="t_42_55" style="position: absolute; left: 5.30%; top: 95.47%;" class="c_42_17">
+		42
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 2%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_42_the_constitution_of_virginia.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 37%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_42_a_more_perfect_union.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 18%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_42_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 27%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_42_the_amendment_process.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 54%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_42_from_proposal.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_43">
+                                                                                                <div class="pageData">
+
+	<div id="t_43_0" style="position: absolute; left: 7.46%; top:11.04%;" class="c_43_0">
+		11th <span class="c_43_1">Protects states from being sued by</span>
+	</div>
+
+	<div id="t_43_1" style="position: absolute; left: 7.46%; top:13.52%;" class="c_43_2">
+		out-of-staters.
+	</div>
+
+	<div id="t_43_2" style="position: absolute; left: 7.46%; top:16.09%;" class="c_43_0">
+		12th <span class="c_43_1">Clarifies the election of the president.</span>
+	</div>
+
+	<div id="t_43_3" style="position: absolute; left: 7.46%; top:18.43%;" class="c_43_3">
+		Until this amendment, the person with the most votes
+	</div>
+
+	<div id="t_43_4" style="position: absolute; left: 7.46%; top:20.32%;" class="c_43_3">
+		became president and the runner-up was vice
+	</div>
+
+	<div id="t_43_5" style="position: absolute; left: 7.46%; top:22.22%;" class="c_43_3">
+		president, but in 1800 there was a tie.
+	</div>
+
+	<div id="t_43_6" style="position: absolute; left: 7.46%; top:25.18%;" class="c_43_0">
+		13th <span class="c_43_1">Abolishes slavery.</span>
+	</div>
+
+	<div id="t_43_7" style="position: absolute; left: 7.46%; top:27.71%;" class="c_43_0">
+		14th <span class="c_43_1">Defines who a citizen is </span><span class="c_43_4">and</span>
+	</div>
+
+	<div id="t_43_8" style="position: absolute; left: 7.46%; top:29.92%;" class="c_43_3">
+		guarantees all residents equal protection
+	</div>
+
+	<div id="t_43_9" style="position: absolute; left: 7.46%; top:31.68%;" class="c_43_3">
+		under the law.
+	</div>
+
+	<div id="t_43_10" style="position: absolute; left: 7.46%; top:33.77%;" class="c_43_0">
+		15th <span class="c_43_1">Prohibits the denial of a man&rsquo;s</span>
+	</div>
+
+	<div id="t_43_11" style="position: absolute; left: 7.46%; top:35.98%;" class="c_43_2">
+		right to vote <span class="c_43_5">based on race, color, or</span>
+	</div>
+
+	<div id="t_43_12" style="position: absolute; left: 7.46%; top:37.48%;" class="c_43_3">
+		previous condition of servitude<span class="c_43_6">.</span>
+	</div>
+
+	<div id="t_43_13" style="position: absolute; left: 10.86%; top:8.44%;" class="c_43_0">
+		SEVENTEEN AMENDMENTS THAT CHANGED THE U.S. CONSTITUTION
+	</div>
+
+	<div id="t_43_14" style="position: absolute; left: 50.29%; top:11.04%;" class="c_43_0">
+		21st <span class="c_43_1">Repeals the 18th amendment.</span> <span class="c_43_4">The only</span>
+	</div>
+
+	<div id="t_43_15" style="position: absolute; left: 50.29%; top:13.25%;" class="c_43_3">
+		time an amendment has been revoked.
+	</div>
+
+	<div id="t_43_16" style="position: absolute; left: 50.29%; top:15.71%;" class="c_43_0">
+		22nd <span class="c_43_1">Limits the number of times a person can</span>
+	</div>
+
+	<div id="t_43_17" style="position: absolute; left: 50.29%; top:17.92%;" class="c_43_2">
+		be president. <span class="c_43_5">Added after FDR was elected to four</span>
+	</div>
+
+	<div id="t_43_18" style="position: absolute; left: 50.29%; top:19.69%;" class="c_43_3">
+		terms. He died soon after his fourth term began.
+	</div>
+
+	<div id="t_43_19" style="position: absolute; left: 50.29%; top:22.15%;" class="c_43_0">
+		23rd <span class="c_43_1">The District of Columbia is now a part</span>
+	</div>
+
+	<div id="t_43_20" style="position: absolute; left: 50.29%; top:24.38%;" class="c_43_2">
+		of the Electoral College.
+	</div>
+
+	<div id="t_43_21" style="position: absolute; left: 50.29%; top:26.83%;" class="c_43_0">
+		24th <span class="c_43_1">Prohibits poll taxes.</span> <span class="c_43_4">This stopped states</span>
+	</div>
+
+	<div id="t_43_22" style="position: absolute; left: 50.29%; top:29.03%;" class="c_43_3">
+		from discrimination in federal elections.
+	</div>
+
+	<div id="t_43_23" style="position: absolute; left: 50.29%; top:31.50%;" class="c_43_0">
+		25th <span class="c_43_1">If the president cannot serve&hellip;</span>
+	</div>
+
+	<div id="t_43_24" style="position: absolute; left: 50.29%; top:33.70%;" class="c_43_3">
+		After one president had a heart
+	</div>
+
+	<div id="t_43_25" style="position: absolute; left: 50.29%; top:35.47%;" class="c_43_3">
+		attack in office and another had to
+	</div>
+
+	<div id="t_43_26" style="position: absolute; left: 50.29%; top:37.24%;" class="c_43_3">
+		resign, this dealt with replacing a
+	</div>
+
+	<div id="t_43_27" style="position: absolute; left: 50.29%; top:39.01%;" class="c_43_3">
+		vice president and dealing with
+	</div>
+
+	<div id="t_43_28" style="position: absolute; left: 50.29%; top:40.78%;" class="c_43_3">
+		presidential disabilities.
+	</div>
+
+	<div id="t_43_29" style="position: absolute; left: 50.29%; top:43.24%;" class="c_43_0">
+		26th <span class="c_43_1">Lowers the voting age.</span>
+	</div>
+
+	<div id="t_43_30" style="position: absolute; left: 50.29%; top:45.45%;" class="c_43_3">
+		In respect for the service of so many young people in
+	</div>
+
+	<div id="t_43_31" style="position: absolute; left: 50.29%; top:47.21%;" class="c_43_3">
+		the armed forces, the voting age was lowered from
+	</div>
+
+	<div id="t_43_32" style="position: absolute; left: 50.29%; top:48.98%;" class="c_43_3">
+		21 to 18.
+	</div>
+
+	<div id="t_43_33" style="position: absolute; left: 50.29%; top:51.70%;" class="c_43_0">
+		27th <span class="c_43_1">Keeps congressional salaries from going</span>
+	</div>
+
+	<div id="t_43_34" style="position: absolute; left: 50.29%; top:53.90%;" class="c_43_2">
+		up until after the next election<span class="c_43_7">.</span> <span class="c_43_5">It&rsquo;s not fair to give</span>
+	</div>
+
+	<div id="t_43_35" style="position: absolute; left: 50.29%; top:56.18%;" class="c_43_3">
+		yourself a raise without letting the voters decide.
+	</div>
+
+	<div id="t_43_36" style="position: absolute; left: 7.46%; top:40.84%;" class="c_43_0">
+		16th <span class="c_43_1">Authorizes an income tax.</span>
+	</div>
+
+	<div id="t_43_37" style="position: absolute; left: 7.46%; top:43.74%;" class="c_43_0">
+		17th <span class="c_43_1">Provides for the direct election of U.S.</span>
+	</div>
+
+	<div id="t_43_38" style="position: absolute; left: 7.46%; top:45.97%;" class="c_43_2">
+		senators by popular vote.
+	</div>
+
+	<div id="t_43_39" style="position: absolute; left: 7.46%; top:48.29%;" class="c_43_0">
+		18th <span class="c_43_1">Prohibits the sale of alcohol.</span>
+	</div>
+
+	<div id="t_43_40" style="position: absolute; left: 7.46%; top:51.19%;" class="c_43_0">
+		19th <span class="c_43_1">Gives women the vote.</span>
+	</div>
+
+	<div id="t_43_41" style="position: absolute; left: 7.46%; top:54.10%;" class="c_43_0">
+		20th <span class="c_43_1">Changes the date the president starts</span>
+	</div>
+
+	<div id="t_43_42" style="position: absolute; left: 7.46%; top:56.32%;" class="c_43_2">
+		serving a term.
+	</div>
+
+	<div id="t_43_43" style="position: absolute; left: 42.40%; top:58.68%;" class="c_43_8">
+		Changes
+	</div>
+
+	<div id="t_43_44" style="position: absolute; left: 38.94%; top:64.11%;" class="c_43_8">
+		in Virginia
+	</div>
+
+	<div id="t_43_45" style="position: absolute; left: 38.87%; top:72.11%;" class="c_43_9">
+		OUR STATE&rsquo;S CONSTITUTIONAL
+	</div>
+
+	<div id="t_43_46" style="position: absolute; left: 42.90%; top:74.08%;" class="c_43_9">
+		AMENDMENT PROCESS
+	</div>
+
+	<div id="t_43_47" style="position: absolute; left: 43.87%; top:76.84%;" class="c_43_10">
+		&bull; <span class="c_43_11">States also have constitutions. In</span>
+	</div>
+
+	<div id="t_43_48" style="position: absolute; left: 43.87%; top: 78.99%; letter-spacing: 0.01em;" class="c_43_12">
+		Virginia, this is how we amend ours:
+	</div>
+
+	<div id="t_43_49" style="position: absolute; left: 45.29%; top:81.11%;" class="c_43_2">
+		First<span class="c_43_7">: An amendment is proposed by Virginia&rsquo;s General</span>
+	</div>
+
+	<div id="t_43_50" style="position: absolute; left: 43.87%; top: 83.53%;" class="c_43_13">
+		Assembly or by a <span class="c_43_14">constitutional convention</span><span class="c_43_7">. If approved by a</span>
+	</div>
+
+	<div id="t_43_51" style="position: absolute; left: 43.87%; top: 85.55%;" class="c_43_13">
+		majority, it sits until the next session following a general
+	</div>
+
+	<div id="t_43_52" style="position: absolute; left: 43.87%; top: 87.57%;" class="c_43_13">
+		election to the House of Delegates. If, in that next session, the
+	</div>
+
+	<div id="t_43_53" style="position: absolute; left: 43.87%; top: 89.59%;" class="c_43_13">
+		proposed amendment is agreed to by a majority, it then goes
+	</div>
+
+	<div id="t_43_54" style="position: absolute; left: 43.87%; top: 91.61%;" class="c_43_13">
+		to the state&rsquo;s voters.
+	</div>
+
+	<div id="t_43_55" style="position: absolute; left: 45.29%; top:93.23%;" class="c_43_2">
+		Second<span class="c_43_7">: If a majority of Virginia&rsquo;s voters ratify it, the</span>
+	</div>
+
+	<div id="t_43_56" style="position: absolute; left: 43.87%; top: 95.65%;" class="c_43_13">
+		amendment becomes part of the state&rsquo;s constitution.
+	</div>
+
+	<div id="t_43_57" style="position: absolute; left: 93.83%; top: 95.40%;" class="c_43_15">
+		43
+	</div>
+
+	<div id="t_43_58" style="position: absolute; left: 7.88%; top:59.92%;" class="c_43_16">
+		The fight for women&rsquo;s right
+	</div>
+
+	<div id="t_43_59" style="position: absolute; left: 7.88%; top:61.56%;" class="c_43_16">
+		to vote was an epic struggle.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 5%; top: 7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_43_seventeen_amendments.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_43_the_fight_for_womens.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 34.5%; top: 59%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_43_changes_in_virginia.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_42_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_43_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_42_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="42.html?page=right"; onclick="goto('42.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="44.html"; onclick="goto('44.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="44.html"; onclick="goto('44.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

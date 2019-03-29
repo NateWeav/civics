@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_156.css">
+                <link rel="stylesheet" href="css/civics_157.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="154.html?page=right"; onclick="goto('154.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="156.html"; onclick="goto('156.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="154.html?page=right"; onclick="goto('154.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_156_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_157_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_156_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="156.html?page=right"; onclick="goto('156.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="158.html"; onclick="goto('158.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="158.html"; onclick="goto('158.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="154.html?page=right"; onclick="goto('154.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="156.html"; onclick="goto('156.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="154.html?page=right"; onclick="goto('154.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_156">
+                                                                                                <div class="pageData">
+
+	<div id="t_156_0" style="position: absolute; left: 6.01%; top:3.83%;" class="c_156_0">
+		The United States
+	</div>
+
+	<div id="t_156_1" style="position: absolute; left: 6.01%; top:5.60%;" class="c_156_0">
+		economy is primarily a
+	</div>
+
+	<div id="t_156_2" style="position: absolute; left: 6.01%; top:7.36%;" class="c_156_0">
+		free market economy,
+	</div>
+
+	<div id="t_156_3" style="position: absolute; left: 6.01%; top:9.13%;" class="c_156_0">
+		but is characterized as
+	</div>
+
+	<div id="t_156_4" style="position: absolute; left: 6.01%; top:10.90%;" class="c_156_0">
+		a mixed economy.
+	</div>
+
+	<div id="t_156_5" style="position: absolute; left: 8.17%; top:25.64%;" class="c_156_1">
+		Henry
+	</div>
+
+	<div id="t_156_6" style="position: absolute; left: 8.17%; top:27.41%;" class="c_156_1">
+		Ford
+	</div>
+
+	<div id="t_156_7" style="position: absolute; left: 40.87%; top: 3.49%; letter-spacing: -0.02em;" class="c_156_2">
+		The
+	</div>
+
+	<div id="t_156_8" style="position: absolute; left: 28.27%; top: 8.92%; letter-spacing: -0.02em;" class="c_156_2">
+		American Way
+	</div>
+
+	<div id="t_156_9" style="position: absolute; left: 30.76%; top: 15.85%; letter-spacing: 0.01em;" class="c_156_3">
+		Make it better. Make it cheaper. Make it
+	</div>
+
+	<div id="t_156_10" style="position: absolute; left: 30.76%; top: 17.62%; letter-spacing: 0.01em;" class="c_156_3">
+		easier to use. The U.S. economy is always
+	</div>
+
+	<div id="t_156_11" style="position: absolute; left: 30.76%; top: 19.39%; letter-spacing: 0.01em;" class="c_156_3">
+		changing, always pushing forward.
+	</div>
+
+	<div id="t_156_12" style="position: absolute; left: 32.36%; top: 22.05%;" class="c_156_4">
+		One hallmark of America&rsquo;s
+	</div>
+
+	<div id="t_156_13" style="position: absolute; left: 31.05%; top: 23.95%;" class="c_156_4">
+		economy is the right to own
+	</div>
+
+	<div id="t_156_14" style="position: absolute; left: 31.05%; top:25.80%;" class="c_156_5">
+		private property<span class="c_156_6">&mdash;homes, cars,</span>
+	</div>
+
+	<div id="t_156_15" style="position: absolute; left: 31.05%; top: 27.74%;" class="c_156_4">
+		and businesses&mdash;without undue
+	</div>
+
+	<div id="t_156_16" style="position: absolute; left: 31.05%; top: 29.63%;" class="c_156_4">
+		interference from the government.
+	</div>
+
+	<div id="t_156_17" style="position: absolute; left: 31.05%; top: 31.52%;" class="c_156_4">
+		Let&rsquo;s use the story of the car in America
+	</div>
+
+	<div id="t_156_18" style="position: absolute; left: 31.05%; top: 33.42%;" class="c_156_4">
+		as a perfect way to understand our nation&rsquo;s
+	</div>
+
+	<div id="t_156_19" style="position: absolute; left: 31.05%; top: 35.31%;" class="c_156_4">
+		mixed economy and the way it works.
+	</div>
+
+	<div id="t_156_20" style="position: absolute; left: 66.38%; top:28.67%;" class="c_156_1">
+		An early Ford automobile
+	</div>
+
+	<div id="t_156_21" style="position: absolute; left: 19.46%; top:37.61%;" class="c_156_7">
+		WHAT DOES MY
+	</div>
+
+	<div id="t_156_22" style="position: absolute; left: 17.70%; top:39.50%;" class="c_156_7">
+		CUSTOMER WANT?
+	</div>
+
+	<div id="t_156_23" style="position: absolute; left: 9.31%; top: 41.97%;" class="c_156_4">
+		In the very early 1900s, cars were just beginning to
+	</div>
+
+	<div id="t_156_24" style="position: absolute; left: 61.56%; top:37.61%;" class="c_156_7">
+		MY CAR IS BETTER
+	</div>
+
+	<div id="t_156_25" style="position: absolute; left: 64.65%; top:39.50%;" class="c_156_7">
+		THAN YOURS
+	</div>
+
+	<div id="t_156_26" style="position: absolute; left: 55.05%; top: 41.97%;" class="c_156_4">
+		When Ford opened his first assembly line in
+	</div>
+
+	<div id="t_156_27" style="position: absolute; left: 8.00%; top: 43.86%;" class="c_156_4">
+		take to the roads. Each was made by hand and all
+	</div>
+
+	<div id="t_156_28" style="position: absolute; left: 8.00%; top: 45.76%;" class="c_156_4">
+		were very expensive. Henry Ford&mdash;a brilliant
+	</div>
+
+	<div id="t_156_29" style="position: absolute; left: 8.00%; top: 47.65%;" class="c_156_4">
+		entrepreneur&mdash;had an idea about how to make them
+	</div>
+
+	<div id="t_156_30" style="position: absolute; left: 8.00%; top: 49.55%;" class="c_156_4">
+		for less money, so he rolled up his sleeves, figured
+	</div>
+
+	<div id="t_156_31" style="position: absolute; left: 8.00%; top: 51.44%;" class="c_156_4">
+		out how much cash he needed to start a business,
+	</div>
+
+	<div id="t_156_32" style="position: absolute; left: 8.00%; top: 53.34%;" class="c_156_4">
+		borrowed $1,200 from some friends, and got to work.
+	</div>
+
+	<div id="t_156_33" style="position: absolute; left: 9.31%; top: 55.23%;" class="c_156_4">
+		An affordable car. That was the goal. Would his
+	</div>
+
+	<div id="t_156_34" style="position: absolute; left: 8.00%; top: 57.13%;" class="c_156_4">
+		Model T be the car that got every American behind
+	</div>
+
+	<div id="t_156_35" style="position: absolute; left: 8.00%; top: 59.02%;" class="c_156_4">
+		the wheel? The first Model Ts sold for about $850,
+	</div>
+
+	<div id="t_156_36" style="position: absolute; left: 8.00%; top: 60.91%;" class="c_156_4">
+		but ten years later, with his assembly lines getting
+	</div>
+
+	<div id="t_156_37" style="position: absolute; left: 8.00%; top: 62.81%;" class="c_156_4">
+        more efficient by the day, he was selling a Model T
+	</div>
+
+	<div id="t_156_38" style="position: absolute; left: 8.00%; top: 64.7%;" class="c_156_4">
+		for $290 and still making a handsome profit.
+	</div>
+
+	<div id="t_156_39" style="position: absolute; left: 53.74%; top: 43.86%;" class="c_156_4">
+		1913, there were hundreds of carmakers in
+	</div>
+
+	<div id="t_156_40" style="position: absolute; left: 53.74%; top: 45.76%;" class="c_156_4">
+		America. By the 1970s, there were only three
+	</div>
+
+	<div id="t_156_41" style="position: absolute; left: 53.74%; top: 47.55%;" class="c_156_4">
+		major ones&mdash;Ford, Chevrolet, and Chrysler.
+	</div>
+
+	<div id="t_156_42" style="position: absolute; left: 53.74%; top:49.55%;" class="c_156_5">
+		Competition <span class="c_156_6">had put the rest out of business,</span>
+	</div>
+
+	<div id="t_156_43" style="position: absolute; left: 53.74%; top: 51.44%;" class="c_156_4">
+		but competition is a good thing. When foreign
+	</div>
+
+	<div id="t_156_44" style="position: absolute; left: 53.74%; top: 53.34%;" class="c_156_4">
+		carmakers started selling safer, cheaper, more
+	</div>
+
+	<div id="t_156_45" style="position: absolute; left: 53.74%; top: 55.23%;" class="c_156_4">
+		fuel-efficient cars in America, it pushed U.S.
+	</div>
+
+	<div id="t_156_46" style="position: absolute; left: 53.74%; top: 57.13%;" class="c_156_4">
+		carmakers to offer more variety and better
+	</div>
+
+	<div id="t_156_47" style="position: absolute; left: 53.74%; top: 59.02%;" class="c_156_4">
+		quality, often at lower prices.
+	</div>
+
+	<div id="t_156_48" style="position: absolute; left: 78.58%; top:61.31%;" class="c_156_8">
+		The unloved
+	</div>
+
+	<div id="t_156_49" style="position: absolute; left: 78.58%; top:62.96%;" class="c_156_8">
+		Ford Edsel
+	</div>
+
+	<div id="t_156_50" style="position: absolute; left: 11.36%; top:67.40%;" class="c_156_7">
+		THE GOAL OF BUSINESS:
+	</div>
+
+	<div id="t_156_51" style="position: absolute; left: 16.27%; top:69.30%;" class="c_156_7">
+		PROFIT MOTIVE
+	</div>
+
+	<div id="t_156_52" style="position: absolute; left: 9.31%; top:71.82%;" class="c_156_5">
+		Profits <span class="c_156_6">are a company&rsquo;s earnings after all of</span>
+	</div>
+
+	<div id="t_156_53" style="position: absolute; left: 8.00%; top: 73.66%;" class="c_156_4">
+		its expenses have been paid. After Ford paid his
+	</div>
+
+	<div id="t_156_54" style="position: absolute; left: 8.00%; top: 75.56%;" class="c_156_4">
+		rent, paid for all the materials needed to build cars,
+	</div>
+
+	<div id="t_156_55" style="position: absolute; left: 8.00%; top: 77.45%;" class="c_156_4">
+		and paid his workers, he was left with a pile of cash.
+	</div>
+
+	<div id="t_156_56" style="position: absolute; left: 8.00%; top: 79.35%;" class="c_156_4">
+		His profit motive was to make even more money! He
+	</div>
+
+	<div id="t_156_57" style="position: absolute; left: 8.00%; top: 81.24%;" class="c_156_4">
+		repaid the people who had loaned him money and
+	</div>
+
+	<div id="t_156_58" style="position: absolute; left: 8.00%; top: 83.13%;" class="c_156_4">
+		took his profits and used them to build more
+	</div>
+
+	<div id="t_156_59" style="position: absolute; left: 8.00%; top: 85.03%;" class="c_156_4">
+		factories. He paid higher wages to his employees to
+	</div>
+
+	<div id="t_156_60" style="position: absolute; left: 8.00%; top: 86.92%;" class="c_156_4">
+		keep them happy, so they, too, could buy cars! Ford
+	</div>
+
+	<div id="t_156_61" style="position: absolute; left: 8.00%; top: 88.82%;" class="c_156_4">
+		also kept studying ways to make his cars better. The
+	</div>
+
+	<div id="t_156_62" style="position: absolute; left: 8.00%; top: 90.71%;" class="c_156_4">
+		farm boy from Dearborn, Michigan, was well on his
+	</div>
+
+	<div id="t_156_63" style="position: absolute; left: 8.00%; top: 92.61%;" class="c_156_4">
+		way to becoming one of the world&rsquo;s richest men.
+	</div>
+
+	<div id="t_156_64" style="position: absolute; left: 4.89%; top: 94.24%; letter-spacing: -0.15em;" class="c_156_9">
+		156
+	</div>
+
+	<div id="t_156_65" style="position: absolute; left: 53.84%; top:74.60%;" class="c_156_7">
+		THE PUBLIC
+	</div>
+
+	<div id="t_156_66" style="position: absolute; left: 53.84%; top:76.49%;" class="c_156_7">
+		SPEAKS
+	</div>
+
+	<div id="t_156_67" style="position: absolute; left: 55.15%; top: 78.96%;" class="c_156_4">
+		The customer is king. Without you spending
+	</div>
+
+	<div id="t_156_68" style="position: absolute; left: 53.84%; top: 80.86%;" class="c_156_4">
+		your money, no business can survive. The official
+	</div>
+
+	<div id="t_156_69" style="position: absolute; left: 53.84%; top: 82.75%;" class="c_156_4">
+		economics term for this is <span class="c_156_10">consumer</span>
+	</div>
+
+	<div id="t_156_70" style="position: absolute; left: 53.84%; top:84.60%;" class="c_156_5">
+		sovereignty<span class="c_156_6">. When Ford designed an ugly,</span>
+	</div>
+
+	<div id="t_156_71" style="position: absolute; left: 53.84%; top: 86.54%;" class="c_156_4">
+		overpriced car, the <span class="c_156_11">Edsel</span><span class="c_156_6">, the public voted with</span>
+	</div>
+
+	<div id="t_156_72" style="position: absolute; left: 53.84%; top: 88.44%;" class="c_156_4">
+		their wallets. Because they chose not to buy it,
+	</div>
+
+	<div id="t_156_73" style="position: absolute; left: 53.84%; top: 90.33%;" class="c_156_4">
+		the car was deemed a dismal failure and
+	</div>
+
+	<div id="t_156_74" style="position: absolute; left: 53.84%; top: 92.23%;" class="c_156_4">
+		production was quickly halted.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_the_united_states.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 25.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_henry_ford.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_the_american_way.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 62%; top: 25%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_an_early_ford.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 37%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_what_does_my_customer.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 54%; top: 37%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_my_car_is.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 67%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_the_goal_of_business.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 89%; top: 61%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_the_unloved.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 48%; top: 72%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_156_the_public_speaks.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_157">
+                                                                                                <div class="pageData">
+
+	<div id="t_157_0" style="position: absolute; left: 9.56%; top:6.51%;" class="c_157_0">
+		Tesla is a new carmaker selling only electric cars. This
+	</div>
+
+	<div id="t_157_1" style="position: absolute; left: 9.56%; top:8.15%;" class="c_157_0">
+		company is pioneering driverless cars as well.
+	</div>
+
+	<div id="t_157_2" style="position: absolute; left: 61.13%; top:4.80%;" class="c_157_1">
+		GOVERNMENT&rsquo;S ROLE
+	</div>
+
+	<div id="t_157_3" style="position: absolute; left: 55.23%; top: 7.27%;" class="c_157_2">
+		In America, individuals and businesses generally
+	</div>
+
+	<div id="t_157_4" style="position: absolute; left: 53.92%; top: 9.16%;" class="c_157_2">
+		operate without undue interference from the
+	</div>
+
+	<div id="t_157_5" style="position: absolute; left: 53.92%; top: 11.06%;" class="c_157_2">
+		government. Prices are set by the business owner
+	</div>
+
+	<div id="t_157_6" style="position: absolute; left: 53.92%; top: 12.97%;" class="c_157_2">
+		and are determined by <span class="c_157_3">supply and demand</span> <span class="c_157_4">as</span>
+	</div>
+
+	<div id="t_157_7" style="position: absolute; left: 53.92%; top: 14.85%;" class="c_157_2">
+		buyers and sellers interact in the marketplace. We
+	</div>
+
+	<div id="t_157_8" style="position: absolute; left: 53.92%; top: 16.76%;" class="c_157_2">
+		call this <span class="c_157_3">free enterprise</span><span class="c_157_4">. But let&rsquo;s think about a</span>
+	</div>
+
+	<div id="t_157_9" style="position: absolute; left: 53.92%; top: 18.63%;" class="c_157_2">
+		product like a car. What do we do when
+	</div>
+
+	<div id="t_157_10" style="position: absolute; left: 53.92%; top: 20.53%;" class="c_157_2">
+		businesses fail to provide cars as safe and fuel-
+	</div>
+
+	<div id="t_157_11" style="position: absolute; left: 53.92%; top: 22.42%;" class="c_157_2">
+		efficient as consumers would like? In this case, the
+	</div>
+
+	<div id="t_157_12" style="position: absolute; left: 53.92%; top: 24.32%;" class="c_157_2">
+		government can help. It can push for new
+	</div>
+
+	<div id="t_157_13" style="position: absolute; left: 53.92%; top: 26.21%;" class="c_157_2">
+		regulations, expecting that the benefits to our
+	</div>
+
+	<div id="t_157_14" style="position: absolute; left: 53.92%; top: 28.11%;" class="c_157_2">
+		health and safety will outweigh the costs.
+	</div>
+
+	<div id="t_157_15" style="position: absolute; left: 10.72%; top:27.46%;" class="c_157_5">
+		The Quest
+	</div>
+
+	<div id="t_157_16" style="position: absolute; left: 14.29%; top:32.89%;" class="c_157_5">
+		for Best
+	</div>
+
+	<div id="t_157_17" style="position: absolute; left: 14.78%; top:40.50%;" class="c_157_6">
+		HOW CARS GET BETTER
+	</div>
+
+	<div id="t_157_18" style="position: absolute; left: 45.21%; top: 31.74%; letter-spacing: 0.01em;" class="c_157_7">
+		&bull; <span class="c_157_8">Government mandates</span>
+	</div>
+
+	<div id="t_157_19" style="position: absolute; left: 45.21%; top: 33.51%; letter-spacing: 0.01em;" class="c_157_9">
+		combined with foreign
+	</div>
+
+	<div id="t_157_20" style="position: absolute; left: 45.21%; top: 35.28%; letter-spacing: 0.01em;" class="c_157_9">
+		competition in the auto
+	</div>
+
+	<div id="t_157_21" style="position: absolute; left: 45.21%; top: 37.04%; letter-spacing: 0.01em;" class="c_157_9">
+		industry have led to many
+	</div>
+
+	<div id="t_157_22" style="position: absolute; left: 45.21%; top: 38.81%; letter-spacing: 0.01em;" class="c_157_9">
+		safety improvements and
+	</div>
+
+	<div id="t_157_23" style="position: absolute; left: 45.21%; top: 40.58%; letter-spacing: 0.01em;" class="c_157_9">
+		spurred the move toward new
+	</div>
+
+	<div id="t_157_24" style="position: absolute; left: 45.21%; top: 42.35%; letter-spacing: 0.01em;" class="c_157_9">
+		technologies.
+	</div>
+
+	<div id="t_157_25" style="position: absolute; left: 70.01%; top:34.63%;" class="c_157_10">
+		SEAT BELT LAWS
+	</div>
+
+	<div id="t_157_26" style="position: absolute; left: 11.81%; top:56.96%;" class="c_157_10">
+		SAFETY
+	</div>
+
+	<div id="t_157_27" style="position: absolute; left: 10.39%; top:58.85%;" class="c_157_10">
+		FEATURES
+	</div>
+
+	<div id="t_157_28" style="position: absolute; left: 35.32%; top: 44.96%;" class="c_157_2">
+		In the car&rsquo;s first decade, all sorts of
+	</div>
+
+	<div id="t_157_29" style="position: absolute; left: 34.00%; top: 46.86%;" class="c_157_2">
+		problems cropped up. Speeding, reckless
+	</div>
+
+	<div id="t_157_30" style="position: absolute; left: 34.00%; top: 48.75%;" class="c_157_2">
+		driving, crashes, and pedestrians getting
+	</div>
+
+	<div id="t_157_31" style="position: absolute; left: 34.00%; top: 50.65%;" class="c_157_2">
+		hit were leading to too many deaths. The
+	</div>
+
+	<div id="t_157_32" style="position: absolute; left: 34.00%; top: 52.54%;" class="c_157_2">
+		government stepped in to protect its
+	</div>
+
+	<div id="t_157_33" style="position: absolute; left: 34.00%; top: 54.43%;" class="c_157_2">
+		citizens from harm. Laws were written,
+	</div>
+
+	<div id="t_157_34" style="position: absolute; left: 34.00%; top: 56.33%;" class="c_157_2">
+		fines levied, traffic signals installed, and
+	</div>
+
+	<div id="t_157_35" style="position: absolute; left: 34.00%; top: 58.22%;" class="c_157_2">
+		drunk drivers were arrested. The fatality
+	</div>
+
+	<div id="t_157_36" style="position: absolute; left: 34.00%; top: 60.12%;" class="c_157_2">
+		rate dropped.
+	</div>
+
+	<div id="t_157_37" style="position: absolute; left: 35.32%; top: 62.01%;" class="c_157_2">
+		By the 1980s, states began passing seat
+	</div>
+
+	<div id="t_157_38" style="position: absolute; left: 34.00%; top: 63.91%;" class="c_157_2">
+		belt laws. Crash testing led to better
+	</div>
+
+	<div id="t_157_39" style="position: absolute; left: 34.00%; top: 65.8%;" class="c_157_2">
+		bumpers. In 1998 the government
+	</div>
+
+	<div id="t_157_40" style="position: absolute; left: 34.00%; top: 67.7%;" class="c_157_2">
+		mandated air bags in every car. These
+	</div>
+
+	<div id="t_157_41" style="position: absolute; left: 34.00%; top: 69.59%;" class="c_157_2">
+		forced technological changes eventually
+	</div>
+
+	<div id="t_157_42" style="position: absolute; left: 34.00%; top: 71.48%;" class="c_157_2">
+		made cars much safer. Now fuel
+	</div>
+
+	<div id="t_157_43" style="position: absolute; left: 34.00%; top: 73.38%;" class="c_157_2">
+		efficiency is the big buzzword as car-
+	</div>
+
+	<div id="t_157_44" style="position: absolute; left: 34.00%; top: 75.27%;" class="c_157_2">
+		makers shift from gasoline-powered to
+	</div>
+
+	<div id="t_157_45" style="position: absolute; left: 34.00%; top: 77.17%;" class="c_157_2">
+		hybrid and all-electric cars. This helps
+	</div>
+
+	<div id="t_157_46" style="position: absolute; left: 34.00%; top: 79.06%;" class="c_157_2">
+		the environment and reduces our need
+	</div>
+
+	<div id="t_157_47" style="position: absolute; left: 34.00%; top: 80.96%;" class="c_157_2">
+		for fossil fuels. When carmakers work
+	</div>
+
+	<div id="t_157_48" style="position: absolute; left: 34.00%; top: 82.85%;" class="c_157_2">
+		closely with the government, consumers
+	</div>
+
+	<div id="t_157_49" style="position: absolute; left: 34.00%; top: 84.75%;" class="c_157_2">
+		can benefit.
+	</div>
+
+	<div id="t_157_50" style="position: absolute; left: 70.91%; top: 69.86%; letter-spacing: 0.01em;" class="c_157_9">
+		Car seats
+	</div>
+
+	<div id="t_157_51" style="position: absolute; left: 70.91%; top: 71.63%; letter-spacing: 0.01em;" class="c_157_9">
+		for infants
+	</div>
+
+	<div id="t_157_52" style="position: absolute; left: 70.91%; top: 73.39%; letter-spacing: 0.01em;" class="c_157_9">
+		and toddlers
+	</div>
+
+	<div id="t_157_53" style="position: absolute; left: 70.91%; top: 75.16%; letter-spacing: 0.01em;" class="c_157_9">
+		have saved
+	</div>
+
+	<div id="t_157_54" style="position: absolute; left: 70.91%; top: 76.93%; letter-spacing: 0.01em;" class="c_157_9">
+		countless
+	</div>
+
+	<div id="t_157_55" style="position: absolute; left: 70.91%; top: 78.70%; letter-spacing: 0.01em;" class="c_157_9">
+		lives.
+	</div>
+
+	<div id="t_157_56" style="position: absolute; left: 20.32%; top:88.24%;" class="c_157_10">
+		CRASH TESTING
+	</div>
+
+	<div id="t_157_57" style="position: absolute; left: 46.86%; top:92.78%;" class="c_157_10">
+		ECO-FRIENDLY CARS
+	</div>
+
+	<div id="t_157_58" style="position: absolute; left: 92.88%; top: 93.59%; letter-spacing: -0.15em;" class="c_157_11">
+		157
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 6%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_157_tesla.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_157_governments_role.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 26%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_157_the_quest_for_best.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 66%; top: 66%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_157_car_seats.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_156_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_157_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_156_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="156.html?page=right"; onclick="goto('156.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="158.html"; onclick="goto('158.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="158.html"; onclick="goto('158.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

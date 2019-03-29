@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_60.css">
+                <link rel="stylesheet" href="css/civics_61.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="58.html?page=right"; onclick="goto('58.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="60.html"; onclick="goto('60.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="58.html?page=right"; onclick="goto('58.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_60_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_61_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_60_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="60.html?page=right"; onclick="goto('60.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="62.html"; onclick="goto('62.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="62.html"; onclick="goto('62.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="58.html?page=right"; onclick="goto('58.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="60.html"; onclick="goto('60.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="58.html?page=right"; onclick="goto('58.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_60">
+                                                                                                <div class="pageData">
+
+	<div id="t_60_0" style="position: absolute; left: 5.88%; top:4.15%;" class="c_60_0">
+		The Electoral College process is used to
+	</div>
+
+	<div id="t_60_1" style="position: absolute; left: 5.88%; top:5.92%;" class="c_60_0">
+		select the president and vice president
+	</div>
+
+	<div id="t_60_2" style="position: absolute; left: 5.88%; top:7.68%;" class="c_60_0">
+		of the United States.
+	</div>
+
+	<div id="t_60_3" style="position: absolute; left: 39.53%; top: 4.58%; letter-spacing: -0.02em;" class="c_60_1">
+		The Electoral College
+	</div>
+
+	<div id="t_60_4" style="position: absolute; left: 8.82%; top: 11.60%; letter-spacing: 0.01em;" class="c_60_2">
+		It&rsquo;s not a place you go after high school, not a group of buildings, not a place for more schooling. It&rsquo;s a process!
+	</div>
+
+	<div id="t_60_5" style="position: absolute; left: 36.61%; top: 14.17%;" class="c_60_3">
+		The very first presidential election took almost four weeks. George
+	</div>
+
+	<div id="t_60_6" style="position: absolute; left: 35.29%; top: 16.06%;" class="c_60_3">
+		Washington, running unopposed, won. The general public did not get
+	</div>
+
+	<div id="t_60_7" style="position: absolute; left: 35.29%; top: 17.96%;" class="c_60_3">
+		to vote. But who would be vice president? Nine people wanted <span class="c_60_4">that</span>
+	</div>
+
+	<div id="t_60_8" style="position: absolute; left: 35.29%; top: 19.85%;" class="c_60_3">
+		job. Electing our leaders was not a simple task, so the Constitution
+	</div>
+
+	<div id="t_60_9" style="position: absolute; left: 35.29%; top: 21.75%;" class="c_60_3">
+		tried to tackle the problem.
+	</div>
+
+	<div id="t_60_10" style="position: absolute; left: 6.20%; top:17.76%;" class="c_60_5">
+		Our president and
+	</div>
+
+	<div id="t_60_11" style="position: absolute; left: 6.20%; top:19.40%;" class="c_60_5">
+		vice president win
+	</div>
+
+	<div id="t_60_12" style="position: absolute; left: 6.20%; top:21.04%;" class="c_60_5">
+		as a result of a
+	</div>
+
+	<div id="t_60_13" style="position: absolute; left: 6.20%; top:22.68%;" class="c_60_5">
+		combination of votes
+	</div>
+
+	<div id="t_60_14" style="position: absolute; left: 6.20%; top:24.33%;" class="c_60_5">
+		from voters and
+	</div>
+
+	<div id="t_60_15" style="position: absolute; left: 6.20%; top:25.97%;" class="c_60_5">
+		electors.
+	</div>
+
+	<div id="t_60_16" style="position: absolute; left: 46.93%; top:23.71%;" class="c_60_6">
+		BIG STATES, SMALL STATES
+	</div>
+
+	<div id="t_60_17" style="position: absolute; left: 43.76%; top: 26.04%;" class="c_60_3">
+		The framers of the Constitution tried to find a compromise
+	</div>
+
+	<div id="t_60_18" style="position: absolute; left: 44.15%; top: 27.93%;" class="c_60_3">
+		between Congress choosing a president and the general
+	</div>
+
+	<div id="t_60_19" style="position: absolute; left: 45.11%; top: 29.82%;" class="c_60_3">
+		population making the decision. They worried that if
+	</div>
+
+	<div id="t_60_20" style="position: absolute; left: 46.06%; top: 31.72%;" class="c_60_3">
+		only members of Congress chose a president, it could
+	</div>
+
+	<div id="t_60_21" style="position: absolute; left: 51.02%; top: 33.61%;" class="c_60_3">
+		get very clique-y. If the citizens got to vote, large
+	</div>
+
+	<div id="t_60_22" style="position: absolute; left: 51.17%; top: 35.51%;" class="c_60_3">
+		regional population areas might easily
+	</div>
+
+	<div id="t_60_23" style="position: absolute; left: 51.83%; top: 37.4%;" class="c_60_3">
+		overpower smaller regions.
+	</div>
+
+	<div id="t_60_24" style="position: absolute; left: 61.35%; top:39.37%;" class="c_60_6">
+		THE SOLUTION
+	</div>
+
+	<div id="t_60_25" style="position: absolute; left: 50.78%; top: 41.59%;" class="c_60_3">
+		When people vote in a presidential election they
+	</div>
+
+	<div id="t_60_26" style="position: absolute; left: 49.91%; top: 43.49%;" class="c_60_3">
+		are telling the state how they would like it to use
+	</div>
+
+	<div id="t_60_27" style="position: absolute; left: 43.73%; top: 45.38%;" class="c_60_3">
+		its electoral votes. The number of electors of each state is
+	</div>
+
+	<div id="t_60_28" style="position: absolute; left: 43.73%; top: 47.27%;" class="c_60_3">
+		based on its congressional representation&mdash;the number of
+	</div>
+
+	<div id="t_60_29" style="position: absolute; left: 43.73%; top: 49.17%;" class="c_60_3">
+		representatives in the House and its U.S. senators. Virginia
+	</div>
+
+	<div id="t_60_30" style="position: absolute; left: 43.73%; top: 51.06%;" class="c_60_3">
+		currently has 13. The Electoral College then casts the
+	</div>
+
+	<div id="t_60_31" style="position: absolute; left: 43.73%; top: 52.96%;" class="c_60_3">
+		official vote for president and vice president.
+	</div>
+
+	<div id="t_60_32" style="position: absolute; left: 45.72%; top:55.28%;" class="c_60_6">
+		WHO ARE THE &ldquo;ELECTORS&rdquo;?
+	</div>
+
+	<div id="t_60_33" style="position: absolute; left: 33.40%; top: 57.5%;" class="c_60_3">
+		Generally each political party nominates a group of loyal, hardworking
+	</div>
+
+	<div id="t_60_34" style="position: absolute; left: 32.08%; top: 59.39%;" class="c_60_3">
+		people to be its slate of electors. They do this at their state party
+	</div>
+
+	<div id="t_60_35" style="position: absolute; left: 32.08%; top: 61.29%;" class="c_60_3">
+		conventions or by a vote of the party&rsquo;s central committee. The electors, in
+	</div>
+
+	<div id="t_60_36" style="position: absolute; left: 32.08%; top: 63.18%;" class="c_60_3">
+		turn, get to cast the official vote for their candidate, based on the popular
+	</div>
+
+	<div id="t_60_37" style="position: absolute; left: 32.08%; top: 65.08%;" class="c_60_3">
+		vote in their state. These folks have been chosen because of their service
+	</div>
+
+	<div id="t_60_38" style="position: absolute; left: 32.08%; top: 66.97%;" class="c_60_3">
+		and dedication. They hold all sorts of jobs, but they are passionate about
+	</div>
+
+	<div id="t_60_39" style="position: absolute; left: 32.08%; top: 68.87%;" class="c_60_3">
+		politics and have worked for their party&rsquo;s candidates with great energy.
+	</div>
+
+	<div id="t_60_40" style="position: absolute; left: 32.08%; top: 70.76%;" class="c_60_3">
+		Being an elector is an honor and a reward.
+	</div>
+
+	<div id="t_60_41" style="position: absolute; left: 80.29%; top:73.48%;" class="c_60_7">
+		These were the
+	</div>
+
+	<div id="t_60_42" style="position: absolute; left: 80.29%; top:75.12%;" class="c_60_7">
+		2016 electoral
+	</div>
+
+	<div id="t_60_43" style="position: absolute; left: 80.29%; top:76.76%;" class="c_60_7">
+		results. Donald
+	</div>
+
+	<div id="t_60_44" style="position: absolute; left: 80.29%; top:78.41%;" class="c_60_7">
+		Trump lost the
+	</div>
+
+	<div id="t_60_45" style="position: absolute; left: 80.29%; top:80.05%;" class="c_60_7">
+		popular vote but
+	</div>
+
+	<div id="t_60_46" style="position: absolute; left: 80.29%; top:81.69%;" class="c_60_7">
+		won the Electoral
+	</div>
+
+	<div id="t_60_47" style="position: absolute; left: 80.29%; top:83.33%;" class="c_60_7">
+		College vote.
+	</div>
+
+	<div id="t_60_48" style="position: absolute; left: 71.08%; top:85.95%;" class="c_60_8">
+		Clinton
+	</div>
+
+	<div id="t_60_49" style="position: absolute; left: 71.08%; top:87.21%;" class="c_60_8">
+		Trump
+	</div>
+
+	<div id="t_60_50" style="position: absolute; left: 69.77%; top:89.18%;" class="c_60_9">
+		Seven electors (from Hawaii,Texas,
+	</div>
+
+	<div id="t_60_51" style="position: absolute; left: 69.77%; top:90.40%;" class="c_60_9">
+		and Washington) voted for someone
+	</div>
+
+	<div id="t_60_52" style="position: absolute; left: 69.77%; top:91.61%;" class="c_60_9">
+		other than their state's winner.
+	</div>
+
+	<div id="t_60_53" style="position: absolute; left: 8.82%; top:85.63%;" class="c_60_7">
+		The Electoral College does
+	</div>
+
+	<div id="t_60_54" style="position: absolute; left: 8.82%; top:87.27%;" class="c_60_7">
+		not officially make its
+	</div>
+
+	<div id="t_60_55" style="position: absolute; left: 8.82%; top:88.91%;" class="c_60_7">
+		decision until the Monday
+	</div>
+
+	<div id="t_60_56" style="position: absolute; left: 8.82%; top:90.55%;" class="c_60_7">
+		following the second
+	</div>
+
+	<div id="t_60_57" style="position: absolute; left: 8.82%; top:92.19%;" class="c_60_7">
+		Wednesday of December.
+	</div>
+
+	<div id="t_60_58" style="position: absolute; left: 5.42%; top: 94.56%;" class="c_60_10">
+		60
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_the_electoral_college_process.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 38%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_the_electoral_college_header.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 15%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_our_president_and_vice.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 38%; top: 23.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_big_states.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 38%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_the_solution.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 37%; top: 53%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_who_are_the_electors.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 85%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_the_electoral_college_does_not.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 74%; top: 71%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_60_these_were_the_2016_electoral.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_61">
+                                                                                                <div class="pageData">
+
+	<div id="t_61_0" style="position: absolute; left: 48.75%; top:5.47%;" class="c_61_0">
+		SWING STATES
+	</div>
+
+	<div id="t_61_1" style="position: absolute; left: 22.68%; top: 8.19%;" class="c_61_1">
+		In 48 states,* being an elector means that if your party&rsquo;s candidate wins the popular
+	</div>
+
+	<div id="t_61_2" style="position: absolute; left: 21.81%; top: 10.09%;" class="c_61_1">
+		vote, you are expected to vote for that person. It&rsquo;s winner-take-all. Some states, such as
+	</div>
+
+	<div id="t_61_3" style="position: absolute; left: 21.81%; top: 11.98%;" class="c_61_1">
+		New York and California, generally vote for Democratic candidates, while Texas is a
+	</div>
+
+	<div id="t_61_4" style="position: absolute; left: 21.81%; top: 13.88%;" class="c_61_1">
+		Republican stronghold. Recent elections have seen a smaller and smaller number of
+	</div>
+
+	<div id="t_61_5" style="position: absolute; left: 21.81%; top: 15.77%;" class="c_61_1">
+		&ldquo;swing states,&rdquo; such as Ohio, Florida, Pennsylvania, and Virginia, determine the outcome
+	</div>
+
+	<div id="t_61_6" style="position: absolute; left: 21.81%; top: 17.66%;" class="c_61_1">
+		of an election. The electoral votes from just one swing state may change everything, so a
+	</div>
+
+	<div id="t_61_7" style="position: absolute; left: 21.81%; top: 19.56%;" class="c_61_1">
+		great deal of attention is paid to swing states in presidential elections.
+	</div>
+
+	<div id="t_61_8" style="position: absolute; left: 8.82%; top:5.39%;" class="c_61_2">
+		Word to
+	</div>
+
+	<div id="t_61_9" style="position: absolute; left: 8.82%; top:7.92%;" class="c_61_2">
+		Know
+	</div>
+
+	<div id="t_61_10" style="position: absolute; left: 8.82%; top:11.29%;" class="c_61_3">
+		<span class="c_61_4">&nbsp;&nbsp;&nbsp;&nbsp;popular</span>
+	</div>
+
+	<div id="t_61_11" style="position: absolute; left: 8.42%; top:9.54%; font-size: 2.5em;" class="c_61_3">&#8227;</div>
+	<div id="t_61_12" style="position: absolute; left: 11.11%; top:13.19%;" class="c_61_5">
+		vote
+	</div>
+
+	<div id="t_61_13" style="position: absolute; left: 8.82%; top:15.39%;" class="c_61_6">
+		The total
+	</div>
+
+	<div id="t_61_14" style="position: absolute; left: 8.82%; top:17.28%;" class="c_61_6">
+		number of
+	</div>
+
+	<div id="t_61_15" style="position: absolute; left: 8.82%; top:19.17%;" class="c_61_6">
+		votes a
+	</div>
+
+	<div id="t_61_16" style="position: absolute; left: 8.82%; top:21.07%;" class="c_61_6">
+		candidate gets
+	</div>
+
+	<div id="t_61_17" style="position: absolute; left: 8.82%; top:22.96%;" class="c_61_6">
+		from individual
+	</div>
+
+	<div id="t_61_18" style="position: absolute; left: 8.82%; top:24.86%;" class="c_61_6">
+		voters
+	</div>
+
+	<div id="t_61_19" style="position: absolute; left: 35.52%; top:22.08%;" class="c_61_7">
+		Who Really
+	</div>
+
+	<div id="t_61_20" style="position: absolute; left: 44.42%; top:27.51%;" class="c_61_7">
+		Won?
+	</div>
+
+	<div id="t_61_21" style="position: absolute; left: 36.05%; top:35.16%;" class="c_61_8">
+		THE BIZARRE ELECTION OF 2000
+	</div>
+
+	<div id="t_61_22" style="position: absolute; left: 11.03%; top: 27.74%; letter-spacing: 0.01em;" class="c_61_9">
+		&bull; <span class="c_61_10">Can you win the popular</span>
+	</div>
+
+	<div id="t_61_23" style="position: absolute; left: 11.03%; top: 29.50%; letter-spacing: 0.01em;" class="c_61_11">
+		vote and still lose the
+	</div>
+
+	<div id="t_61_24" style="position: absolute; left: 11.03%; top: 31.27%; letter-spacing: 0.01em;" class="c_61_11">
+		election?
+	</div>
+
+	<div id="t_61_25" style="position: absolute; left: 12.35%; top: 33.46%;" class="c_61_1">
+		That very thing happened
+	</div>
+
+	<div id="t_61_26" style="position: absolute; left: 11.03%; top: 35.35%;" class="c_61_1">
+		in 2000. And it was not the
+	</div>
+
+	<div id="t_61_27" style="position: absolute; left: 11.03%; top: 37.25%;" class="c_61_1">
+		first time&mdash;or the last.
+	</div>
+
+	<div id="t_61_28" style="position: absolute; left: 12.49%; top: 39.35%;" class="c_61_1">
+		Candidates need 270 electoral votes to win. Al Gore, the vice
+	</div>
+
+	<div id="t_61_29" style="position: absolute; left: 11.18%; top: 41.24%;" class="c_61_1">
+		president at the time, had more popular votes than George
+	</div>
+
+	<div id="t_61_30" style="position: absolute; left: 11.18%; top: 43.14%;" class="c_61_1">
+		Bush&mdash;the governor of Texas. No one disputed that. But in
+	</div>
+
+	<div id="t_61_31" style="position: absolute; left: 11.18%; top: 45.03%;" class="c_61_1">
+		Florida, the vote was so close that no winner could
+	</div>
+
+	<div id="t_61_32" style="position: absolute; left: 11.18%; top: 46.93%;" class="c_61_1">
+		be declared. Whoever won the state would get all
+	</div>
+
+	<div id="t_61_33" style="position: absolute; left: 11.18%; top: 48.82%;" class="c_61_1">
+		of its 29 electoral votes. At that point Gore had 266
+	</div>
+
+	<div id="t_61_34" style="position: absolute; left: 11.18%; top: 50.71%;" class="c_61_1">
+		votes to Bush&rsquo;s 248. The results of the popular vote
+	</div>
+
+	<div id="t_61_35" style="position: absolute; left: 11.18%; top: 52.61%;" class="c_61_1">
+		were so close that a partial recount was ordered.
+	</div>
+
+	<div id="t_61_36" style="position: absolute; left: 11.18%; top: 54.5%;" class="c_61_1">
+		The ballots were gathered and recounted. But that
+	</div>
+
+	<div id="t_61_37" style="position: absolute; left: 11.18%; top: 56.4%;" class="c_61_1">
+		was not the end of the story.
+	</div>
+
+	<div id="t_61_38" style="position: absolute; left: 37.20%; top:56.99%;" class="c_61_12">
+		WHO DID I VOTE FOR?
+	</div>
+
+	<div id="t_61_39" style="position: absolute; left: 28.24%; top: 59.46%;" class="c_61_1">
+		In Florida, each county designed its own ballot, and in Palm Beach County&mdash;
+	</div>
+
+	<div id="t_61_40" style="position: absolute; left: 26.92%; top: 61.35%;" class="c_61_1">
+		a place with many older voters&mdash; the ballot was particularly confusing. It was
+	</div>
+
+	<div id="t_61_41" style="position: absolute; left: 26.92%; top: 63.25%;" class="c_61_1">
+		quite easy to think you were voting for the Democrats when in fact you were
+	</div>
+
+	<div id="t_61_42" style="position: absolute; left: 26.92%; top: 65.14%;" class="c_61_1">
+		voting for someone else. In addition, the technology used at the time involved
+	</div>
+
+	<div id="t_61_43" style="position: absolute; left: 26.92%; top: 67.03%;" class="c_61_1">
+		punching out small holes called &ldquo;chads&rdquo; in a piece of cardboard, and
+	</div>
+
+	<div id="t_61_44" style="position: absolute; left: 26.92%; top: 68.93%;" class="c_61_1">
+		sometimes the punch did not work. In the end, the Supreme Court declared
+	</div>
+
+	<div id="t_61_45" style="position: absolute; left: 26.92%; top: 70.82%;" class="c_61_1">
+		Bush the winner by under 600 votes in a state with a poorly designed ballot,
+	</div>
+
+	<div id="t_61_46" style="position: absolute; left: 26.92%; top: 72.72%;" class="c_61_1">
+		where over a million people had voted. But the law is the law. The Electoral
+	</div>
+
+	<div id="t_61_47" style="position: absolute; left: 26.92%; top: 74.61%;" class="c_61_1">
+		College votes went to the winner, and with it the presidency.
+	</div>
+
+	<div id="t_61_48" style="position: absolute; left: 13.30%; top:77.78%;" class="c_61_0">
+		DOES THE SYSTEM WORK?
+	</div>
+
+	<div id="t_61_49" style="position: absolute; left: 10.07%; top: 80.25%;" class="c_61_1">
+		Swing states have become a focal point in close
+	</div>
+
+	<div id="t_61_50" style="position: absolute; left: 8.82%; top: 82.15%;" class="c_61_1">
+		elections, but candidates still must pay attention
+	</div>
+
+	<div id="t_61_51" style="position: absolute; left: 8.82%; top: 84.04%;" class="c_61_1">
+		to the less-populated states to gain electoral votes.
+	</div>
+
+	<div id="t_61_52" style="position: absolute; left: 8.82%; top: 85.93%;" class="c_61_1">
+		The requirement for a majority vote to win the
+	</div>
+
+	<div id="t_61_53" style="position: absolute; left: 8.82%; top: 87.83%;" class="c_61_1">
+		Electoral College vote also favors a two-party
+	</div>
+
+	<div id="t_61_54" style="position: absolute; left: 8.82%; top: 89.72%;" class="c_61_1">
+		system. Third-party candidates might get a
+	</div>
+
+	<div id="t_61_55" style="position: absolute; left: 8.82%; top: 91.62%;" class="c_61_1">
+		sizeable popular vote, but not get the winner-
+	</div>
+
+	<div id="t_61_56" style="position: absolute; left: 8.82%; top: 93.51%;" class="c_61_1">
+		takes-all electoral votes of any state.
+	</div>
+
+	<div id="t_61_57" style="position: absolute; left: 52.21%; top:79.30%;" class="c_61_0">
+		Room for Debate
+	</div>
+
+	<div id="t_61_58" style="position: absolute; left: 52.21%; top:81.79%;" class="c_61_13">
+		In the 2000 presidential
+	</div>
+
+	<div id="t_61_59" style="position: absolute; left: 52.21%; top:83.69%;" class="c_61_13">
+		election, electors from one
+	</div>
+
+	<div id="t_61_60" style="position: absolute; left: 52.21%; top:85.58%;" class="c_61_13">
+		state decided the outcome of the election. The
+	</div>
+
+	<div id="t_61_61" style="position: absolute; left: 52.21%; top:87.48%;" class="c_61_13">
+		victorious candidate had not won the popular
+	</div>
+
+	<div id="t_61_62" style="position: absolute; left: 52.21%; top:89.37%;" class="c_61_13">
+		vote. Should the Electoral College be eliminated
+	</div>
+
+	<div id="t_61_63" style="position: absolute; left: 52.21%; top:91.27%;" class="c_61_13">
+		and only the popular vote be counted?
+	</div>
+
+	<div id="t_61_64" style="position: absolute; left: 25.74%; top:96.06%;" class="c_61_14">
+		Maine and Nebraska include the vote in Congressional districts as well as the statewide total. In 2016 Maine had a split vote.
+	</div>
+
+	<div id="t_61_65" style="position: absolute; left: 94.04%; top: 94.89%;" class="c_61_15">
+		61
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_61_word_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 41%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_61_swing_states.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 28.75%; top: 23%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_61_who_really_when.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 78%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_61_does_the_system_work.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 77%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_61_room_for_debate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 20%; top: 95.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_61_maine_and_nebraska.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_60_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_61_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_60_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="60.html?page=right"; onclick="goto('60.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="62.html"; onclick="goto('62.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="62.html"; onclick="goto('62.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_62.css">
+                <link rel="stylesheet" href="css/civics_63.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="60.html?page=right"; onclick="goto('60.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="62.html"; onclick="goto('62.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="60.html?page=right"; onclick="goto('60.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_62_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_63_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_62_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="62.html?page=right"; onclick="goto('62.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="64.html"; onclick="goto('64.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="64.html"; onclick="goto('64.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="60.html?page=right"; onclick="goto('60.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="62.html"; onclick="goto('62.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="60.html?page=right"; onclick="goto('60.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_62">
+                                                                                                <div class="pageData">
+
+	<div id="t_62_0" style="position: absolute; left: 47.47%; top:8.03%;" class="c_62_0">
+		Casting your ballot in an election is a
+	</div>
+
+	<div id="t_62_1" style="position: absolute; left: 47.47%; top:9.67%;" class="c_62_0">
+		powerful right and a great privilege.
+	</div>
+
+	<div id="t_62_2" style="position: absolute; left: 5.85%; top:4.39%;" class="c_62_1">
+		Voting is a basic responsibility of
+	</div>
+
+	<div id="t_62_3" style="position: absolute; left: 5.85%; top:6.16%;" class="c_62_1">
+		citizenship.
+	</div>
+
+	<div id="t_62_4" style="position: absolute; left: 5.85%; top:8.94%;" class="c_62_1">
+		Voter registration is required before
+	</div>
+
+	<div id="t_62_5" style="position: absolute; left: 5.85%; top:10.71%;" class="c_62_1">
+		a citizen may vote.
+	</div>
+
+	<div id="t_62_6" style="position: absolute; left: 5.85%; top:13.48%;" class="c_62_1">
+		Through legislation and
+	</div>
+
+	<div id="t_62_7" style="position: absolute; left: 5.85%; top:15.25%;" class="c_62_1">
+		constitutional amendments, different
+	</div>
+
+	<div id="t_62_8" style="position: absolute; left: 5.85%; top:17.02%;" class="c_62_1">
+		American citizens have been granted
+	</div>
+
+	<div id="t_62_9" style="position: absolute; left: 5.85%; top:18.79%;" class="c_62_1">
+		the right to vote at different times.
+	</div>
+
+	<div id="t_62_10" style="position: absolute; left: 8.30%; top: 23.22%; letter-spacing: -0.02em;" class="c_62_2">
+		Please Vote!
+	</div>
+
+	<div id="t_62_11" style="position: absolute; left: 8.82%; top: 30.19%; letter-spacing: 0.01em;" class="c_62_3">
+		In the 2000 election, the presidency of
+	</div>
+
+	<div id="t_62_12" style="position: absolute; left: 8.82%; top: 32.08%; letter-spacing: 0.01em;" class="c_62_3">
+		the United States was decided by about
+	</div>
+
+	<div id="t_62_13" style="position: absolute; left: 8.82%; top: 33.98%; letter-spacing: 0.01em;" class="c_62_3">
+		600 votes. Every vote DOES count.
+	</div>
+
+	<div id="t_62_14" style="position: absolute; left: 8.82%; top: 35.87%; letter-spacing: 0.01em;" class="c_62_3">
+		Every vote matters!
+	</div>
+
+	<div id="t_62_15" style="position: absolute; left: 13.42%; top:39.22%;" class="c_62_4">
+		JUST A FEW MORE
+	</div>
+
+	<div id="t_62_16" style="position: absolute; left: 19.10%; top:41.11%;" class="c_62_4">
+		YEARS&hellip;
+	</div>
+
+	<div id="t_62_17" style="position: absolute; left: 10.07%; top: 43.33%;" class="c_62_5">
+		When you are 18 years old, you will
+	</div>
+
+	<div id="t_62_18" style="position: absolute; left: 8.82%; top: 45.23%;" class="c_62_5">
+		be able to do something really
+	</div>
+
+	<div id="t_62_19" style="position: absolute; left: 8.82%; top: 47.12%;" class="c_62_5">
+		important. Vote! You must register to
+	</div>
+
+	<div id="t_62_20" style="position: absolute; left: 8.82%; top: 49.02%;" class="c_62_5">
+		participate in primary and general elections,
+	</div>
+
+	<div id="t_62_21" style="position: absolute; left: 8.82%; top: 50.91%;" class="c_62_5">
+		but it&rsquo;s easy to do. Simply complete a voter
+	</div>
+
+	<div id="t_62_22" style="position: absolute; left: 8.82%; top: 52.81%;" class="c_62_5">
+		registration application by producing these
+	</div>
+
+	<div id="t_62_23" style="position: absolute; left: 8.82%; top: 54.7%;" class="c_62_5">
+		documents:
+	</div>
+
+	<div id="t_62_24" style="position: absolute; left: 8.82%; top: 56.59%;" class="c_62_6">
+		&bull; <span class="c_62_7">Proof that you are a U.S. citizen</span><span class="c_62_8">&mdash;a birth</span>
+	</div>
+
+	<div id="t_62_25" style="position: absolute; left: 8.82%; top: 58.49%;" class="c_62_5">
+		certificate, U.S. passport, or naturalization
+	</div>
+
+	<div id="t_62_26" style="position: absolute; left: 8.82%; top: 60.38%;" class="c_62_5">
+		certificate will do.
+	</div>
+
+	<div id="t_62_27" style="position: absolute; left: 8.82%; top: 62.28%;" class="c_62_6">
+		&bull; <span class="c_62_7">Proof that you are a resident of Virginia</span><span class="c_62_8">&mdash;</span>
+	</div>
+
+	<div id="t_62_28" style="position: absolute; left: 8.82%; top: 64.17%;" class="c_62_5">
+		such as a school ID card or driver&rsquo;s license.
+	</div>
+
+	<div id="t_62_29" style="position: absolute; left: 8.82%; top: 66.07%;" class="c_62_6">
+		&bull; <span class="c_62_7">Proof of age</span><span class="c_62_8">&mdash;you must be 18 or older on</span>
+	</div>
+
+	<div id="t_62_30" style="position: absolute; left: 8.82%; top: 67.96%;" class="c_62_5">
+		the day of the election.
+	</div>
+
+	<div id="t_62_31" style="position: absolute; left: 14.11%; top:70.28%;" class="c_62_4">
+		WHERE TO REGISTER?
+	</div>
+
+	<div id="t_62_32" style="position: absolute; left: 10.14%; top: 72.5%;" class="c_62_5">
+		In Virginia you can register to vote in
+	</div>
+
+	<div id="t_62_33" style="position: absolute; left: 8.82%; top: 74.39%;" class="c_62_5">
+		person, by mail, or online. The Department of
+	</div>
+
+	<div id="t_62_34" style="position: absolute; left: 8.82%; top: 76.29%;" class="c_62_5">
+		Motor Vehicles, public libraries, and
+	</div>
+
+	<div id="t_62_35" style="position: absolute; left: 8.82%; top: 78.18%;" class="c_62_5">
+		state/local government offices all have
+	</div>
+
+	<div id="t_62_36" style="position: absolute; left: 8.82%; top: 80.08%;" class="c_62_5">
+		applications. Sometimes a civic group or
+	</div>
+
+	<div id="t_62_37" style="position: absolute; left: 8.82%; top: 81.97%;" class="c_62_5">
+		political party will hold a voter
+	</div>
+
+	<div id="t_62_38" style="position: absolute; left: 8.82%; top: 83.87%;" class="c_62_5">
+		registration drive. You can even mail in
+	</div>
+
+	<div id="t_62_39" style="position: absolute; left: 8.82%; top: 85.76%;" class="c_62_5">
+		an application or register online at the
+	</div>
+
+	<div id="t_62_40" style="position: absolute; left: 8.82%; top: 87.66%;" class="c_62_5">
+		voter registration site operated by the
+	</div>
+
+	<div id="t_62_41" style="position: absolute; left: 8.82%; top: 89.55%;" class="c_62_5">
+		Virginia State Board of Elections. Just be
+	</div>
+
+	<div id="t_62_42" style="position: absolute; left: 8.82%; top: 91.44%;" class="c_62_5">
+		sure you register no later than 22 days
+	</div>
+
+	<div id="t_62_43" style="position: absolute; left: 8.82%; top: 93.34%;" class="c_62_5">
+		before an election.
+	</div>
+
+	<div id="t_62_44" style="position: absolute; left: 4.21%; top: 94.98%;" class="c_62_9">
+		62
+	</div>
+
+	<div id="t_62_45" style="position: absolute; left: 52.39%; top:66.51%;" class="c_62_10">
+		You might have to wait in line, especially
+	</div>
+
+	<div id="t_62_46" style="position: absolute; left: 52.39%; top:68.15%;" class="c_62_10">
+		during a presidential election. It&rsquo;s worth it!
+	</div>
+
+	<div id="t_62_47" style="position: absolute; left: 53.25%; top:73.65%;" class="c_62_11">
+		PROTECTING YOUR RIGHTS
+	</div>
+
+	<div id="t_62_48" style="position: absolute; left: 49.51%; top: 76.25%;" class="c_62_12">
+		There have been several laws and constitutional
+	</div>
+
+	<div id="t_62_49" style="position: absolute; left: 48.20%; top: 78.14%;" class="c_62_12">
+		amendments that deal with the act of voting. See
+	</div>
+
+	<div id="t_62_50" style="position: absolute; left: 48.20%; top: 80.04%;" class="c_62_12">
+		pages 43&ndash;44 for more details.
+	</div>
+
+	<div id="t_62_51" style="position: absolute; left: 48.20%; top:81.53%;" class="c_62_13">
+		15th Amendment: <span class="c_62_14">Race is no bar to vote</span>
+	</div>
+
+	<div id="t_62_52" style="position: absolute; left: 48.20%; top:83.42%;" class="c_62_13">
+		19th Amendment: <span class="c_62_14">Women can vote</span>
+	</div>
+
+	<div id="t_62_53" style="position: absolute; left: 48.20%; top:85.32%;" class="c_62_13">
+		23rd Amendment: <span class="c_62_14">Washington, D.C. residents can</span>
+	</div>
+
+	<div id="t_62_54" style="position: absolute; left: 48.20%; top: 87.61%;" class="c_62_12">
+		vote for president and vice-president
+	</div>
+
+	<div id="t_62_55" style="position: absolute; left: 48.20%; top:89.11%;" class="c_62_13">
+		24th Amendment: <span class="c_62_14">No poll taxes</span>
+	</div>
+
+	<div id="t_62_56" style="position: absolute; left: 48.20%; top:91.00%;" class="c_62_13">
+		26th Amendment: <span class="c_62_14">Lowered the voting age to 18</span>
+	</div>
+
+	<div id="t_62_57" style="position: absolute; left: 48.20%; top:92.90%;" class="c_62_13">
+		Voting Rights Act of 1965<span class="c_62_14">: No difficult literacy tests</span>
+	</div>
+
+	<div id="t_62_58" style="position: absolute; left: 48.20%; top: 95.19%;" class="c_62_12">
+		that were used to restrict African American voters
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_voting_is_a_basic.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 41%; top: 6%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_casting_your_ballot.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 25%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_please_vote.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 39%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_just_a_few_more.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 70%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_where_to_register.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 63%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_you_might_have_to_wait.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 46%; top: 72%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_62_protecting_your_rights.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_63">
+                                                                                                <div class="pageData">
+
+	<div id="t_63_0" style="position: absolute; left: 10.17%; top:2.32%;" class="c_63_0">
+		Who Votes
+	</div>
+
+	<div id="t_63_1" style="position: absolute; left: 10.87%; top:7.75%;" class="c_63_0">
+		the Most?
+	</div>
+
+	<div id="t_63_2" style="position: absolute; left: 13.73%; top:14.86%;" class="c_63_1">
+		MORE PEOPLE SHOULD!
+	</div>
+
+	<div id="t_63_3" style="position: absolute; left: 57.82%; top:3.96%;" class="c_63_2">
+		OLDER? WISER?
+	</div>
+
+	<div id="t_63_4" style="position: absolute; left: 45.35%; top: 6.68%;" class="c_63_3">
+		Age, income levels, education&mdash;all these things affect
+	</div>
+
+	<div id="t_63_5" style="position: absolute; left: 44.03%; top: 8.58%;" class="c_63_3">
+		who takes the time to go to the polls. Hot-topic issues,
+	</div>
+
+	<div id="t_63_6" style="position: absolute; left: 44.03%; top: 10.47%;" class="c_63_3">
+		from new taxes to Social Security to health care reform,
+	</div>
+
+	<div id="t_63_7" style="position: absolute; left: 44.03%; top: 12.37%;" class="c_63_3">
+		can also send people to the polls in greater numbers on
+	</div>
+
+	<div id="t_63_8" style="position: absolute; left: 44.03%; top: 14.26%;" class="c_63_3">
+		election days. Study these graphs from the 2012
+	</div>
+
+	<div id="t_63_9" style="position: absolute; left: 44.03%; top: 16.15%;" class="c_63_3">
+		presidential election. What conclusions can you draw?
+	</div>
+
+	<div id="t_63_10" style="position: absolute; left: 14.02%; top:18.99%;" class="c_63_2">
+		Vote by Age
+	</div>
+
+	<div id="t_63_11" style="position: absolute; left: 38.02%; top:18.81%;" class="c_63_2">
+		Vote by Education
+	</div>
+
+	<div id="t_63_12" style="position: absolute; left: 68.13%; top:18.71%;" class="c_63_2">
+		Vote by Income
+	</div>
+
+	<div id="t_63_13" style="position: absolute; left: 22.00%; top:42.22%;" class="c_63_2">
+		WHY CARE?
+	</div>
+
+	<div id="t_63_14" style="position: absolute; left: 10.14%; top: 44.68%;" class="c_63_3">
+		Voter apathy&mdash;a seeming lack of interest in the
+	</div>
+
+	<div id="t_63_15" style="position: absolute; left: 8.82%; top: 46.58%;" class="c_63_3">
+		running of our communities, state, and nation&mdash;is a
+	</div>
+
+	<div id="t_63_16" style="position: absolute; left: 8.82%; top: 48.47%;" class="c_63_3">
+		real danger to our democracy. So many excuses!
+	</div>
+
+	<div id="t_63_17" style="position: absolute; left: 8.82%; top: 50.37%;" class="c_63_3">
+		&ldquo;I&rsquo;m not interested in the candidates or the issues.&rdquo;
+	</div>
+
+	<div id="t_63_18" style="position: absolute; left: 8.82%; top: 52.26%;" class="c_63_3">
+		&ldquo;I am too busy!&rdquo; &ldquo;One vote does not matter.&rdquo; &ldquo;I
+	</div>
+
+	<div id="t_63_19" style="position: absolute; left: 8.82%; top: 54.16%;" class="c_63_3">
+		forgot to register.&rdquo; Don&rsquo;t make excuses! VOTE!
+	</div>
+
+	<div id="t_63_20" style="position: absolute; left: 51.61%; top:43.56%;" class="c_63_4">
+		75%
+	</div>
+
+	<div id="t_63_21" style="position: absolute; left: 51.81%; top:45.97%;" class="c_63_5">
+		1948
+	</div>
+
+	<div id="t_63_22" style="position: absolute; left: 52.05%; top:46.85%;" class="c_63_5">
+		51%
+	</div>
+
+	<div id="t_63_23" style="position: absolute; left: 51.61%; top:48.52%;" class="c_63_4">
+		50%
+	</div>
+
+	<div id="t_63_24" style="position: absolute; left: 51.79%; top:50.13%;" class="c_63_6">
+		1950
+	</div>
+
+	<div id="t_63_25" style="position: absolute; left: 52.06%; top:51.01%;" class="c_63_7">
+		41%
+	</div>
+
+	<div id="t_63_26" style="position: absolute; left: 51.61%; top:53.25%;" class="c_63_4">
+		25%
+	</div>
+
+	<div id="t_63_27" style="position: absolute; left: 65.99%; top:43.05%;" class="c_63_8">
+		Off-Year Elections
+	</div>
+
+	<div id="t_63_28" style="position: absolute; left: 83.98%; top:47.71%;" class="c_63_5">
+		2012
+	</div>
+
+	<div id="t_63_29" style="position: absolute; left: 83.98%; top:48.59%;" class="c_63_5">
+		55%
+	</div>
+
+	<div id="t_63_30" style="position: absolute; left: 83.91%; top:51.45%;" class="c_63_6">
+		2014
+	</div>
+
+	<div id="t_63_31" style="position: absolute; left: 83.91%; top:52.33%;" class="c_63_7">
+		36%
+	</div>
+
+	<div id="t_63_32" style="position: absolute; left: 58.49%; top:54.57%;" class="c_63_9">
+		Presidential Elections
+	</div>
+
+	<div id="t_63_33" style="position: absolute; left: 73.01%; top:54.49%;" class="c_63_9">
+		Midterm Elections
+	</div>
+
+	<div id="t_63_34" style="position: absolute; left: 8.67%; top: 59.16%;" class="c_63_3">
+		Even if you are too young to vote, you can still be a part of the
+	</div>
+
+	<div id="t_63_35" style="position: absolute; left: 25.04%; top:56.69%;" class="c_63_2">
+		VOTE RIGHT NOW!
+	</div>
+
+	<div id="t_63_36" style="position: absolute; left: 7.35%; top: 61.05%;" class="c_63_3">
+		democratic process. Is there a candidate who inspires you? Volunteer to
+	</div>
+
+	<div id="t_63_37" style="position: absolute; left: 7.35%; top: 62.95%;" class="c_63_3">
+		help. Stuff envelopes, hand out literature, pick up pizzas for the
+	</div>
+
+	<div id="t_63_38" style="position: absolute; left: 7.35%; top: 64.84%;" class="c_63_3">
+		volunteers&mdash;any help will be welcome. As elections draw near, learn
+	</div>
+
+	<div id="t_63_39" style="position: absolute; left: 7.35%; top: 66.74%;" class="c_63_3">
+		about other issues on the ballot. Often there are <span class="c_63_10">propositions</span><span class="c_63_11"> to vote</span>
+	</div>
+
+	<div id="t_63_40" style="position: absolute; left: 7.35%; top: 68.63%;" class="c_63_3">
+		for&mdash;proposed changes that might impact your community or your
+	</div>
+
+	<div id="t_63_41" style="position: absolute; left: 7.35%; top: 70.53%;" class="c_63_3">
+		school. Voting is about more than just picking a person to represent you!
+	</div>
+
+	<div id="t_63_42" style="position: absolute; left: 8.67%; top: 72.42%;" class="c_63_3">
+		Some schools hold mock elections after studying the candidates and
+	</div>
+
+	<div id="t_63_43" style="position: absolute; left: 7.35%; top: 74.31%;" class="c_63_3">
+		issues. In some Virginia voting districts, children can go to the polls with
+	</div>
+
+	<div id="t_63_44" style="position: absolute; left: 7.35%; top: 76.21%;" class="c_63_3">
+		parents and cast their ballot. It does not count, but it serves as a &ldquo;dress
+	</div>
+
+	<div id="t_63_45" style="position: absolute; left: 7.35%; top: 78.1%;" class="c_63_3">
+		rehearsal&rdquo; for the democratic practice of voting. Do it! Research the
+	</div>
+
+	<div id="t_63_46" style="position: absolute; left: 7.35%; top: 80%;" class="c_63_3">
+		candidates and issues. Then see how your &ldquo;votes&rdquo; compare with
+	</div>
+
+	<div id="t_63_47" style="position: absolute; left: 7.35%; top: 81.89%;" class="c_63_3">
+		the actual results.
+	</div>
+
+	<div id="t_63_48" style="position: absolute; left: 8.67%; top: 83.79%;" class="c_63_3">
+		Unfortunately, too many people squander one of their greatest
+	</div>
+
+	<div id="t_63_49" style="position: absolute; left: 7.35%; top: 85.68%;" class="c_63_3">
+		rights&mdash;the right to vote in free elections. Our nation&rsquo;s founders
+	</div>
+
+	<div id="t_63_50" style="position: absolute; left: 7.35%; top: 87.58%;" class="c_63_3">
+		risked their lives and fortunes to earn a say in how they were
+	</div>
+
+	<div id="t_63_51" style="position: absolute; left: 7.35%; top: 89.47%;" class="c_63_3">
+		governed, yet today over 20 percent of eligible voters cannot be
+	</div>
+
+	<div id="t_63_52" style="position: absolute; left: 7.35%; top: 91.36%;" class="c_63_3">
+		bothered to take the time to register to vote. We must do better!
+	</div>
+
+	<div id="t_63_53" style="position: absolute; left: 7.35%; top: 93.26%;" class="c_63_3">
+		So when you are 18, go register! Then VOTE!
+	</div>
+
+	<div id="t_63_54" style="position: absolute; left: 69.49%; top:57.06%;" class="c_63_12">
+		Word to Know
+	</div>
+
+	<div id="t_63_55" style="position: absolute; left: 69.49%; top:59.94%;" class="c_63_13">
+		<span class="c_63_14">&nbsp;&nbsp;&nbsp;&nbsp;proposition</span>
+	</div>
+
+	<div id="t_63_56" style="position: absolute; left: 69.09%; top:58.19%; font-size: 2.5em;" class="c_63_13">&#8227;</div>
+	<div id="t_63_57" style="position: absolute; left: 71.41%; top:62.06%;" class="c_63_15">
+		(<span class="c_63_16">prop-uh-zi-shun)</span>
+	</div>
+
+	<div id="t_63_58" style="position: absolute; left: 69.49%; top:64.28%;" class="c_63_17">
+		A suggested idea or plan of
+	</div>
+
+	<div id="t_63_59" style="position: absolute; left: 69.49%; top:66.17%;" class="c_63_17">
+		action
+	</div>
+
+	<div id="t_63_60" style="position: absolute; left: 69.62%; top:72.50%;" class="c_63_18">
+		When you do not vote, or fail
+	</div>
+
+	<div id="t_63_61" style="position: absolute; left: 69.62%; top:74.14%;" class="c_63_18">
+		to get involved in the election
+	</div>
+
+	<div id="t_63_62" style="position: absolute; left: 69.62%; top:75.78%;" class="c_63_18">
+		process, you have silenced
+	</div>
+
+	<div id="t_63_63" style="position: absolute; left: 69.62%; top:77.42%;" class="c_63_18">
+		yourself.
+	</div>
+
+	<div id="t_63_64" style="position: absolute; left: 95.11%; top: 94.98%;" class="c_63_19">
+		63
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 5%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_63_who_votes_the_most.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_63_vote_right_now.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 64%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_63_word_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 64%; top: 71.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_63_when_you_do_not.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_62_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_63_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_62_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="62.html?page=right"; onclick="goto('62.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="64.html"; onclick="goto('64.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="64.html"; onclick="goto('64.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

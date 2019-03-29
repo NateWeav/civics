@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_176.css">
+                <link rel="stylesheet" href="css/civics_177.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="174.html?page=right"; onclick="goto('174.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="176.html"; onclick="goto('176.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="174.html?page=right"; onclick="goto('174.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_176_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_177_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_176_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="176.html?page=right"; onclick="goto('176.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="178.html"; onclick="goto('178.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="178.html"; onclick="goto('178.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="174.html?page=right"; onclick="goto('174.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="176.html"; onclick="goto('176.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="174.html?page=right"; onclick="goto('174.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_176">
+                                                                                                <div class="pageData">
+
+	<div id="t_176_0" style="position: absolute; left: 6.01%; top:3.55%;" class="c_176_0">
+		Every level of government&mdash;federal,
+	</div>
+
+	<div id="t_176_1" style="position: absolute; left: 6.01%; top:5.32%;" class="c_176_0">
+		state, and local&mdash;requires revenue to
+	</div>
+
+	<div id="t_176_2" style="position: absolute; left: 6.01%; top:7.09%;" class="c_176_0">
+		pay for goods and services provided by
+	</div>
+
+	<div id="t_176_3" style="position: absolute; left: 6.01%; top:8.85%;" class="c_176_0">
+		the government. Taxes and fees levied
+	</div>
+
+	<div id="t_176_4" style="position: absolute; left: 6.01%; top:10.62%;" class="c_176_0">
+		on individuals and businesses are the
+	</div>
+
+	<div id="t_176_5" style="position: absolute; left: 6.01%; top:12.39%;" class="c_176_0">
+		major source of this revenue.
+	</div>
+
+	<div id="t_176_6" style="position: absolute; left: 6.01%; top:15.17%;" class="c_176_0">
+		Local, state, and federal governments
+	</div>
+
+	<div id="t_176_7" style="position: absolute; left: 6.01%; top:16.93%;" class="c_176_0">
+		determine how best to use and allocate
+	</div>
+
+	<div id="t_176_8" style="position: absolute; left: 6.01%; top:18.70%;" class="c_176_0">
+		the money they collect.
+	</div>
+
+	<div id="t_176_9" style="position: absolute; left: 14.08%; top: 22.28%; letter-spacing: -0.02em;" class="c_176_1">
+		It&rsquo;s Tax Time!
+	</div>
+
+	<div id="t_176_10" style="position: absolute; left: 7.72%; top:31.59%;" class="c_176_2">
+		&ldquo;The Congress shall have
+	</div>
+
+	<div id="t_176_11" style="position: absolute; left: 7.72%; top:34.37%;" class="c_176_2">
+		Power to lay and collect
+	</div>
+
+	<div id="t_176_12" style="position: absolute; left: 7.72%; top:37.14%;" class="c_176_2">
+		Taxes&hellip;to pay the Debts and
+	</div>
+
+	<div id="t_176_13" style="position: absolute; left: 7.72%; top:39.92%; letter-spacing: -0.05em;" class="c_176_2">
+		provide for the common Defence
+	</div>
+
+	<div id="t_176_14" style="position: absolute; left: 7.72%; top:42.70%;" class="c_176_2">
+		and general Welfare of the
+	</div>
+
+	<div id="t_176_15" style="position: absolute; left: 7.72%; top:45.48%;" class="c_176_2">
+		United States&hellip;&rdquo;
+	</div>
+
+	<div id="t_176_16" style="position: absolute; left: 14.99%; top:49.27%;" class="c_176_3">
+		&ndash;The U.S. Constitution
+	</div>
+
+	<div id="t_176_17" style="position: absolute; left: 10.41%; top:51.12%;" class="c_176_4">
+		16th Amendment and Article I, Section 8
+	</div>
+
+	<div id="t_176_18" style="position: absolute; left: 39.51%; top: 43.89%; letter-spacing: 0.01em;" class="c_176_5">
+		How do our local, state, and
+	</div>
+
+	<div id="t_176_19" style="position: absolute; left: 39.51%; top: 45.66%; letter-spacing: 0.01em;" class="c_176_5">
+		federal governments
+	</div>
+
+	<div id="t_176_20" style="position: absolute; left: 39.51%; top: 47.43%; letter-spacing: 0.01em;" class="c_176_5">
+		&ldquo;balance their checkbooks&rdquo;?
+	</div>
+
+	<div id="t_176_21" style="position: absolute; left: 39.51%; top: 49.20%; letter-spacing: 0.01em;" class="c_176_5">
+		&ldquo;We the People&rdquo; pay for our
+	</div>
+
+	<div id="t_176_22" style="position: absolute; left: 39.51%; top: 50.97%; letter-spacing: 0.01em;" class="c_176_5">
+		government programs!
+	</div>
+
+	<div id="t_176_23" style="position: absolute; left: 21.40%; top:54.71%;" class="c_176_6">
+		IN COMES THE INCOME
+	</div>
+
+	<div id="t_176_24" style="position: absolute; left: 10.14%; top: 57.18%;" class="c_176_7">
+		Think of all the things the federal government has to pay for.
+	</div>
+
+	<div id="t_176_25" style="position: absolute; left: 8.82%; top: 59.08%;" class="c_176_7">
+		Fighter jets and aircraft carriers&hellip;equipment and supplies for all
+	</div>
+
+	<div id="t_176_26" style="position: absolute; left: 8.82%; top: 60.97%;" class="c_176_7">
+		the people in the Armed Forces who protect us&hellip;aid for those
+	</div>
+
+	<div id="t_176_27" style="position: absolute; left: 8.82%; top: 62.87%;" class="c_176_7">
+		who cannot afford the simplest basics, such as food and shelter.
+	</div>
+
+	<div id="t_176_28" style="position: absolute; left: 8.82%; top: 64.76%;" class="c_176_7">
+		Do not forget about maintaining the interstate highways and the
+	</div>
+
+	<div id="t_176_29" style="position: absolute; left: 8.82%; top: 66.66%;" class="c_176_7">
+		U.S. Postal Service. And of course, there are all the salaries of the
+	</div>
+
+	<div id="t_176_30" style="position: absolute; left: 8.82%; top: 68.55%;" class="c_176_7">
+		over 2,700,000 civilians who are employed by the government&mdash;
+	</div>
+
+	<div id="t_176_31" style="position: absolute; left: 8.82%; top: 70.45%;" class="c_176_7">
+		plus the offices they work in and the computers they use.
+	</div>
+
+	<div id="t_176_32" style="position: absolute; left: 10.19%; top:72.77%;" class="c_176_6">
+		OUR NATION&rsquo;S MAIN SOURCE OF REVENUE
+	</div>
+
+	<div id="t_176_33" style="position: absolute; left: 10.14%; top: 75.24%;" class="c_176_7">
+		To pay for its programs and purchases, the government collects
+	</div>
+
+	<div id="t_176_34" style="position: absolute; left: 8.82%; top: 77.13%;" class="c_176_7">
+		taxes. It uses that money for everything from homeland security
+	</div>
+
+	<div id="t_176_35" style="position: absolute; left: 8.82%; top: 79.03%;" class="c_176_7">
+		to disaster relief. Our economy depends on the flow of money
+	</div>
+
+	<div id="t_176_36" style="position: absolute; left: 8.82%; top: 80.92%;" class="c_176_7">
+		from individuals to businesses and back again. If taxes are too
+	</div>
+
+	<div id="t_176_37" style="position: absolute; left: 8.82%; top: 82.82%;" class="c_176_7">
+		high, people do not have extra income to spend on things.
+	</div>
+
+	<div id="t_176_38" style="position: absolute; left: 8.82%; top: 84.71%;" class="c_176_7">
+		Lower taxes mean people have extra spending money.
+	</div>
+
+	<div id="t_176_39" style="position: absolute; left: 8.82%; top: 86.61%;" class="c_176_7">
+		Tax cuts always make consumers happy, but it also
+	</div>
+
+	<div id="t_176_40" style="position: absolute; left: 8.82%; top: 88.5%;" class="c_176_7">
+		means that the government might not have enough
+	</div>
+
+	<div id="t_176_41" style="position: absolute; left: 8.82%; top: 90.4%;" class="c_176_7">
+		money to pay for important items, like a strong
+	</div>
+
+	<div id="t_176_42" style="position: absolute; left: 8.82%; top: 92.29%;" class="c_176_7">
+		military or the cleanup after a major tornado or hurricane.
+	</div>
+
+	<div id="t_176_43" style="position: absolute; left: 4.89%; top: 94.24%; letter-spacing: -0.15em;" class="c_176_8">
+		176
+	</div>
+
+	<div id="t_176_44" style="position: absolute; left: 65.84%; top:45.62%;" class="c_176_9">
+		THE NATIONAL DEBT
+	</div>
+
+	<div id="t_176_45" style="position: absolute; left: 65.72%; top: 48.09%;" class="c_176_10">
+		In 2016, Americans paid $3.2
+	</div>
+
+	<div id="t_176_46" style="position: absolute; left: 65.72%; top: 49.99%;" class="c_176_10">
+		TRILLION dollars in federal
+	</div>
+
+	<div id="t_176_47" style="position: absolute; left: 65.72%; top: 51.88%;" class="c_176_10">
+		taxes. The government also
+	</div>
+
+	<div id="t_176_48" style="position: absolute; left: 65.72%; top: 53.78%;" class="c_176_10">
+		collected funds from fees and
+	</div>
+
+	<div id="t_176_49" style="position: absolute; left: 65.72%; top: 55.67%;" class="c_176_10">
+		fines. There is one more way
+	</div>
+
+	<div id="t_176_50" style="position: absolute; left: 65.72%; top: 57.57%;" class="c_176_10">
+		our government gets money. It
+	</div>
+
+	<div id="t_176_51" style="position: absolute; left: 65.72%; top: 59.46%;" class="c_176_10">
+		borrows it.
+	</div>
+
+	<div id="t_176_52" style="position: absolute; left: 67.04%; top: 61.35%;" class="c_176_10">
+		Our nation&rsquo;s national debt is
+	</div>
+
+	<div id="t_176_53" style="position: absolute; left: 65.72%; top: 63.25%;" class="c_176_10">
+		a subject of heated debate.
+	</div>
+
+	<div id="t_176_54" style="position: absolute; left: 65.72%; top: 65.14%;" class="c_176_10">
+		Many economists say debt can
+	</div>
+
+	<div id="t_176_55" style="position: absolute; left: 65.72%; top: 67.04%;" class="c_176_10">
+		be a good thing. For example,
+	</div>
+
+	<div id="t_176_56" style="position: absolute; left: 65.72%; top: 68.93%;" class="c_176_10">
+		the government can borrow
+	</div>
+
+	<div id="t_176_57" style="position: absolute; left: 65.72%; top: 70.83%;" class="c_176_10">
+		money to fund rebuilding
+	</div>
+
+	<div id="t_176_58" style="position: absolute; left: 65.72%; top: 72.72%;" class="c_176_10">
+		projects that create jobs for
+	</div>
+
+	<div id="t_176_59" style="position: absolute; left: 65.72%; top: 74.62%;" class="c_176_10">
+		Americans. But there is a down
+	</div>
+
+	<div id="t_176_60" style="position: absolute; left: 65.72%; top: 76.51%;" class="c_176_10">
+		side, too.
+	</div>
+
+	<div id="t_176_61" style="position: absolute; left: 67.04%; top: 78.4%;" class="c_176_10">
+		Borrowed money must be
+	</div>
+
+	<div id="t_176_62" style="position: absolute; left: 65.72%; top: 80.3%;" class="c_176_10">
+		paid back. As debt and interest
+	</div>
+
+	<div id="t_176_63" style="position: absolute; left: 71.03%; top: 82.19%;" class="c_176_10">
+		on debt mount up, more
+	</div>
+
+	<div id="t_176_64" style="position: absolute; left: 72.86%; top: 84.09%;" class="c_176_10">
+		and more of the
+	</div>
+
+	<div id="t_176_65" style="position: absolute; left: 73.73%; top: 85.98%;" class="c_176_10">
+		government budget
+	</div>
+
+	<div id="t_176_66" style="position: absolute; left: 72.78%; top: 87.88%;" class="c_176_10">
+		goes to paying for
+	</div>
+
+	<div id="t_176_67" style="position: absolute; left: 71.66%; top: 89.77%;" class="c_176_10">
+		past projects. Paying
+	</div>
+
+	<div id="t_176_68" style="position: absolute; left: 70.55%; top: 91.67%;" class="c_176_10">
+		off the debts could slow
+	</div>
+
+	<div id="t_176_69" style="position: absolute; left: 69.44%; top: 93.56%;" class="c_176_10">
+		future economic growth.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_176_every_level_of_gov.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 8%; top: 22%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_176_its_tax_time.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 29%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_176_the_congress_shall.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 55%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_176_in_comes_the_income.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 62%; top: 42%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_176_the_national_debt.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 73%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_176_our_nations_main_source.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_177">
+                                                                                                <div class="pageData">
+
+	<div id="t_177_0" style="position: absolute; left: 20.44%; top:2.14%;" class="c_177_0">
+		A Trio
+	</div>
+
+	<div id="t_177_1" style="position: absolute; left: 17.33%; top:7.57%;" class="c_177_0">
+		of Taxes
+	</div>
+
+	<div id="t_177_2" style="position: absolute; left: 18.84%; top:14.86%;" class="c_177_1">
+		THREE WAYS TO PAY!
+	</div>
+
+	<div id="t_177_3" style="position: absolute; left: 13.20%; top:19.38%;" class="c_177_2">
+		INTERNAL REVENUE SERVICE:
+	</div>
+
+	<div id="t_177_4" style="position: absolute; left: 17.16%; top:21.27%;" class="c_177_2">
+		FEDERAL INCOME TAX
+	</div>
+
+	<div id="t_177_5" style="position: absolute; left: 12.35%; top: 24.77%;" class="c_177_3">
+		Income taxes are the most important source
+	</div>
+
+	<div id="t_177_6" style="position: absolute; left: 11.03%; top: 26.67%;" class="c_177_3">
+		of revenue for the federal government, and the
+	</div>
+
+	<div id="t_177_7" style="position: absolute; left: 11.03%; top: 28.56%;" class="c_177_3">
+		Internal Revenue Service (IRS) collects it.
+	</div>
+
+	<div id="t_177_8" style="position: absolute; left: 11.03%; top: 30.45%;" class="c_177_3">
+		Income tax is based on a person&rsquo;s earnings and
+	</div>
+
+	<div id="t_177_9" style="position: absolute; left: 11.03%; top: 32.35%;" class="c_177_3">
+		the number of people who depend on that
+	</div>
+
+	<div id="t_177_10" style="position: absolute; left: 11.03%; top: 34.24%;" class="c_177_3">
+		earner. The higher a person&rsquo;s salary, the higher
+	</div>
+
+	<div id="t_177_11" style="position: absolute; left: 11.03%; top: 36.14%;" class="c_177_3">
+		the rate he or she will have to pay.
+	</div>
+
+	<div id="t_177_12" style="position: absolute; left: 12.35%; top: 38.03%;" class="c_177_3">
+		An additional tax is also withheld from pay-
+	</div>
+
+	<div id="t_177_13" style="position: absolute; left: 11.03%; top: 39.93%;" class="c_177_3">
+		checks to fund Social Security and
+	</div>
+
+	<div id="t_177_14" style="position: absolute; left: 11.03%; top: 41.82%;" class="c_177_3">
+		Medicare programs. Businesses
+	</div>
+
+	<div id="t_177_15" style="position: absolute; left: 11.03%; top: 43.72%;" class="c_177_3">
+		also pay taxes on their earnings.
+	</div>
+
+	<div id="t_177_16" style="position: absolute; left: 11.03%; top: 45.61%;" class="c_177_3">
+		The U.S. tax codes are VERY
+	</div>
+
+	<div id="t_177_17" style="position: absolute; left: 11.03%; top: 47.5%;" class="c_177_3">
+		complicated!
+	</div>
+
+	<div id="t_177_18" style="position: absolute; left: 19.89%; top:50.08%;" class="c_177_2">
+		STATE INCOME
+	</div>
+
+	<div id="t_177_19" style="position: absolute; left: 19.26%; top:51.97%;" class="c_177_2">
+		AND SALES TAX
+	</div>
+
+	<div id="t_177_20" style="position: absolute; left: 11.16%; top: 55.63%;" class="c_177_3">
+		States have lots of expenses, too: roads,
+	</div>
+
+	<div id="t_177_21" style="position: absolute; left: 11.16%; top: 57.53%;" class="c_177_3">
+		universities, and public safety workers.
+	</div>
+
+	<div id="t_177_22" style="position: absolute; left: 11.16%; top: 59.42%;" class="c_177_3">
+		Many states also tax income, but at a much
+	</div>
+
+	<div id="t_177_23" style="position: absolute; left: 11.16%; top: 61.32%;" class="c_177_3">
+		lower rate than the federal government. Like
+	</div>
+
+	<div id="t_177_24" style="position: absolute; left: 11.16%; top: 63.21%;" class="c_177_3">
+		federal income tax, state income tax is based
+	</div>
+
+	<div id="t_177_25" style="position: absolute; left: 11.16%; top: 65.11%;" class="c_177_3">
+		on what you earn. Higher earners pay more.
+	</div>
+
+	<div id="t_177_26" style="position: absolute; left: 12.48%; top: 67%;" class="c_177_3">
+		There is a second kind of tax in most states. Every
+	</div>
+
+	<div id="t_177_27" style="position: absolute; left: 11.16%; top: 68.89%;" class="c_177_3">
+		time you buy something, you will be charged a fixed
+	</div>
+
+	<div id="t_177_28" style="position: absolute; left: 11.16%; top: 70.79%;" class="c_177_3">
+		percentage called sales tax. In Virginia, independent
+	</div>
+
+	<div id="t_177_29" style="position: absolute; left: 11.16%; top: 72.68%;" class="c_177_3">
+		cities, counties, and towns impose additional sales
+	</div>
+
+	<div id="t_177_30" style="position: absolute; left: 11.16%; top: 74.58%;" class="c_177_3">
+		taxes on food, entertainment, and lodging.
+	</div>
+
+	<div id="t_177_31" style="position: absolute; left: 65.22%; top:7.60%;" class="c_177_4">
+		This
+	</div>
+
+	<div id="t_177_32" style="position: absolute; left: 63.52%; top:8.48%;" class="c_177_4">
+		pay period
+	</div>
+
+	<div id="t_177_33" style="position: absolute; left: 60.59%; top:50.02%;" class="c_177_2">
+		LOCAL PROPERTY AND
+	</div>
+
+	<div id="t_177_34" style="position: absolute; left: 67.80%; top:51.92%;" class="c_177_2">
+		SALES TAX
+	</div>
+
+	<div id="t_177_35" style="position: absolute; left: 60.95%; top: 55.17%;" class="c_177_3">
+		What are some of your favorite places
+	</div>
+
+	<div id="t_177_36" style="position: absolute; left: 62.08%; top: 57.07%;" class="c_177_3">
+		in your town? The park? The
+	</div>
+
+	<div id="t_177_37" style="position: absolute; left: 63.20%; top: 58.96%;" class="c_177_3">
+		library? Maybe a town pool? Local
+	</div>
+
+	<div id="t_177_38" style="position: absolute; left: 62.32%; top: 60.86%;" class="c_177_3">
+		governments pay for upkeep with
+	</div>
+
+	<div id="t_177_39" style="position: absolute; left: 56.30%; top: 62.75%;" class="c_177_3">
+		property taxes. If your family owns a home,
+	</div>
+
+	<div id="t_177_40" style="position: absolute; left: 56.30%; top: 64.65%;" class="c_177_3">
+		they will pay a tax based on their house&rsquo;s
+	</div>
+
+	<div id="t_177_41" style="position: absolute; left: 56.30%; top: 66.54%;" class="c_177_3">
+		value. If you rent, your landlord will pay, but
+	</div>
+
+	<div id="t_177_42" style="position: absolute; left: 56.30%; top: 68.43%;" class="c_177_3">
+		you can be sure you
+	</div>
+
+	<div id="t_177_43" style="position: absolute; left: 56.30%; top: 70.33%;" class="c_177_3">
+		are footing the bill
+	</div>
+
+	<div id="t_177_44" style="position: absolute; left: 56.30%; top: 72.22%;" class="c_177_3">
+		in your rent
+	</div>
+
+	<div id="t_177_45" style="position: absolute; left: 56.30%; top: 74.12%;" class="c_177_3">
+		payments.
+	</div>
+
+	<div id="t_177_46" style="position: absolute; left: 31.92%; top:79.48%;" class="c_177_5">
+		Room for Debate
+	</div>
+
+	<div id="t_177_47" style="position: absolute; left: 31.92%; top:81.85%;" class="c_177_6">
+		Many other countries pay much
+	</div>
+
+	<div id="t_177_48" style="position: absolute; left: 31.92%; top:83.74%;" class="c_177_6">
+		higher taxes, but in return they
+	</div>
+
+	<div id="t_177_49" style="position: absolute; left: 31.92%; top:85.64%;" class="c_177_6">
+		get free health care. Do you think
+	</div>
+
+	<div id="t_177_50" style="position: absolute; left: 26.77%; top:87.53%;" class="c_177_6">
+		we should raise taxes to provide health
+	</div>
+
+	<div id="t_177_51" style="position: absolute; left: 26.77%; top:89.43%;" class="c_177_6">
+		care for ALL Americans or keep our
+	</div>
+
+	<div id="t_177_52" style="position: absolute; left: 26.77%; top:91.32%;" class="c_177_6">
+		system the way it is now?
+	</div>
+
+	<div id="t_177_53" style="position: absolute; left: 92.88%; top: 93.59%; letter-spacing: -0.15em;" class="c_177_7">
+		177
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 10%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_177_a_trio_of_taxes.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 9%; top: 50%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_177_state_income.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 54%; top: 48%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_177_local_property.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 18%; top: 78%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_177_room_for_debate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_176_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_177_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_176_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="176.html?page=right"; onclick="goto('176.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="178.html"; onclick="goto('178.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="178.html"; onclick="goto('178.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

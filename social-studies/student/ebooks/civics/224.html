@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_224.css">
+            <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="222.html?page=right"; onclick="goto('222.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="224.html"; onclick="goto('224.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="222.html?page=right"; onclick="goto('222.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="222.html?page=right"; onclick="goto('222.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="224.html"; onclick="goto('224.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="222.html?page=right"; onclick="goto('222.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_224">
+                                                                                                <div class="pageData">
+
+	<div id="t_224_0" style="position: absolute; left: 50.98%; top:13.18%;" class="c_224_0">
+		Steve Petteway. Page 87: middle left, Library of Congress. Page
+	</div>
+
+	<div id="t_224_1" style="position: absolute; left: 50.98%; top:14.70%;" class="c_224_0">
+		91: Library of Virginia. Page 94: bottom left, Nagel
+	</div>
+
+	<div id="t_224_2" style="position: absolute; left: 50.98%; top:16.21%;" class="c_224_0">
+		Photography/Shutterstock. Page 95: top center, Joseph Sohm/
+	</div>
+
+	<div id="t_224_3" style="position: absolute; left: 50.98%; top:17.73%;" class="c_224_0">
+		Shutterstock; top right, WSET Lynchburg; bottom right, City of
+	</div>
+
+	<div id="t_224_4" style="position: absolute; left: 50.98%; top:19.24%;" class="c_224_0">
+		Chesapeake. Page 99: bottom left, Library of Congress. Page
+	</div>
+
+	<div id="t_224_5" style="position: absolute; left: 50.98%; top:20.76%;" class="c_224_0">
+		102: top right, Clement Britt, Courtesy of the Richmond Times-
+	</div>
+
+	<div id="t_224_6" style="position: absolute; left: 50.98%; top:22.27%;" class="c_224_0">
+		Dispatch. Page 105: Nagel Photography/Shutterstock. Page
+	</div>
+
+	<div id="t_224_7" style="position: absolute; left: 50.98%; top:23.79%;" class="c_224_0">
+		117: bottom left, Barry Blackburn/Shutterstock. Page 122:
+	</div>
+
+	<div id="t_224_8" style="position: absolute; left: 50.98%; top:25.30%;" class="c_224_0">
+		bottom left, Denys Prykhdov/Shutterstock. Page 123: middle
+	</div>
+
+	<div id="t_224_9" style="position: absolute; left: 50.98%; top:26.82%;" class="c_224_0">
+		right: NASA. Page 124: middle left to right, Library of
+	</div>
+
+	<div id="t_224_10" style="position: absolute; left: 50.98%; top:28.33%;" class="c_224_0">
+		Congress; University of Texas at Austin; Library of Congress.
+	</div>
+
+	<div id="t_224_11" style="position: absolute; left: 50.98%; top:29.85%;" class="c_224_0">
+		Page 126: top left, CSPAN. Page 136: middle left: Granger.
+	</div>
+
+	<div id="t_224_12" style="position: absolute; left: 50.98%; top:31.36%;" class="c_224_0">
+		Page 137: bottom left to right, American Bar Association;
+	</div>
+
+	<div id="t_224_13" style="position: absolute; left: 50.98%; top:32.88%;" class="c_224_0">
+		University of Virginia. Page 141: middle left, right, and bottom
+	</div>
+
+	<div id="t_224_14" style="position: absolute; left: 50.98%; top:34.39%;" class="c_224_0">
+		right, Corbis. Page 146: top: Corbis. Page 156: top left, Library
+	</div>
+
+	<div id="t_224_15" style="position: absolute; left: 50.98%; top:35.91%;" class="c_224_0">
+		of Congress. Page 157: top left: Tesla Motors; bottom right,
+	</div>
+
+	<div id="t_224_16" style="position: absolute; left: 50.98%; top:37.42%;" class="c_224_0">
+		Darren Brode/Shutterstock. Page 159: top left, Carolyn
+	</div>
+
+	<div id="t_224_17" style="position: absolute; left: 50.98%; top:38.94%;" class="c_224_0">
+		Cole/Los Angeles Times. Pages 160: top, Rex Photos: Page 164:
+	</div>
+
+	<div id="t_224_18" style="position: absolute; left: 50.98%; top:40.45%;" class="c_224_0">
+		bottom left, Library of Congress. Page 167: top far right, Paul
+	</div>
+
+	<div id="t_224_19" style="position: absolute; left: 50.98%; top:41.96%;" class="c_224_0">
+		Prescott/Shutterstock. Page 178: top right, U.S. Bureau of
+	</div>
+
+	<div id="t_224_20" style="position: absolute; left: 50.98%; top:43.48%;" class="c_224_0">
+		Engraving and Printing. Page 180: middle left, The Federal
+	</div>
+
+	<div id="t_224_21" style="position: absolute; left: 50.98%; top:44.99%;" class="c_224_0">
+		Reserve. Page 185: Stuart Carlson. Page 189: top right, Jane
+	</div>
+
+	<div id="t_224_22" style="position: absolute; left: 50.98%; top:46.51%;" class="c_224_0">
+		Schneider/Memphis Parent; middle right, Emi-Jay; bottom
+	</div>
+
+	<div id="t_224_23" style="position: absolute; left: 50.98%; top:48.02%;" class="c_224_0">
+		right, Sean Belnick.
+	</div>
+
+	<div id="t_224_24" style="position: absolute; left: 9.56%; top:5.91%;" class="c_224_1">
+		PICTURE CREDITS
+	</div>
+
+	<div id="t_224_25" style="position: absolute; left: 8.82%; top:13.20%;" class="c_224_0">
+		Every effort has been made to ensure that this listing is
+	</div>
+
+	<div id="t_224_26" style="position: absolute; left: 8.82%; top:14.72%;" class="c_224_0">
+		complete and accurate and that appropriate credit has been
+	</div>
+
+	<div id="t_224_27" style="position: absolute; left: 8.82%; top:16.23%;" class="c_224_0">
+		given and permission obtained. In the event of any
+	</div>
+
+	<div id="t_224_28" style="position: absolute; left: 8.82%; top:17.75%;" class="c_224_0">
+		omissions or errors, the publisher will endeavor to correct
+	</div>
+
+	<div id="t_224_29" style="position: absolute; left: 8.82%; top:19.26%;" class="c_224_0">
+		said errors or omissions in the next printing. All photos and
+	</div>
+
+	<div id="t_224_30" style="position: absolute; left: 8.82%; top:20.78%;" class="c_224_0">
+		illustrations listed below are copyrighted by the respective
+	</div>
+
+	<div id="t_224_31" style="position: absolute; left: 8.82%; top:22.29%;" class="c_224_0">
+		providers. Any photos not listed are from Shutterstock or are in
+	</div>
+
+	<div id="t_224_32" style="position: absolute; left: 8.82%; top:23.81%;" class="c_224_0">
+		the public domain.
+	</div>
+
+	<div id="t_224_33" style="position: absolute; left: 8.82%; top:25.32%;" class="c_224_0">
+		Back cover: Joseph Sohm/Shutterstock; Pages 6&ndash;7: top left,
+	</div>
+
+	<div id="t_224_34" style="position: absolute; left: 8.82%; top:26.84%;" class="c_224_0">
+		New York State Historic Preservation Office; middle left,
+	</div>
+
+	<div id="t_224_35" style="position: absolute; left: 8.82%; top:28.35%;" class="c_224_0">
+		National Gallery of Art; bottom montage, all Library of
+	</div>
+
+	<div id="t_224_36" style="position: absolute; left: 8.82%; top:29.87%;" class="c_224_0">
+		Congress, except the Navajo code talker, Shutterstock, and the
+	</div>
+
+	<div id="t_224_37" style="position: absolute; left: 8.82%; top:31.38%;" class="c_224_0">
+		navy sailor, U.S. Navy Band Archives. Page 10: bottom left,
+	</div>
+
+	<div id="t_224_38" style="position: absolute; left: 8.82%; top:32.90%;" class="c_224_0">
+		Library of Congress; middle left, University of Texas, El Paso;
+	</div>
+
+	<div id="t_224_39" style="position: absolute; left: 8.82%; top:34.41%;" class="c_224_0">
+		bottom right, Library of Congress. Page 11: bottom right,
+	</div>
+
+	<div id="t_224_40" style="position: absolute; left: 8.82%; top:35.93%;" class="c_224_0">
+		Bill/Dowling/Shutterstock. Page 12: bottom left, Corbis;
+	</div>
+
+	<div id="t_224_41" style="position: absolute; left: 8.82%; top:37.44%;" class="c_224_0">
+		bottom right, Leonard Zhukovsky/ Shutterstock. Page 13:
+	</div>
+
+	<div id="t_224_42" style="position: absolute; left: 8.82%; top:38.95%;" class="c_224_0">
+		bottom, Corbis. Page 16: bottom right, The New Yorker
+	</div>
+
+	<div id="t_224_43" style="position: absolute; left: 8.82%; top:40.47%;" class="c_224_0">
+		Cartoon Bank. Page 18: top left, Joe Ruhinski; top right, U.S.
+	</div>
+
+	<div id="t_224_44" style="position: absolute; left: 8.82%; top:41.98%;" class="c_224_0">
+		Navy archives; bottom left, USAF archives; bottom right, Jason
+	</div>
+
+	<div id="t_224_45" style="position: absolute; left: 8.82%; top:43.50%;" class="c_224_0">
+		Couillard. Page 19: top right, Sgt. Chad Menegay; middle left,
+	</div>
+
+	<div id="t_224_46" style="position: absolute; left: 8.82%; top:45.01%;" class="c_224_0">
+		Army National Guard, middle right, Jerry Zitterman/
+	</div>
+
+	<div id="t_224_47" style="position: absolute; left: 8.82%; top:46.53%;" class="c_224_0">
+		Shutterstock; bottom right, Associated Press; bottom left, U.S.
+	</div>
+
+	<div id="t_224_48" style="position: absolute; left: 8.82%; top:48.04%;" class="c_224_0">
+		Marines archive. Page 20: Bottom left, &copy;Bruce Davidson. Page
+	</div>
+
+	<div id="t_224_49" style="position: absolute; left: 8.82%; top:49.56%;" class="c_224_0">
+		21: Top left, Granger; bottom right, Library of Congress;
+	</div>
+
+	<div id="t_224_50" style="position: absolute; left: 8.82%; top:51.07%;" class="c_224_0">
+		bottom left, Newsweek. Page 22: bottom, David Butler II-USA
+	</div>
+
+	<div id="t_224_51" style="position: absolute; left: 8.82%; top:52.59%;" class="c_224_0">
+		TODAY Sports. Page 23: top right, Blend Images. Page 25:
+	</div>
+
+	<div id="t_224_52" style="position: absolute; left: 8.82%; top:54.10%;" class="c_224_0">
+		bottom, Joseph Sohm/Shutterstock. Page 28: bottom right,
+	</div>
+
+	<div id="t_224_53" style="position: absolute; left: 8.82%; top:55.62%;" class="c_224_0">
+		screen capture from Rome, HBO. Page 29: top middle,
+	</div>
+
+	<div id="t_224_54" style="position: absolute; left: 8.82%; top:57.13%;" class="c_224_0">
+		National Archives; top right, Granger. Page 30: top middle,
+	</div>
+
+	<div id="t_224_55" style="position: absolute; left: 8.82%; top:58.65%;" class="c_224_0">
+		Joseph Sohm/Shutterstock; top left, Library of Congress. Page
+	</div>
+
+	<div id="t_224_56" style="position: absolute; left: 8.82%; top:60.16%;" class="c_224_0">
+		31: top right and bottom right, Library of Virginia; bottom left,
+	</div>
+
+	<div id="t_224_57" style="position: absolute; left: 8.82%; top:61.68%;" class="c_224_0">
+		Virginia Historical Society. Page 32: top left, Granger; bottom
+	</div>
+
+	<div id="t_224_58" style="position: absolute; left: 8.82%; top:63.19%;" class="c_224_0">
+		left, Library of Congress. Page 33: top right, Library of
+	</div>
+
+	<div id="t_224_59" style="position: absolute; left: 8.82%; top:64.71%;" class="c_224_0">
+		Congress. Page 34: top left, National Archives; bottom, J.T.
+	</div>
+
+	<div id="t_224_60" style="position: absolute; left: 8.82%; top:66.22%;" class="c_224_0">
+		Lewis/Shutterstock. Page 35: All Granger. Page 36: bottom, Joe
+	</div>
+
+	<div id="t_224_61" style="position: absolute; left: 8.82%; top:67.74%;" class="c_224_0">
+		Sohm/Shutterstock. Page 40: middle center, AP Images. Page
+	</div>
+
+	<div id="t_224_62" style="position: absolute; left: 8.82%; top:69.25%;" class="c_224_0">
+		44: all Library of Congress. Page 50: bottom, Blend Images.
+	</div>
+
+	<div id="t_224_63" style="position: absolute; left: 8.82%; top:70.76%;" class="c_224_0">
+		Page 51: bottom right, Corbis. Page 53: top right, John
+	</div>
+
+	<div id="t_224_64" style="position: absolute; left: 8.82%; top:72.28%;" class="c_224_0">
+		Darkow, Columbia [Missouri] Daily Tribune; top middle right
+	</div>
+
+	<div id="t_224_65" style="position: absolute; left: 8.82%; top:73.79%;" class="c_224_0">
+		and middle left, Library of Congress; lower middle right, USMA
+	</div>
+
+	<div id="t_224_66" style="position: absolute; left: 8.82%; top:75.31%;" class="c_224_0">
+		at West Point. Page 54: bottom left, Library of Congress. Page
+	</div>
+
+	<div id="t_224_67" style="position: absolute; left: 8.82%; top:76.82%;" class="c_224_0">
+		55: top left, Library of Congress; bottom left, Associated Press.
+	</div>
+
+	<div id="t_224_68" style="position: absolute; left: 8.82%; top:78.34%;" class="c_224_0">
+		Page 56: Randy Jones; page 57: middle left, Library of
+	</div>
+
+	<div id="t_224_69" style="position: absolute; left: 8.82%; top:79.85%;" class="c_224_0">
+		Congress; right panel, all images from the Museum of the
+	</div>
+
+	<div id="t_224_70" style="position: absolute; left: 8.82%; top:81.37%;" class="c_224_0">
+		Moving Image. Page 60: bottom left, Library of Virginia. Page
+	</div>
+
+	<div id="t_224_71" style="position: absolute; left: 8.82%; top:82.88%;" class="c_224_0">
+		61: top right, The White House; middle left, Associated Press.
+	</div>
+
+	<div id="t_224_72" style="position: absolute; left: 8.82%; top:84.40%;" class="c_224_0">
+		Page 62: all, Getty Images. Page 74: bottom right, Library of
+	</div>
+
+	<div id="t_224_73" style="position: absolute; left: 8.82%; top:85.91%;" class="c_224_0">
+		Congress. Page 72: middle, virginia.gov. Page 73: top right,
+	</div>
+
+	<div id="t_224_74" style="position: absolute; left: 8.82%; top:87.43%;" class="c_224_0">
+		U.S. Senate. Page 74: White House Photostream. Page 83:
+	</div>
+
+	<div id="t_224_75" style="position: absolute; left: 8.82%; top:88.94%;" class="c_224_0">
+		bottom left, Corbis; middle, Arizona State University; bottom
+	</div>
+
+	<div id="t_224_76" style="position: absolute; left: 8.82%; top:90.46%;" class="c_224_0">
+		right, Collection of the Supreme Court of the United States,
+	</div>
+
+	<div id="t_224_77" style="position: absolute; left: 4.75%; top: 96.47%; letter-spacing: -0.15em;" class="c_224_2">
+		224
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_">
+                                                                                                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

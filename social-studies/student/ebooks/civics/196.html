@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_196.css">
+                <link rel="stylesheet" href="css/civics_197.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="196.html"; onclick="goto('196.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="196.html?page=right"; onclick="goto('196.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="198.html"; onclick="goto('198.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="198.html"; onclick="goto('198.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="196.html"; onclick="goto('196.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_196">
+                                                                                                <div class="pageData">
+
+	<div id="t_196_0" style="position: absolute; left: 8.82%; top:3.34%;" class="c_196_0">
+		Declaration of
+	</div>
+
+	<div id="t_196_1" style="position: absolute; left: 8.82%; top:8.39%;" class="c_196_0">
+		Independence
+	</div>
+
+	<div id="t_196_2" style="position: absolute; left: 8.82%; top:15.47%;" class="c_196_1">
+		Written by Thomas
+	</div>
+
+	<div id="t_196_3" style="position: absolute; left: 8.82%; top:17.87%;" class="c_196_1">
+		Jefferson and adopted by
+	</div>
+
+	<div id="t_196_4" style="position: absolute; left: 8.82%; top:20.26%;" class="c_196_1">
+		the Second Continental
+	</div>
+
+	<div id="t_196_5" style="position: absolute; left: 8.82%; top:22.66%;" class="c_196_1">
+		Congress July 4, 1776.
+	</div>
+
+	<div id="t_196_6" style="position: absolute; left: 8.52%; top:29.62%;" class="c_196_2">
+		Jefferson states his ideas
+	</div>
+
+	<div id="t_196_7" style="position: absolute; left: 8.52%; top:31.13%;" class="c_196_2">
+		about government.
+	</div>
+
+	<div id="t_196_8" style="position: absolute; left: 8.52%; top:32.88%;" class="c_196_3">
+		All people have certain rights
+	</div>
+
+	<div id="t_196_9" style="position: absolute; left: 8.52%; top:34.40%;" class="c_196_3">
+		and freedoms that no one can
+	</div>
+
+	<div id="t_196_10" style="position: absolute; left: 8.52%; top:35.91%;" class="c_196_3">
+		take away. Governments get
+	</div>
+
+	<div id="t_196_11" style="position: absolute; left: 8.52%; top:37.43%;" class="c_196_3">
+		their power from the people
+	</div>
+
+	<div id="t_196_12" style="position: absolute; left: 8.52%; top:38.94%;" class="c_196_3">
+		and are formed to protect
+	</div>
+
+	<div id="t_196_13" style="position: absolute; left: 8.52%; top:40.46%;" class="c_196_3">
+		these rights and freedoms. If
+	</div>
+
+	<div id="t_196_14" style="position: absolute; left: 8.52%; top:41.97%;" class="c_196_3">
+		the government acts in a way
+	</div>
+
+	<div id="t_196_15" style="position: absolute; left: 8.52%; top:43.49%;" class="c_196_3">
+		that hurts the people and
+	</div>
+
+	<div id="t_196_16" style="position: absolute; left: 8.52%; top:45.00%;" class="c_196_3">
+		takes away their freedoms,
+	</div>
+
+	<div id="t_196_17" style="position: absolute; left: 8.52%; top:46.52%;" class="c_196_3">
+		people have the right to
+	</div>
+
+	<div id="t_196_18" style="position: absolute; left: 8.52%; top:48.03%;" class="c_196_3">
+		change this form of
+	</div>
+
+	<div id="t_196_19" style="position: absolute; left: 8.52%; top:49.55%;" class="c_196_3">
+		government. This change
+	</div>
+
+	<div id="t_196_20" style="position: absolute; left: 8.52%; top:51.06%;" class="c_196_3">
+		should only happen under the
+	</div>
+
+	<div id="t_196_21" style="position: absolute; left: 8.52%; top:52.58%;" class="c_196_3">
+		most serious of circumstances.
+	</div>
+
+	<div id="t_196_22" style="position: absolute; left: 7.84%; top:63.87%;" class="c_196_2">
+		Jefferson describes what
+	</div>
+
+	<div id="t_196_23" style="position: absolute; left: 7.84%; top:65.38%;" class="c_196_2">
+		has happened.
+	</div>
+
+	<div id="t_196_24" style="position: absolute; left: 7.84%; top:67.13%;" class="c_196_3">
+		Britain&rsquo;s government has
+	</div>
+
+	<div id="t_196_25" style="position: absolute; left: 7.84%; top:68.65%;" class="c_196_3">
+		taken away our rights and
+	</div>
+
+	<div id="t_196_26" style="position: absolute; left: 7.84%; top:70.16%;" class="c_196_3">
+		treated us unfairly. The king
+	</div>
+
+	<div id="t_196_27" style="position: absolute; left: 7.84%; top:71.68%;" class="c_196_3">
+		has taken away our freedom.
+	</div>
+
+	<div id="t_196_28" style="position: absolute; left: 7.84%; top:73.19%;" class="c_196_3">
+		This is very serious and
+	</div>
+
+	<div id="t_196_29" style="position: absolute; left: 7.84%; top:74.71%;" class="c_196_3">
+		America needs to break away
+	</div>
+
+	<div id="t_196_30" style="position: absolute; left: 7.84%; top:76.22%;" class="c_196_3">
+		from the king.
+	</div>
+
+	<div id="t_196_31" style="position: absolute; left: 4.55%; top: 96.47%; letter-spacing: -0.15em;" class="c_196_4">
+		196
+	</div>
+
+	<div id="t_196_32" style="position: absolute; left: 45.32%; top:6.54%;" class="c_196_5">
+		The unanimous Declaration of the thirteen united States of
+	</div>
+
+	<div id="t_196_33" style="position: absolute; left: 45.32%; top:8.30%;" class="c_196_5">
+		America,
+	</div>
+
+	<div id="t_196_34" style="position: absolute; left: 46.86%; top:10.07%;" class="c_196_5">
+		When in the Course of human events, it becomes necessary
+	</div>
+
+	<div id="t_196_35" style="position: absolute; left: 45.32%; top:11.84%;" class="c_196_5">
+		for one people to dissolve the political bands which have
+	</div>
+
+	<div id="t_196_36" style="position: absolute; left: 45.32%; top:13.61%;" class="c_196_5">
+		connected them with another, and to assume among the
+	</div>
+
+	<div id="t_196_37" style="position: absolute; left: 45.32%; top:15.38%;" class="c_196_5">
+		powers of the earth, the separate and equal station to which
+	</div>
+
+	<div id="t_196_38" style="position: absolute; left: 45.32%; top:17.15%;" class="c_196_5">
+		the Laws of Nature and of Nature&rsquo;s God entitle them, a
+	</div>
+
+	<div id="t_196_39" style="position: absolute; left: 45.32%; top:18.91%;" class="c_196_5">
+		decent respect to the opinions of mankind requires that they
+	</div>
+
+	<div id="t_196_40" style="position: absolute; left: 45.32%; top:20.68%;" class="c_196_5">
+		should declare the causes which impel them to the separation.
+	</div>
+
+	<div id="t_196_41" style="position: absolute; left: 46.86%; top:23.83%;" class="c_196_6">
+		We hold these truths to be self-evident, that all men are
+	</div>
+
+	<div id="t_196_42" style="position: absolute; left: 45.32%; top:25.34%;" class="c_196_6">
+		created equal, that they are endowed by their Creator with
+	</div>
+
+	<div id="t_196_43" style="position: absolute; left: 45.32%; top:26.86%;" class="c_196_6">
+		certain unalienable Rights, that among these are Life, Liberty
+	</div>
+
+	<div id="t_196_44" style="position: absolute; left: 45.32%; top:28.37%;" class="c_196_6">
+		and the pursuit of Happiness.--That to secure these rights,
+	</div>
+
+	<div id="t_196_45" style="position: absolute; left: 37.27%; top:29.89%;" class="c_196_6">
+		Governments are instituted among Men, deriving their just powers from
+	</div>
+
+	<div id="t_196_46" style="position: absolute; left: 37.27%; top:31.40%;" class="c_196_6">
+		the consent of the governed, --That whenever any Form of Government
+	</div>
+
+	<div id="t_196_47" style="position: absolute; left: 37.27%; top:32.92%;" class="c_196_6">
+		becomes destructive of these ends, it is the Right of the People to alter or
+	</div>
+
+	<div id="t_196_48" style="position: absolute; left: 37.27%; top:34.43%;" class="c_196_6">
+		to abolish it, and to institute new Government, laying its foundation on
+	</div>
+
+	<div id="t_196_49" style="position: absolute; left: 37.27%; top:35.95%;" class="c_196_6">
+		such principles and organizing its powers in such form, as to them shall
+	</div>
+
+	<div id="t_196_50" style="position: absolute; left: 37.27%; top:37.46%;" class="c_196_6">
+		seem most likely to effect their Safety and Happiness.
+	</div>
+
+	<div id="t_196_51" style="position: absolute; left: 38.82%; top:38.98%;" class="c_196_6">
+		Prudence, indeed, will dictate that Governments long established
+	</div>
+
+	<div id="t_196_52" style="position: absolute; left: 37.27%; top:40.49%;" class="c_196_6">
+		should not be changed for light and transient causes; and accordingly all
+	</div>
+
+	<div id="t_196_53" style="position: absolute; left: 37.27%; top:42.01%;" class="c_196_6">
+		experience hath shown, that mankind are more disposed to suffer, while
+	</div>
+
+	<div id="t_196_54" style="position: absolute; left: 37.27%; top:43.52%;" class="c_196_6">
+		evils are sufferable, than to right themselves by abolishing the forms to
+	</div>
+
+	<div id="t_196_55" style="position: absolute; left: 37.27%; top:45.04%;" class="c_196_6">
+		which they are accustomed. But when a long train of abuses and
+	</div>
+
+	<div id="t_196_56" style="position: absolute; left: 37.27%; top:46.55%;" class="c_196_6">
+		usurpations, pursuing invariably the same Object evinces a design to
+	</div>
+
+	<div id="t_196_57" style="position: absolute; left: 37.27%; top:48.07%;" class="c_196_6">
+		reduce them under absolute Despotism, it is their right, it is their duty, to
+	</div>
+
+	<div id="t_196_58" style="position: absolute; left: 37.27%; top:49.58%;" class="c_196_6">
+		throw off such Government, and to provide new Guards for their future
+	</div>
+
+	<div id="t_196_59" style="position: absolute; left: 37.27%; top:51.10%;" class="c_196_6">
+		security.--
+	</div>
+
+	<div id="t_196_60" style="position: absolute; left: 38.82%; top:52.61%;" class="c_196_6">
+		Such has been the patient sufferance of these Colonies; and such is
+	</div>
+
+	<div id="t_196_61" style="position: absolute; left: 37.27%; top:54.13%;" class="c_196_6">
+		now the necessity which constrains them to alter their former Systems of
+	</div>
+
+	<div id="t_196_62" style="position: absolute; left: 37.27%; top:55.65%;" class="c_196_6">
+		Government. The history of the present King of Great Britain is a history
+	</div>
+
+	<div id="t_196_63" style="position: absolute; left: 37.27%; top:57.16%;" class="c_196_6">
+		of repeated injuries and usurpations, all having in direct object the
+	</div>
+
+	<div id="t_196_64" style="position: absolute; left: 37.27%; top:58.68%;" class="c_196_6">
+		establishment of an absolute Tyranny over these States. To prove this, let
+	</div>
+
+	<div id="t_196_65" style="position: absolute; left: 37.27%; top:60.19%;" class="c_196_6">
+		Facts be submitted to a candid world.
+	</div>
+
+	<div id="t_196_66" style="position: absolute; left: 38.82%; top:61.71%;" class="c_196_6">
+		He has refused his Assent to Laws, the most wholesome and necessary
+	</div>
+
+	<div id="t_196_67" style="position: absolute; left: 37.27%; top:63.22%;" class="c_196_6">
+		for the public good.
+	</div>
+
+	<div id="t_196_68" style="position: absolute; left: 38.82%; top:64.74%;" class="c_196_6">
+		He has forbidden his Governors to pass Laws of immediate and
+	</div>
+
+	<div id="t_196_69" style="position: absolute; left: 37.27%; top:66.25%;" class="c_196_6">
+		pressing importance, unless suspended in their operation till his Assent
+	</div>
+
+	<div id="t_196_70" style="position: absolute; left: 37.27%; top:67.77%;" class="c_196_6">
+		should be obtained; and when so suspended, he has utterly neglected to
+	</div>
+
+	<div id="t_196_71" style="position: absolute; left: 37.27%; top:69.28%;" class="c_196_6">
+		attend to them.
+	</div>
+
+	<div id="t_196_72" style="position: absolute; left: 38.82%; top:70.80%;" class="c_196_6">
+		He has refused to pass other Laws for the accommodation of large
+	</div>
+
+	<div id="t_196_73" style="position: absolute; left: 37.27%; top:72.31%;" class="c_196_6">
+		districts of people, unless those people would relinquish the right of
+	</div>
+
+	<div id="t_196_74" style="position: absolute; left: 37.27%; top:73.83%;" class="c_196_6">
+		Representation in the Legislature, a right inestimable to them and
+	</div>
+
+	<div id="t_196_75" style="position: absolute; left: 37.27%; top:75.34%;" class="c_196_6">
+		formidable to tyrants only.
+	</div>
+
+	<div id="t_196_76" style="position: absolute; left: 38.82%; top:76.86%;" class="c_196_6">
+		He has called together legislative bodies at places unusual,
+	</div>
+
+	<div id="t_196_77" style="position: absolute; left: 37.28%; top:78.37%;" class="c_196_6">
+		uncomfortable, and distant from the depository of their public Records,
+	</div>
+
+	<div id="t_196_78" style="position: absolute; left: 37.28%; top:79.89%;" class="c_196_6">
+		for the sole purpose of fatiguing them into compliance with his measures.
+	</div>
+
+	<div id="t_196_79" style="position: absolute; left: 38.82%; top:81.40%;" class="c_196_6">
+		He has dissolved Representative Houses repeatedly, for opposing with
+	</div>
+
+	<div id="t_196_80" style="position: absolute; left: 37.28%; top:82.92%;" class="c_196_6">
+		manly firmness his invasions on the rights of the people.
+	</div>
+
+	<div id="t_196_81" style="position: absolute; left: 38.82%; top:84.43%;" class="c_196_6">
+		He has refused for a long time, after such dissolutions, to cause others
+	</div>
+
+	<div id="t_196_82" style="position: absolute; left: 37.28%; top:85.95%;" class="c_196_6">
+		to be elected; whereby the Legislative powers, incapable of Annihilation,
+	</div>
+
+	<div id="t_196_83" style="position: absolute; left: 37.28%; top:87.46%;" class="c_196_6">
+		have returned to the People at large for their exercise; the State
+	</div>
+
+	<div id="t_196_84" style="position: absolute; left: 37.28%; top:88.98%;" class="c_196_6">
+		remaining in the mean time exposed to all the dangers of invasion from
+	</div>
+
+	<div id="t_196_85" style="position: absolute; left: 37.28%; top:90.49%;" class="c_196_6">
+		without, and convulsions within.
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_197">
+                                                                                                <div class="pageData">
+
+	<div id="t_197_0" style="position: absolute; left: 11.84%; top:6.56%;" class="c_197_0">
+		He has endeavored to prevent the population of these States; for that
+	</div>
+
+	<div id="t_197_1" style="position: absolute; left: 10.29%; top:8.07%;" class="c_197_0">
+		purpose obstructing the Laws for Naturalization of Foreigners; refusing to pass
+	</div>
+
+	<div id="t_197_2" style="position: absolute; left: 10.29%; top:9.59%;" class="c_197_0">
+		others to encourage their migrations hither, and raising the conditions of new
+	</div>
+
+	<div id="t_197_3" style="position: absolute; left: 10.29%; top:11.10%;" class="c_197_0">
+		Appropriations of Lands. He has obstructed the Administration of Justice, by
+	</div>
+
+	<div id="t_197_4" style="position: absolute; left: 10.29%; top:12.62%;" class="c_197_0">
+		refusing his Assent to Laws for establishing Judiciary powers.
+	</div>
+
+	<div id="t_197_5" style="position: absolute; left: 11.84%; top:14.13%;" class="c_197_0">
+		He has made Judges dependent on his Will alone, for the tenure of their
+	</div>
+
+	<div id="t_197_6" style="position: absolute; left: 10.29%; top:15.65%;" class="c_197_0">
+		offices, and the amount and payment of their salaries.
+	</div>
+
+	<div id="t_197_7" style="position: absolute; left: 11.84%; top:17.16%;" class="c_197_0">
+		He has erected a multitude of New Offices, and sent hither swarms of
+	</div>
+
+	<div id="t_197_8" style="position: absolute; left: 10.29%; top:18.68%;" class="c_197_0">
+		Officers to harass our people, and eat out their substance.
+	</div>
+
+	<div id="t_197_9" style="position: absolute; left: 11.84%; top:20.19%;" class="c_197_0">
+		He has kept among us, in times of peace, Standing Armies without the
+	</div>
+
+	<div id="t_197_10" style="position: absolute; left: 10.29%; top:21.71%;" class="c_197_0">
+		Consent of our legislatures.
+	</div>
+
+	<div id="t_197_11" style="position: absolute; left: 11.84%; top:23.22%;" class="c_197_0">
+		He has affected to render the Military independent of and superior to the
+	</div>
+
+	<div id="t_197_12" style="position: absolute; left: 10.29%; top:24.74%;" class="c_197_0">
+		Civil power.
+	</div>
+
+	<div id="t_197_13" style="position: absolute; left: 11.84%; top:26.25%;" class="c_197_0">
+		He has combined with others to subject us to a jurisdiction foreign to
+	</div>
+
+	<div id="t_197_14" style="position: absolute; left: 10.29%; top:27.77%;" class="c_197_0">
+		our constitution, and unacknowledged by our laws; giving his Assent to
+	</div>
+
+	<div id="t_197_15" style="position: absolute; left: 10.29%; top:29.28%;" class="c_197_0">
+		their Acts of pretended Legislation:
+	</div>
+
+	<div id="t_197_16" style="position: absolute; left: 12.36%; top:30.80%;" class="c_197_0">
+		For Quartering large bodies of armed troops among us:
+	</div>
+
+	<div id="t_197_17" style="position: absolute; left: 12.36%; top:32.31%;" class="c_197_0">
+		For protecting them, by a mock Trial, from punishment for any Murders
+	</div>
+
+	<div id="t_197_18" style="position: absolute; left: 10.29%; top:33.83%;" class="c_197_0">
+		which they should commit on the Inhabitants of these States:
+	</div>
+
+	<div id="t_197_19" style="position: absolute; left: 12.36%; top:35.34%;" class="c_197_0">
+		For cutting off our Trade with all parts of the world: For imposing
+	</div>
+
+	<div id="t_197_20" style="position: absolute; left: 10.29%; top:36.86%;" class="c_197_0">
+		Taxes on us without our Consent:
+	</div>
+
+	<div id="t_197_21" style="position: absolute; left: 12.36%; top:38.37%;" class="c_197_0">
+		For depriving us in many cases, of the benefits of Trial by Jury:
+	</div>
+
+	<div id="t_197_22" style="position: absolute; left: 12.36%; top:39.89%;" class="c_197_0">
+		For transporting us beyond Seas to be tried for pretended offences:
+	</div>
+
+	<div id="t_197_23" style="position: absolute; left: 12.36%; top:41.40%;" class="c_197_0">
+		For abolishing the free System of English Laws in a neighboring Province,
+	</div>
+
+	<div id="t_197_24" style="position: absolute; left: 10.29%; top:42.92%;" class="c_197_0">
+		establishing therein an Arbitrary government, and enlarging its Boundaries
+	</div>
+
+	<div id="t_197_25" style="position: absolute; left: 10.29%; top:44.43%;" class="c_197_0">
+		so as to render it at once an example and fit instrument for introducing the
+	</div>
+
+	<div id="t_197_26" style="position: absolute; left: 10.29%; top:45.95%;" class="c_197_0">
+		same absolute rule into these Colonies:
+	</div>
+
+	<div id="t_197_27" style="position: absolute; left: 12.36%; top:47.46%;" class="c_197_0">
+		For taking away our Charters, abolishing our most valuable Laws, and
+	</div>
+
+	<div id="t_197_28" style="position: absolute; left: 10.29%; top:48.98%;" class="c_197_0">
+		altering fundamentally the Forms of our Governments:
+	</div>
+
+	<div id="t_197_29" style="position: absolute; left: 12.36%; top:50.49%;" class="c_197_0">
+		For suspending our own Legislatures, and declaring themselves invested
+	</div>
+
+	<div id="t_197_30" style="position: absolute; left: 10.29%; top:52.01%;" class="c_197_0">
+		with power to legislate for us in all cases whatsoever.
+	</div>
+
+	<div id="t_197_31" style="position: absolute; left: 11.84%; top:53.53%;" class="c_197_0">
+		He has abdicated Government here, by declaring us out of his Protection
+	</div>
+
+	<div id="t_197_32" style="position: absolute; left: 10.29%; top:55.04%;" class="c_197_0">
+		and waging War against us.
+	</div>
+
+	<div id="t_197_33" style="position: absolute; left: 11.84%; top:56.56%;" class="c_197_0">
+		He has plundered our seas, ravaged our Coasts, burnt our towns, and
+	</div>
+
+	<div id="t_197_34" style="position: absolute; left: 10.29%; top:58.07%;" class="c_197_0">
+		destroyed the lives of our people.
+	</div>
+
+	<div id="t_197_35" style="position: absolute; left: 11.84%; top:59.59%;" class="c_197_0">
+		He is at this time transporting large Armies of foreign Mercenaries to
+	</div>
+
+	<div id="t_197_36" style="position: absolute; left: 10.29%; top:61.10%;" class="c_197_0">
+		complete the works of death, desolation and tyranny, already begun with
+	</div>
+
+	<div id="t_197_37" style="position: absolute; left: 10.29%; top:62.62%;" class="c_197_0">
+		circumstances of Cruelty &amp;perfidy scarcely paralleled in the most barbarous
+	</div>
+
+	<div id="t_197_38" style="position: absolute; left: 10.29%; top:64.13%;" class="c_197_0">
+		ages, and totally unworthy the Head of a civilized nation.
+	</div>
+
+	<div id="t_197_39" style="position: absolute; left: 11.84%; top:65.65%;" class="c_197_0">
+		He has constrained our fellow Citizens taken Captive on the high Seas to
+	</div>
+
+	<div id="t_197_40" style="position: absolute; left: 10.29%; top:67.16%;" class="c_197_0">
+		bear Arms against their Country, to become the executioners of their friends
+	</div>
+
+	<div id="t_197_41" style="position: absolute; left: 10.29%; top:68.68%;" class="c_197_0">
+		and Brethren, or to fall themselves by their Hands.
+	</div>
+
+	<div id="t_197_42" style="position: absolute; left: 11.84%; top:70.19%;" class="c_197_0">
+		He has excited domestic insurrections amongst us, and has endeavored to
+	</div>
+
+	<div id="t_197_43" style="position: absolute; left: 10.29%; top:71.71%;" class="c_197_0">
+		bring on the inhabitants of our frontiers, the merciless Indian Savages, whose
+	</div>
+
+	<div id="t_197_44" style="position: absolute; left: 10.29%; top:73.22%;" class="c_197_0">
+		known rule of warfare, is an undistinguished destruction of all ages, sexes and
+	</div>
+
+	<div id="t_197_45" style="position: absolute; left: 10.29%; top:74.74%;" class="c_197_0">
+		conditions.
+	</div>
+
+	<div id="t_197_46" style="position: absolute; left: 11.84%; top:76.25%;" class="c_197_0">
+		In every stage of these Oppressions We have Petitioned for Redress in the
+	</div>
+
+	<div id="t_197_47" style="position: absolute; left: 10.29%; top:77.77%;" class="c_197_0">
+		most humble terms: Our repeated Petitions have been answered only by
+	</div>
+
+	<div id="t_197_48" style="position: absolute; left: 10.29%; top:79.28%;" class="c_197_0">
+		repeated injury. A Prince whose character is thus marked by every act which
+	</div>
+
+	<div id="t_197_49" style="position: absolute; left: 10.29%; top:80.80%;" class="c_197_0">
+		may define a Tyrant, is unfit to be the ruler of a free people.
+	</div>
+
+	<div id="t_197_50" style="position: absolute; left: 11.84%; top:82.31%;" class="c_197_0">
+		Nor have We been wanting in attentions to our British brethren. We have
+	</div>
+
+	<div id="t_197_51" style="position: absolute; left: 10.29%; top:83.83%;" class="c_197_0">
+		warned them from time to time of attempts by their legislature to extend an
+	</div>
+
+	<div id="t_197_52" style="position: absolute; left: 10.29%; top:85.34%;" class="c_197_0">
+		unwarrantable jurisdiction over us. We have reminded them of the
+	</div>
+
+	<div id="t_197_53" style="position: absolute; left: 10.29%; top:86.86%;" class="c_197_0">
+		circumstances of our emigration and settlement here. We have appealed to
+	</div>
+
+	<div id="t_197_54" style="position: absolute; left: 10.29%; top:88.37%;" class="c_197_0">
+		their native justice and magnanimity, and we have conjured them by the ties
+	</div>
+
+	<div id="t_197_55" style="position: absolute; left: 10.29%; top:89.89%;" class="c_197_0">
+		of our common kindred to disavow these usurpations, which, would inevitably
+	</div>
+
+	<div id="t_197_56" style="position: absolute; left: 10.29%; top:91.40%;" class="c_197_0">
+		interrupt our connections and correspondence.
+	</div>
+
+	<div id="t_197_57" style="position: absolute; left: 73.45%; top:11.15%;" class="c_197_1">
+		Jefferson gives a long list
+	</div>
+
+	<div id="t_197_58" style="position: absolute; left: 73.45%; top:12.66%;" class="c_197_1">
+		of the king&rsquo;s actions.
+	</div>
+
+	<div id="t_197_59" style="position: absolute; left: 73.45%; top:14.42%;" class="c_197_2">
+		The king has taxed us
+	</div>
+
+	<div id="t_197_60" style="position: absolute; left: 73.45%; top:15.93%;" class="c_197_2">
+		unfairly. He has hurt our
+	</div>
+
+	<div id="t_197_61" style="position: absolute; left: 73.45%; top:17.45%;" class="c_197_2">
+		ability to trade and has
+	</div>
+
+	<div id="t_197_62" style="position: absolute; left: 73.45%; top:18.96%;" class="c_197_2">
+		prevented us from enjoying
+	</div>
+
+	<div id="t_197_63" style="position: absolute; left: 73.45%; top:20.48%;" class="c_197_2">
+		our rights and freedoms.
+	</div>
+
+	<div id="t_197_64" style="position: absolute; left: 72.57%; top: 54.21%; letter-spacing: 0.01em;" class="c_197_3">
+		John Adams and Ben
+	</div>
+
+	<div id="t_197_65" style="position: absolute; left: 72.03%; top: 55.85%; letter-spacing: 0.01em;" class="c_197_3">
+		Franklin read Thomas
+	</div>
+
+	<div id="t_197_66" style="position: absolute; left: 72.03%; top: 57.49%; letter-spacing: 0.01em;" class="c_197_3">
+		Jefferson&rsquo;s draft of the
+	</div>
+
+	<div id="t_197_67" style="position: absolute; left: 72.03%; top: 59.13%; letter-spacing: 0.01em;" class="c_197_3">
+		Declaration.
+	</div>
+
+	<div id="t_197_68" style="position: absolute; left: 73.03%; top:79.15%;" class="c_197_1">
+		Jefferson describes how
+	</div>
+
+	<div id="t_197_69" style="position: absolute; left: 73.03%; top:80.66%;" class="c_197_1">
+		serious this problem is.
+	</div>
+
+	<div id="t_197_70" style="position: absolute; left: 73.03%; top:82.41%;" class="c_197_2">
+		We have tried everything in
+	</div>
+
+	<div id="t_197_71" style="position: absolute; left: 73.03%; top:83.93%;" class="c_197_2">
+		an effort to work things out
+	</div>
+
+	<div id="t_197_72" style="position: absolute; left: 73.03%; top:85.44%;" class="c_197_2">
+		with the king, but he doesn&rsquo;t
+	</div>
+
+	<div id="t_197_73" style="position: absolute; left: 73.03%; top:86.96%;" class="c_197_2">
+		listen.
+	</div>
+
+	<div id="t_197_74" style="position: absolute; left: 92.68%; top: 96.47%; letter-spacing: -0.15em;" class="c_197_4">
+		197
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="196.html?page=right"; onclick="goto('196.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="198.html"; onclick="goto('198.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="198.html"; onclick="goto('198.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_152.css">
+                <link rel="stylesheet" href="css/civics_153.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="150.html?page=right"; onclick="goto('150.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="152.html"; onclick="goto('152.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="150.html?page=right"; onclick="goto('150.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_152_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_153_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_152_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="152.html?page=right"; onclick="goto('152.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="154.html"; onclick="goto('154.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="154.html"; onclick="goto('154.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="150.html?page=right"; onclick="goto('150.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="152.html"; onclick="goto('152.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="150.html?page=right"; onclick="goto('150.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_152">
+                                                                                                <div class="pageData">
+
+	<div id="t_152_0" style="position: absolute; left: 5.39%; top:4.89%;" class="c_152_0">
+		Because of scarcity, consumers, producers,
+	</div>
+
+	<div id="t_152_1" style="position: absolute; left: 5.39%; top:6.66%;" class="c_152_0">
+		and governments are forced to make choices.
+	</div>
+
+	<div id="t_152_2" style="position: absolute; left: 5.39%; top:9.18%;" class="c_152_0">
+		All choices have opportunity costs. Whenever
+	</div>
+
+	<div id="t_152_3" style="position: absolute; left: 5.39%; top:10.95%;" class="c_152_0">
+		you make a choice, you are actually making
+	</div>
+
+	<div id="t_152_4" style="position: absolute; left: 5.39%; top:12.72%;" class="c_152_0">
+		two choices because whenever you choose to
+	</div>
+
+	<div id="t_152_5" style="position: absolute; left: 5.39%; top:14.49%;" class="c_152_0">
+		do one thing, you choose not to do
+	</div>
+
+	<div id="t_152_6" style="position: absolute; left: 5.39%; top:16.25%;" class="c_152_0">
+		something else. What you choose not to do is
+	</div>
+
+	<div id="t_152_7" style="position: absolute; left: 5.39%; top:18.02%;" class="c_152_0">
+		your opportunity cost.
+	</div>
+
+	<div id="t_152_8" style="position: absolute; left: 14.22%; top:20.07%;" class="c_152_1">
+		Vital
+	</div>
+
+	<div id="t_152_9" style="position: absolute; left: 5.70%; top:24.62%;" class="c_152_1">
+		Resources
+	</div>
+
+	<div id="t_152_10" style="position: absolute; left: 9.63%; top:31.44%;" class="c_152_2">
+		KEY PARTS TO KNOW
+	</div>
+
+	<div id="t_152_11" style="position: absolute; left: 40.44%; top: 4.86%; letter-spacing: -0.02em;" class="c_152_3">
+		Let&rsquo;s Talk
+	</div>
+
+	<div id="t_152_12" style="position: absolute; left: 40.44%; top: 10.67%; letter-spacing: -0.02em;" class="c_152_3">
+		Economics!
+	</div>
+
+	<div id="t_152_13" style="position: absolute; left: 69.85%; top: 5.58%; letter-spacing: 0.01em;" class="c_152_4">
+		Money and the economy are
+	</div>
+
+	<div id="t_152_14" style="position: absolute; left: 69.85%; top: 7.34%; letter-spacing: 0.01em;" class="c_152_4">
+		important to the quality of
+	</div>
+
+	<div id="t_152_15" style="position: absolute; left: 69.85%; top: 9.11%; letter-spacing: 0.01em;" class="c_152_4">
+		our lives. When the economy
+	</div>
+
+	<div id="t_152_16" style="position: absolute; left: 69.85%; top: 10.88%; letter-spacing: 0.01em;" class="c_152_4">
+		is strong, people have jobs.
+	</div>
+
+	<div id="t_152_17" style="position: absolute; left: 69.85%; top: 12.65%; letter-spacing: 0.01em;" class="c_152_4">
+		Life is easier. Money cannot
+	</div>
+
+	<div id="t_152_18" style="position: absolute; left: 69.85%; top: 14.42%; letter-spacing: 0.01em;" class="c_152_4">
+		buy us happiness, but it <span class="c_152_5">can</span>
+	</div>
+
+	<div id="t_152_19" style="position: absolute; left: 69.85%; top: 16.18%; letter-spacing: 0.01em;" class="c_152_4">
+		buy us food and shelter.
+	</div>
+
+	<div id="t_152_20" style="position: absolute; left: 41.71%; top: 19.2%;" class="c_152_6">
+		Can you speak Spanish? Chinese? French? Awesome! Here is
+	</div>
+
+	<div id="t_152_21" style="position: absolute; left: 40.44%; top: 21.1%;" class="c_152_6">
+		another language to learn: the language of <span class="c_152_7">economics</span><span class="c_152_8">.</span>
+	</div>
+
+	<div id="t_152_22" style="position: absolute; left: 40.44%; top: 22.99%;" class="c_152_6">
+		Economics is the study of decision-making&mdash;everything that
+	</div>
+
+	<div id="t_152_23" style="position: absolute; left: 40.44%; top: 24.89%;" class="c_152_6">
+		has to do with making goods and services, using goods and
+	</div>
+
+	<div id="t_152_24" style="position: absolute; left: 40.44%; top: 26.78%;" class="c_152_6">
+		services, and paying for goods
+	</div>
+
+	<div id="t_152_25" style="position: absolute; left: 40.44%; top: 28.67%;" class="c_152_6">
+		and services.
+	</div>
+
+	<div id="t_152_26" style="position: absolute; left: 8.82%; top: 35.5%;" class="c_152_6">
+		Take a look around you. You are surrounded by <span class="c_152_7">goods</span><span class="c_152_8">.</span>
+	</div>
+
+	<div id="t_152_27" style="position: absolute; left: 8.82%; top: 37.4%;" class="c_152_6">
+		Your shoes, your desk, this book&mdash;all are goods. Goods
+	</div>
+
+	<div id="t_152_28" style="position: absolute; left: 8.82%; top: 39.29%;" class="c_152_6">
+		(products) are items that are made from resources.
+	</div>
+
+	<div id="t_152_29" style="position: absolute; left: 11.56%; top:42.37%;" class="c_152_9">
+		NATURAL
+	</div>
+
+	<div id="t_152_30" style="position: absolute; left: 10.42%; top:44.26%;" class="c_152_9">
+		RESOURCES
+	</div>
+
+	<div id="t_152_31" style="position: absolute; left: 9.40%; top:47.80%;" class="c_152_10">
+		&bull; <span class="c_152_5">All the wonderful</span>
+	</div>
+
+	<div id="t_152_32" style="position: absolute; left: 9.40%; top:49.44%;" class="c_152_11">
+		things that come from
+	</div>
+
+	<div id="t_152_33" style="position: absolute; left: 9.40%; top:51.09%;" class="c_152_11">
+		nature, such as wood,
+	</div>
+
+	<div id="t_152_34" style="position: absolute; left: 9.40%; top:52.73%;" class="c_152_11">
+		coal, sand, and water.
+	</div>
+
+	<div id="t_152_35" style="position: absolute; left: 35.24%; top:41.75%;" class="c_152_9">
+		CAPITAL
+	</div>
+
+	<div id="t_152_36" style="position: absolute; left: 33.50%; top:43.64%;" class="c_152_9">
+		RESOURCES
+	</div>
+
+	<div id="t_152_37" style="position: absolute; left: 29.08%; top:47.11%;" class="c_152_10">
+		&bull; <span class="c_152_5">The things needed to produce</span>
+	</div>
+
+	<div id="t_152_38" style="position: absolute; left: 29.08%; top:48.75%;" class="c_152_11">
+		goods&mdash;tools, factory buildings,
+	</div>
+
+	<div id="t_152_39" style="position: absolute; left: 29.08%; top:50.39%;" class="c_152_11">
+		machinery.
+	</div>
+
+	<div id="t_152_40" style="position: absolute; left: 72.65%; top:42.75%;" class="c_152_9">
+		ENTREPRENEURIAL
+	</div>
+
+	<div id="t_152_41" style="position: absolute; left: 76.88%; top:44.64%;" class="c_152_9">
+		RESOURCES
+	</div>
+
+	<div id="t_152_42" style="position: absolute; left: 59.78%; top:47.06%;" class="c_152_9">
+		HUMAN
+	</div>
+
+	<div id="t_152_43" style="position: absolute; left: 57.71%; top:48.95%;" class="c_152_9">
+		RESOURCES
+	</div>
+
+	<div id="t_152_44" style="position: absolute; left: 56.28%; top:52.54%;" class="c_152_10">
+		&bull; <span class="c_152_5">People make goods</span>
+	</div>
+
+	<div id="t_152_45" style="position: absolute; left: 56.28%; top:54.18%;" class="c_152_11">
+		and provide services.
+	</div>
+
+	<div id="t_152_46" style="position: absolute; left: 56.28%; top:55.82%;" class="c_152_11">
+		They cut hair, build cars,
+	</div>
+
+	<div id="t_152_47" style="position: absolute; left: 56.28%; top:57.46%;" class="c_152_11">
+		perform surgery, make
+	</div>
+
+	<div id="t_152_48" style="position: absolute; left: 56.28%; top:59.10%;" class="c_152_11">
+		pizzas, and so much
+	</div>
+
+	<div id="t_152_49" style="position: absolute; left: 56.28%; top:60.74%;" class="c_152_11">
+		more.
+	</div>
+
+	<div id="t_152_50" style="position: absolute; left: 75.20%; top:49.10%;" class="c_152_10">
+		&bull; <span class="c_152_5">Entrepreneurs are</span>
+	</div>
+
+	<div id="t_152_51" style="position: absolute; left: 75.20%; top:50.74%;" class="c_152_11">
+		a special kind of
+	</div>
+
+	<div id="t_152_52" style="position: absolute; left: 75.20%; top:52.38%;" class="c_152_11">
+		human resource.
+	</div>
+
+	<div id="t_152_53" style="position: absolute; left: 75.20%; top:54.02%;" class="c_152_11">
+		They think of ideas
+	</div>
+
+	<div id="t_152_54" style="position: absolute; left: 75.20%; top:55.66%;" class="c_152_11">
+		for new products or
+	</div>
+
+	<div id="t_152_55" style="position: absolute; left: 75.20%; top:57.30%;" class="c_152_11">
+		businesses and then
+	</div>
+
+	<div id="t_152_56" style="position: absolute; left: 75.20%; top:58.95%;" class="c_152_11">
+		work to make their
+	</div>
+
+	<div id="t_152_57" style="position: absolute; left: 75.20%; top:60.59%;" class="c_152_11">
+		dreams a reality.
+	</div>
+
+	<div id="t_152_58" style="position: absolute; left: 8.33%; top:68.99%;" class="c_152_12">
+		Words to Know
+	</div>
+
+	<div id="t_152_59" style="position: absolute; left: 10.33%; top:72.18%;" class="c_152_13">
+		<span class="c_152_14">entrepreneur</span>
+	</div>
+
+	<div id="t_152_60" style="position: absolute; left: 7.93%; top:70.43%; font-size: 2.5em;" class="c_152_13">&#8227;</div>
+	<div id="t_152_61" style="position: absolute; left: 8.33%; top:74.51%;" class="c_152_15">
+		(<span class="c_152_16">on-truh-pruh-noor</span><span class="c_152_17">)</span>
+	</div>
+
+	<div id="t_152_62" style="position: absolute; left: 8.33%; top:76.53%;" class="c_152_18">
+		A person who thinks of an
+	</div>
+
+	<div id="t_152_63" style="position: absolute; left: 8.33%; top:78.42%;" class="c_152_18">
+		idea for a new product or
+	</div>
+
+	<div id="t_152_64" style="position: absolute; left: 8.33%; top:80.32%;" class="c_152_18">
+		business and then works
+	</div>
+
+	<div id="t_152_65" style="position: absolute; left: 8.33%; top:82.21%;" class="c_152_18">
+		to build that business
+	</div>
+
+	<div id="t_152_66" style="position: absolute; left: 10.33%; top:85.06%;" class="c_152_13">
+		<span class="c_152_14">entrepreneurial</span>
+	</div>
+
+	<div id="t_152_67" style="position: absolute; left: 7.93%; top:83.31%; font-size: 2.5em;" class="c_152_13">&#8227;</div>
+	<div id="t_152_68" style="position: absolute; left: 8.33%; top:87.39%;" class="c_152_15">
+		(<span class="c_152_16">on-truh-pruh-noor-e-ul</span><span class="c_152_17">)</span>
+	</div>
+
+	<div id="t_152_69" style="position: absolute; left: 8.33%; top:89.41%;" class="c_152_18">
+		Taking a financial risk
+	</div>
+
+	<div id="t_152_70" style="position: absolute; left: 8.33%; top:91.30%;" class="c_152_18">
+		by starting a new business
+	</div>
+
+	<div id="t_152_71" style="position: absolute; left: 5.06%; top: 94.42%; letter-spacing: -0.15em;" class="c_152_19">
+		152
+	</div>
+
+	<div id="t_152_72" style="position: absolute; left: 37.93%; top:66.28%;" class="c_152_20">
+		SO MANY CHOICES!
+	</div>
+
+	<div id="t_152_73" style="position: absolute; left: 33.52%; top: 68.75%;" class="c_152_6">
+		Every day you make <span class="c_152_7">choices</span><span class="c_152_8">. Cereal or</span>
+	</div>
+
+	<div id="t_152_74" style="position: absolute; left: 32.20%; top: 70.65%;" class="c_152_6">
+		eggs? Jeans or chinos? Blue or purple?
+	</div>
+
+	<div id="t_152_75" style="position: absolute; left: 32.20%; top: 72.54%;" class="c_152_6">
+		When you make a choice, you have to pick
+	</div>
+
+	<div id="t_152_76" style="position: absolute; left: 32.20%; top: 74.44%;" class="c_152_6">
+		an item or an action from a set of possible
+	</div>
+
+	<div id="t_152_77" style="position: absolute; left: 32.20%; top: 76.33%;" class="c_152_6">
+		alternatives. We are constantly making
+	</div>
+
+	<div id="t_152_78" style="position: absolute; left: 32.20%; top: 78.23%;" class="c_152_6">
+		decisions, but often we have to study
+	</div>
+
+	<div id="t_152_79" style="position: absolute; left: 32.20%; top: 80.12%;" class="c_152_6">
+		our choices because we cannot have
+	</div>
+
+	<div id="t_152_80" style="position: absolute; left: 32.20%; top: 82.01%;" class="c_152_6">
+		everything we want. Maybe the movie
+	</div>
+
+	<div id="t_152_81" style="position: absolute; left: 32.20%; top: 83.91%;" class="c_152_6">
+		you want to watch is playing for only
+	</div>
+
+	<div id="t_152_82" style="position: absolute; left: 32.20%; top: 85.8%;" class="c_152_6">
+		one more day, or the cereal you
+	</div>
+
+	<div id="t_152_83" style="position: absolute; left: 32.20%; top: 87.7%;" class="c_152_6">
+		craved is all gone. The amounts of
+	</div>
+
+	<div id="t_152_84" style="position: absolute; left: 32.20%; top: 89.59%;" class="c_152_6">
+		goods and services available are
+	</div>
+
+	<div id="t_152_85" style="position: absolute; left: 32.20%; top: 91.49%;" class="c_152_6">
+		limited. Choosing can be hard.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 0%; top: 1.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_152_because_of_scarcity.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 40%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_152_lets_talk_economics.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 20%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_152_vital_resources.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 71%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_152_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 64%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_152_so_many_choices.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_153">
+                                                                                                <div class="pageData">
+
+	<div id="t_153_0" style="position: absolute; left: 10.44%; top:2.61%;" class="c_153_0">
+		Four Important
+	</div>
+
+	<div id="t_153_1" style="position: absolute; left: 25.66%; top:7.78%;" class="c_153_0">
+		Ideas
+	</div>
+
+	<div id="t_153_2" style="position: absolute; left: 17.54%; top:15.20%;" class="c_153_1">
+		THE LANGUAGE OF ECONOMICS
+	</div>
+
+	<div id="t_153_3" style="position: absolute; left: 23.73%; top:19.74%;" class="c_153_2">
+		PRODUCTION
+	</div>
+
+	<div id="t_153_4" style="position: absolute; left: 11.91%; top: 22.04%; letter-spacing: 0.01em;" class="c_153_3">
+		&bull; <span class="c_153_4">Mixing human, natural, capital, and entrepreneurial</span>
+	</div>
+
+	<div id="t_153_5" style="position: absolute; left: 15.07%; top: 23.94%; letter-spacing: 0.01em;" class="c_153_5">
+		resources to make goods and provide services
+	</div>
+
+	<div id="t_153_6" style="position: absolute; left: 11.61%; top: 26%;" class="c_153_6">
+		This yummy pizza is a perfect example of
+	</div>
+
+	<div id="t_153_7" style="position: absolute; left: 10.29%; top:27.84%;" class="c_153_7">
+		production<span class="c_153_8">. An entrepreneur had an idea for an</span>
+	</div>
+
+	<div id="t_153_8" style="position: absolute; left: 10.29%; top: 29.78%;" class="c_153_6">
+		organic pizza restaurant. A human resource
+	</div>
+
+	<div id="t_153_9" style="position: absolute; left: 10.29%; top: 31.68%;" class="c_153_6">
+		mixed, tossed, and stretched the dough. The
+	</div>
+
+	<div id="t_153_10" style="position: absolute; left: 10.29%; top: 33.57%;" class="c_153_6">
+		vegetables? Lots of chopped-up natural
+	</div>
+
+	<div id="t_153_11" style="position: absolute; left: 10.29%; top: 35.47%;" class="c_153_6">
+		resources! The whole thing was baked in a
+	</div>
+
+	<div id="t_153_12" style="position: absolute; left: 10.29%; top: 37.36%;" class="c_153_6">
+		capital resource&mdash;an oven. The result? This
+	</div>
+
+	<div id="t_153_13" style="position: absolute; left: 10.29%; top: 39.26%;" class="c_153_6">
+		consumer gets a delicious &ldquo;everything&rdquo; pie.
+	</div>
+
+	<div id="t_153_14" style="position: absolute; left: 64.06%; top:29.36%;" class="c_153_2">
+		CONSUMPTION
+	</div>
+
+	<div id="t_153_15" style="position: absolute; left: 63.39%; top: 31.66%; letter-spacing: 0.01em;" class="c_153_3">
+		&bull; <span class="c_153_4">Using goods and services</span>
+	</div>
+
+	<div id="t_153_16" style="position: absolute; left: 54.70%; top: 33.73%;" class="c_153_6">
+		When you eat a slice of pizza, get your hair cut,
+	</div>
+
+	<div id="t_153_17" style="position: absolute; left: 53.38%; top: 35.62%;" class="c_153_6">
+		or buy a smartphone app, you are using goods
+	</div>
+
+	<div id="t_153_18" style="position: absolute; left: 53.38%; top: 37.51%;" class="c_153_6">
+		and services. Consumers just like you have a lot
+	</div>
+
+	<div id="t_153_19" style="position: absolute; left: 53.38%; top: 39.41%;" class="c_153_6">
+		of clout! The choices you make today just might
+	</div>
+
+	<div id="t_153_20" style="position: absolute; left: 53.38%; top: 41.3%;" class="c_153_6">
+		determine what will be produced in the future.
+	</div>
+
+	<div id="t_153_21" style="position: absolute; left: 19.21%; top:42.70%;" class="c_153_2">
+		OPPORTUNITY COST
+	</div>
+
+	<div id="t_153_22" style="position: absolute; left: 12.27%; top: 45.00%; letter-spacing: 0.01em;" class="c_153_3">
+		&bull; <span class="c_153_4">What you lose when you make a choice</span>
+	</div>
+
+	<div id="t_153_23" style="position: absolute; left: 11.29%; top: 47.06%;" class="c_153_6">
+		Let&rsquo;s pretend you need new shoes. You have enough
+	</div>
+
+	<div id="t_153_24" style="position: absolute; left: 9.97%; top: 48.96%;" class="c_153_6">
+		money for one pair. Should you pick the electric blue
+	</div>
+
+	<div id="t_153_25" style="position: absolute; left: 9.97%; top: 50.85%;" class="c_153_6">
+		sneakers or the sensible boots that will not go out of
+	</div>
+
+	<div id="t_153_26" style="position: absolute; left: 9.97%; top: 52.75%;" class="c_153_6">
+		style? Whenever you make a choice you are actually
+	</div>
+
+	<div id="t_153_27" style="position: absolute; left: 9.97%; top: 54.64%;" class="c_153_6">
+		making two choices. At the same time you choose to do one
+	</div>
+
+	<div id="t_153_28" style="position: absolute; left: 9.97%; top: 56.54%;" class="c_153_6">
+		thing, you are choosing <span class="c_153_9">not</span><span class="c_153_8"> to do something else. What you</span>
+	</div>
+
+	<div id="t_153_29" style="position: absolute; left: 9.97%; top: 58.43%;" class="c_153_6">
+		choose <span class="c_153_9">not</span><span class="c_153_8"> to do is your </span><span class="c_153_10">opportunity cost</span><span class="c_153_8">.</span>
+	</div>
+
+	<div id="t_153_30" style="position: absolute; left: 58.52%; top:51.08%;" class="c_153_11">
+		?<span class="c_153_12">?</span>
+	</div>
+
+	<div id="t_153_31" style="position: absolute; left: 78.97%; top:44.92%;" class="c_153_13">
+		?
+	</div>
+
+	<div id="t_153_32" style="position: absolute; left: 67.57%; top:62.10%;" class="c_153_2">
+		SCARCITY
+	</div>
+
+	<div id="t_153_33" style="position: absolute; left: 58.72%; top: 64.40%; letter-spacing: 0.01em;" class="c_153_3">
+		&bull; <span class="c_153_4">When there is not enough to go around</span>
+	</div>
+
+	<div id="t_153_34" style="position: absolute; left: 55.93%; top: 66.46%;" class="c_153_6">
+		All resources and goods are limited, but
+	</div>
+
+	<div id="t_153_35" style="position: absolute; left: 54.18%; top: 68.36%;" class="c_153_6">
+		sometimes they run out almost entirely. In some
+	</div>
+
+	<div id="t_153_36" style="position: absolute; left: 54.18%; top: 70.25%;" class="c_153_6">
+		places on Earth, there is not enough water. It is
+	</div>
+
+	<div id="t_153_37" style="position: absolute; left: 54.18%; top: 72.15%;" class="c_153_6">
+		scarce. <span class="c_153_10">Scarcity</span><span class="c_153_8"> is the inability to satisfy all</span>
+	</div>
+
+	<div id="t_153_38" style="position: absolute; left: 54.18%; top: 74.04%;" class="c_153_6">
+		wants at the same time. It is a fact of life, and
+	</div>
+
+	<div id="t_153_39" style="position: absolute; left: 54.18%; top: 75.94%;" class="c_153_6">
+		sometimes it can be dangerous.
+	</div>
+
+	<div id="t_153_40" style="position: absolute; left: 55.49%; top: 77.83%;" class="c_153_6">
+		The problem of scarcity affects all of us, from
+	</div>
+
+	<div id="t_153_41" style="position: absolute; left: 54.18%; top: 79.73%;" class="c_153_6">
+		individuals and organizations to businesses and
+	</div>
+
+	<div id="t_153_42" style="position: absolute; left: 54.18%; top: 81.62%;" class="c_153_6">
+		governments. The reality is that we have
+	</div>
+
+	<div id="t_153_43" style="position: absolute; left: 54.18%; top: 83.51%;" class="c_153_6">
+		unlimited wants, but our resources are limited.
+	</div>
+
+	<div id="t_153_44" style="position: absolute; left: 54.18%; top: 85.41%;" class="c_153_6">
+		Often, the goods and services we want exceed
+	</div>
+
+	<div id="t_153_45" style="position: absolute; left: 54.18%; top: 87.3%;" class="c_153_6">
+		our ability to produce them. Scarcity forces
+	</div>
+
+	<div id="t_153_46" style="position: absolute; left: 54.18%; top: 89.2%;" class="c_153_6">
+		consumers, producers, and governments to
+	</div>
+
+	<div id="t_153_47" style="position: absolute; left: 54.18%; top: 91.09%;" class="c_153_6">
+		make difficult choices.
+	</div>
+
+	<div id="t_153_48" style="position: absolute; left: 93.27%; top: 94.42%; letter-spacing: -0.15em;" class="c_153_14">
+		153
+	</div>
+
+	<div id="t_153_49" style="position: absolute; left: 16.08%; top:79.72%;" class="c_153_15">
+		Are shortages and scarcity the same thing?
+	</div>
+
+	<div id="t_153_50" style="position: absolute; left: 16.08%; top:81.36%;" class="c_153_15">
+		No! When a major blizzard or hurricane is
+	</div>
+
+	<div id="t_153_51" style="position: absolute; left: 16.08%; top:83.00%;" class="c_153_15">
+		bearing down, many supermarkets run out
+	</div>
+
+	<div id="t_153_52" style="position: absolute; left: 16.08%; top:84.65%;" class="c_153_15">
+		of items, such as bread and bottled water,
+	</div>
+
+	<div id="t_153_53" style="position: absolute; left: 16.08%; top:86.29%;" class="c_153_15">
+		which creates a shortage. Demand has
+	</div>
+
+	<div id="t_153_54" style="position: absolute; left: 16.08%; top:87.93%;" class="c_153_15">
+		exceeded the supply.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 5%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_153_four_important_ideas.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 53%; top: 29%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_153_consumption.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 43%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_153_opportunity_cost.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 53%; top: 61%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_153_scarcity.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 11%; top: 77%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_153_are_shortages.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_152_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_153_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_152_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="152.html?page=right"; onclick="goto('152.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="154.html"; onclick="goto('154.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="154.html"; onclick="goto('154.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_214.css">
+                <link rel="stylesheet" href="css/civics_215.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="212.html?page=right"; onclick="goto('212.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="214.html"; onclick="goto('214.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="212.html?page=right"; onclick="goto('212.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="214.html?page=right"; onclick="goto('214.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="216.html"; onclick="goto('216.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="216.html"; onclick="goto('216.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="212.html?page=right"; onclick="goto('212.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="214.html"; onclick="goto('214.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="212.html?page=right"; onclick="goto('212.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_214">
+                                                                                                <div class="pageData">
+
+    <div id="t_214_0" style="position: absolute; left: 7.03%; top: 95.0%; letter-spacing: -0.15em;" class="c_214_0">
+        214
+    </div>
+
+    <div style="position: absolute; left: -14%; top:11.5%; height:76%; width:128%; -ms-transform: rotate(-90deg); -webkit-transform: rotate(-90deg); transform: rotate(-90deg);">
+
+        <div style="position: absolute; left: 11.5%; top: 4%; letter-spacing: -0.049em;" class="c_214_1">
+            Virginia Congressional
+        </div>
+
+        <div style="position: absolute; left: 24%; top: 11%; letter-spacing: -0.049em;" class="c_214_1">
+            Districts
+        </div>
+
+        <div style="position: absolute; left: 9.7%; top: 20.7%;" class="c_214_2">
+            In the real world, people of all political leanings live next
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 23.2%;" class="c_214_2">
+            door to one another. But in some areas, due to economic
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 25.8%;" class="c_214_2">
+            circumstances or ethnic traditions, folks might lean heavily
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 28.4%;" class="c_214_2">
+            toward one party or another. Politicians in the General
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 31%;" class="c_214_2">
+            Assembly have figured out that if you simply redraw the
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 33.6%;" class="c_214_2">
+            boundary lines of existing congressional districts, you
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 36.2%;" class="c_214_2">
+            can get a big political
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 38.8%;" class="c_214_2">
+            advantage.
+        </div>
+
+        <div style="position: absolute; left: 21.6%; top: 56%;" class="c_214_3">
+            GERRYMANDERING
+        </div>
+
+        <div style="position: absolute; left: 9.7%; top: 59.2%;" class="c_214_2">
+            Gerrymandering is the word used to describe manipulating the map
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 61.8%;" class="c_214_2">
+            to political advantage. You can squish most of the people who might
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 64.4%;" class="c_214_2">
+            vote for one particular party into a few large districts and spread the
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 67.0%;" class="c_214_2">
+            remainder into lots of other districts. Here&rsquo;s how it works.
+        </div>
+
+        <div style="position: absolute; left: 9.7%; top: 69.6%;" class="c_214_2">
+            Virginia is fairly evenly divided between Democrats and
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 72.2%;" class="c_214_2">
+            Republicans. Let&rsquo;s say that blue dots represent precincts that vote
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 74.8%;" class="c_214_2">
+            mostly for Democrats. The red circles tend to be precincts that
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 77.4%;" class="c_214_2">
+            support Republicans. Fifty percent of the districts are Democrats and
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 80.0%;" class="c_214_2">
+            50 percent are Republicans. In this example, if you divide the
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 82.6%;" class="c_214_2">
+            precincts equally into five districts, the vote will be very close. But if
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 85.2%;" class="c_214_2">
+            the precincts are lumped irregularly, pushing all the blues into three
+        </div>
+
+        <div style="position: absolute; left: 8.2%; top: 87.8%;" class="c_214_2">
+            chunks, red will get a big advantage.
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 5.5%;" class="c_214_4">
+            The number of congresspeople
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 7.8%;" class="c_214_4">
+            a state has is determined by
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 10.1%;" class="c_214_4">
+            its population. As of 2017,
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 12.4%;" class="c_214_4">
+            Virginia was entitled to eleven
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 14.7%;" class="c_214_4">
+            plus two senators.
+        </div>
+
+        <div style="position: absolute; left: 54%; top: 55.2%;" class="c_214_5">
+            60 PRECINCTS
+        </div>
+
+        <div style="position: absolute; left: 53.3%; top: 87.6%;" class="c_214_4">
+            50% Blue
+        </div>
+
+        <div style="position: absolute; left: 53.3%; top: 89.9%;" class="c_214_4">
+            50% Red
+        </div>
+
+        <div style="position: absolute; left: 68%; top: 55.2%;" class="c_214_5">
+            10 SIMPLE DISTRICTS
+        </div>
+
+        <div style="position: absolute; left: 68.0%; top: 87.6%;" class="c_214_4">
+            5 Districts Elect Blue
+        </div>
+
+        <div style="position: absolute; left: 68.0%; top: 89.9%;" class="c_214_4">
+            5 Districts Elect Red
+        </div>
+
+        <div style="position: absolute; left: 83.5%; top: 55.2%;" class="c_214_5">
+            GERRYMANDERED
+        </div>
+
+        <div style="position: absolute; left: 86%; top: 57.0%;" class="c_214_5">
+            DISTRICTS
+        </div>
+
+        <div style="position: absolute; left: 83.0%; top: 87.6%;" class="c_214_4">
+            7 Districts Elect Red
+        </div>
+
+        <div style="position: absolute; left: 83.0%; top: 89.9%;" class="c_214_4">
+            3 Districts Elect Blue
+        </div>
+
+    </div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_215">
+                                                                                                <div class="pageData">
+
+    <div id="t_215_0" style="position: absolute; left: 95.26%; top: 95.0%; letter-spacing: -0.15em;" class="c_215_0">
+        215
+    </div>
+
+    <div style="position: absolute; left: -14%; top:11.5%; height:76%; width:128%; -ms-transform: rotate(-90deg); -webkit-transform: rotate(-90deg); transform: rotate(-90deg);">
+
+        <div style="position: absolute; left: 26%; top: 4%; letter-spacing: -0.049em;" class="c_215_1">
+            Virginia Judicial Districts
+        </div>
+
+        <div style="position: absolute; left: 41%; top: 13.6%; letter-spacing: -0.049em;" class="c_215_2">
+            Find your county or independent city.
+        </div>
+
+        <div style="position: absolute; left: 41%; top: 16.0%; letter-spacing: -0.049em;" class="c_215_2">
+            In what district and division are you?
+        </div>
+
+        <div style="position: absolute; left: 7.4%; top: 18.4%;" class="c_215_3">
+            WESTERN
+        </div>
+
+        <div style="position: absolute; left: 7.4%; top: 21.0%;" class="c_215_3">
+            DISTRICT
+        </div>
+
+        <div style="position: absolute; left: 7.4%; top: 23.6%;" class="c_215_3">
+            DIVISIONS
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 27.4%;" class="c_215_4">
+            Big Stone Gap
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 31.1%;" class="c_215_4">
+            Abingdon
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 34.8%;" class="c_215_4">
+            Roanoke
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 38.5%;" class="c_215_4">
+            Danville
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 42.2%;" class="c_215_4">
+            Lynchburg
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 45.9%;" class="c_215_4">
+            Harrisonburg
+        </div>
+
+        <div style="position: absolute; left: 10.4%; top: 49.6%;" class="c_215_4">
+            Charlottesville
+        </div>
+
+        <div style="position: absolute; left: 21.4%; top: 18.4%;" class="c_215_3">
+            EASTERN
+        </div>
+
+        <div style="position: absolute; left: 21.4%; top: 21.0%;" class="c_215_3">
+            DISTRICT
+        </div>
+
+        <div style="position: absolute; left: 21.4%; top: 23.6%;" class="c_215_3">
+            DIVISIONS
+        </div>
+
+        <div style="position: absolute; left: 24.4%; top: 27.4%;" class="c_215_4">
+            Richmond
+        </div>
+
+        <div style="position: absolute; left: 24.4%; top: 31.1%;" class="c_215_4">
+            Alexandria
+        </div>
+
+        <div style="position: absolute; left: 24.4%; top: 34.8%;" class="c_215_4">
+            Newport News
+        </div>
+
+        <div style="position: absolute; left: 24.4%; top: 38.5%;" class="c_215_4">
+            Norfolk
+        </div>
+
+        <div style="position: absolute; left: 6.4%; top: 74%;" class="c_215_3">
+            INDEPENDENT
+        </div>
+
+        <div style="position: absolute; left: 6.4%; top: 76.6%;" class="c_215_3">
+            CITIES
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 73.6%;" class="c_215_2">
+            1. Alexandria
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 75.9%;" class="c_215_2">
+            2. Bristol
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 78.2%;" class="c_215_2">
+            3. Buena Vista
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 80.5%;" class="c_215_2">
+            4. Charlottesville
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 82.8%;" class="c_215_2">
+            5. Chesapeake
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 85.1%;" class="c_215_2">
+            6. Colonial Heights
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 87.4%;" class="c_215_2">
+            7. Covington
+        </div>
+
+        <div style="position: absolute; left: 21.0%; top: 89.7%;" class="c_215_2">
+            8. Danville
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 73.6%;" class="c_215_2">
+            9. Emporia
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 75.9%;" class="c_215_2">
+            10. Fairfax
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 78.2%;" class="c_215_2">
+            11. Falls Church
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 80.5%;" class="c_215_2">
+            12. Franklin
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 82.8%;" class="c_215_2">
+            13. Fredericksburg
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 85.1%;" class="c_215_2">
+            14. Galax
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 87.4%;" class="c_215_2">
+            15. Hampton
+        </div>
+
+        <div style="position: absolute; left: 35.2%; top: 89.7%;" class="c_215_2">
+            16. Harrisonburg
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 73.6%;" class="c_215_2">
+            17. Hopewell
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 75.9%;" class="c_215_2">
+            18. Lexington
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 78.2%;" class="c_215_2">
+            19. Lynchburg
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 80.5%;" class="c_215_2">
+            20. Manassas
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 82.8%;" class="c_215_2">
+            21. Manassas Park
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 85.1%;" class="c_215_2">
+            22. Martinsville
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 87.4%;" class="c_215_2">
+            23. Newport News
+        </div>
+
+        <div style="position: absolute; left: 49.6%; top: 89.7%;" class="c_215_2">
+            24. Norfolk
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 73.6%;" class="c_215_2">
+            25. Norton
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 75.9%;" class="c_215_2">
+            26. Petersburg
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 78.2%;" class="c_215_2">
+            27. Poquoson
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 80.5%;" class="c_215_2">
+            28. Portsmouth
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 82.8%;" class="c_215_2">
+            29. Radford
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 85.1%;" class="c_215_2">
+            30. Richmond
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 87.4%;" class="c_215_2">
+            31. Roanoke
+        </div>
+
+        <div style="position: absolute; left: 64.4%; top: 89.7%;" class="c_215_2">
+            32. Salem
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 73.6%;" class="c_215_2">
+            33. Staunton
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 75.9%;" class="c_215_2">
+            34. Suffolk
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 78.2%;" class="c_215_2">
+            35. Virginia Beach
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 80.5%;" class="c_215_2">
+            36. Waynesboro
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 82.8%;" class="c_215_2">
+            37. Williamsburg
+        </div>
+
+        <div style="position: absolute; left: 79.2%; top: 85.1%;" class="c_215_2">
+            38. Winchester
+        </div>
+
+    </div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="214.html?page=right"; onclick="goto('214.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="216.html"; onclick="goto('216.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="216.html"; onclick="goto('216.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_208.css">
+                <link rel="stylesheet" href="css/civics_209.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="208.html"; onclick="goto('208.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="208.html?page=right"; onclick="goto('208.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="210.html"; onclick="goto('210.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="210.html"; onclick="goto('210.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="208.html"; onclick="goto('208.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_208">
+                                                                                                <div class="pageData">
+
+	<div id="t_208_0" style="position: absolute; left: 6.27%; top:7.73%;" class="c_208_0">
+		13TH, 14TH, AND 15TH
+	</div>
+
+	<div id="t_208_1" style="position: absolute; left: 6.27%; top:9.25%;" class="c_208_0">
+		AMENDMENTS
+	</div>
+
+	<div id="t_208_2" style="position: absolute; left: 6.27%; top:11.00%;" class="c_208_1">
+		Slavery is ended. African
+	</div>
+
+	<div id="t_208_3" style="position: absolute; left: 6.27%; top:12.52%;" class="c_208_1">
+		Americans, like white people
+	</div>
+
+	<div id="t_208_4" style="position: absolute; left: 6.27%; top:14.03%;" class="c_208_1">
+		born in the United States, are
+	</div>
+
+	<div id="t_208_5" style="position: absolute; left: 6.27%; top:15.55%;" class="c_208_1">
+		citizens, and they have the
+	</div>
+
+	<div id="t_208_6" style="position: absolute; left: 6.27%; top:17.06%;" class="c_208_1">
+		same rights as other citizens,
+	</div>
+
+	<div id="t_208_7" style="position: absolute; left: 6.27%; top:18.58%;" class="c_208_1">
+		including voting rights.
+	</div>
+
+	<div id="t_208_8" style="position: absolute; left: 6.27%; top:34.58%;" class="c_208_0">
+		16TH AMENDMENT
+	</div>
+
+	<div id="t_208_9" style="position: absolute; left: 6.27%; top:36.33%;" class="c_208_1">
+		Congress has the power to
+	</div>
+
+	<div id="t_208_10" style="position: absolute; left: 6.27%; top:37.85%;" class="c_208_1">
+		tax the people based on how
+	</div>
+
+	<div id="t_208_11" style="position: absolute; left: 6.27%; top:39.37%;" class="c_208_1">
+		much money they make.
+	</div>
+
+	<div id="t_208_12" style="position: absolute; left: 6.61%; top:45.33%;" class="c_208_0">
+		17TH AMENDMENT
+	</div>
+
+	<div id="t_208_13" style="position: absolute; left: 6.61%; top:47.08%;" class="c_208_1">
+		State legislatures used to
+	</div>
+
+	<div id="t_208_14" style="position: absolute; left: 6.61%; top:48.60%;" class="c_208_1">
+		appoint U.S. Senators, but
+	</div>
+
+	<div id="t_208_15" style="position: absolute; left: 6.61%; top:50.11%;" class="c_208_1">
+		under this amendment the
+	</div>
+
+	<div id="t_208_16" style="position: absolute; left: 6.61%; top:51.63%;" class="c_208_1">
+		voters elect senators.
+	</div>
+
+	<div id="t_208_17" style="position: absolute; left: 6.15%; top:63.09%;" class="c_208_0">
+		18TH AMENDMENT
+	</div>
+
+	<div id="t_208_18" style="position: absolute; left: 6.15%; top:64.84%;" class="c_208_1">
+		The production, sale, and
+	</div>
+
+	<div id="t_208_19" style="position: absolute; left: 6.15%; top:66.35%;" class="c_208_1">
+		use of alcohol are illegal.
+	</div>
+
+	<div id="t_208_20" style="position: absolute; left: 6.27%; top:76.91%;" class="c_208_0">
+		19TH AMENDMENT
+	</div>
+
+	<div id="t_208_21" style="position: absolute; left: 6.27%; top:78.66%;" class="c_208_1">
+		Women have the right to
+	</div>
+
+	<div id="t_208_22" style="position: absolute; left: 6.27%; top:80.18%;" class="c_208_1">
+		vote.
+	</div>
+
+	<div id="t_208_23" style="position: absolute; left: 6.78%; top:84.80%;" class="c_208_0">
+		20TH AMENDMENT
+	</div>
+
+	<div id="t_208_24" style="position: absolute; left: 6.78%; top:86.56%;" class="c_208_1">
+		The president&rsquo;s term will start
+	</div>
+
+	<div id="t_208_25" style="position: absolute; left: 6.78%; top:88.07%;" class="c_208_1">
+		when the president takes the
+	</div>
+
+	<div id="t_208_26" style="position: absolute; left: 6.78%; top:89.59%;" class="c_208_1">
+		oath of office on January
+	</div>
+
+	<div id="t_208_27" style="position: absolute; left: 6.78%; top:91.10%;" class="c_208_1">
+		20th. Congress will start its
+	</div>
+
+	<div id="t_208_28" style="position: absolute; left: 6.78%; top:92.62%;" class="c_208_1">
+		new term January 3rd.
+	</div>
+
+	<div id="t_208_29" style="position: absolute; left: 4.40%; top: 96.28%; letter-spacing: -0.15em;" class="c_208_2">
+		208
+	</div>
+
+	<div id="t_208_30" style="position: absolute; left: 32.21%; top:4.17%;" class="c_208_3">
+		3. No person shall be a Senator or Representative in Congress, or elector of President and
+	</div>
+
+	<div id="t_208_31" style="position: absolute; left: 32.21%; top:5.69%;" class="c_208_3">
+		Vice President, or hold any office, civil or military, under the United States, or under any
+	</div>
+
+	<div id="t_208_32" style="position: absolute; left: 32.21%; top:7.20%;" class="c_208_3">
+		State, who, having previously taken an oath, as a member of Congress, or as an officer of
+	</div>
+
+	<div id="t_208_33" style="position: absolute; left: 32.21%; top:8.72%;" class="c_208_3">
+		the United States, or as a member of any State legislature, or as an executive or judicial
+	</div>
+
+	<div id="t_208_34" style="position: absolute; left: 32.21%; top:10.23%;" class="c_208_3">
+		officer of any State, to support the Constitution of the United States, shall have engaged
+	</div>
+
+	<div id="t_208_35" style="position: absolute; left: 32.21%; top:11.75%;" class="c_208_3">
+		in insurrection or rebellion against the same, or given aid or comfort to the enemies
+	</div>
+
+	<div id="t_208_36" style="position: absolute; left: 32.21%; top:13.26%;" class="c_208_3">
+		thereof. But Congress may by a vote of two-thirds of each House, remove such disability.
+	</div>
+
+	<div id="t_208_37" style="position: absolute; left: 33.68%; top:14.78%;" class="c_208_3">
+		4. The validity of the public debt of the United States, authorized by law, including
+	</div>
+
+	<div id="t_208_38" style="position: absolute; left: 32.21%; top:16.29%;" class="c_208_3">
+		debts incurred for payment of pensions and bounties for services in suppressing
+	</div>
+
+	<div id="t_208_39" style="position: absolute; left: 32.21%; top:17.81%;" class="c_208_3">
+		insurrection or rebellion, shall not be questioned. But neither the United States nor
+	</div>
+
+	<div id="t_208_40" style="position: absolute; left: 32.21%; top:19.32%;" class="c_208_3">
+		any State shall assume or pay any debt or obligation incurred in aid of insurrection
+	</div>
+
+	<div id="t_208_41" style="position: absolute; left: 32.21%; top:20.84%;" class="c_208_3">
+		or rebellion against the United States, or any claim for the loss or emancipation of
+	</div>
+
+	<div id="t_208_42" style="position: absolute; left: 32.21%; top:22.35%;" class="c_208_3">
+		any slave; but all such debts, obligations and claims shall be held illegal and void.
+	</div>
+
+	<div id="t_208_43" style="position: absolute; left: 33.68%; top:23.87%;" class="c_208_3">
+		5. The Congress shall have power to enforce, by appropriate legislation, the
+	</div>
+
+	<div id="t_208_44" style="position: absolute; left: 32.21%; top:25.38%;" class="c_208_3">
+		provisions of this article.
+	</div>
+
+	<div id="t_208_45" style="position: absolute; left: 32.21%; top:27.88%;" class="c_208_4">
+		AMENDMENT 15. Race No Bar to Vote. <span class="c_208_5">Ratified 2/3/1870.</span>
+	</div>
+
+	<div id="t_208_46" style="position: absolute; left: 33.68%; top:29.40%;" class="c_208_3">
+		1. The right of citizens of the United States to vote shall not be denied or abridged
+	</div>
+
+	<div id="t_208_47" style="position: absolute; left: 32.21%; top:30.92%;" class="c_208_3">
+		by the United States or by any State on account of race, color, or previous condition
+	</div>
+
+	<div id="t_208_48" style="position: absolute; left: 32.21%; top:32.43%;" class="c_208_3">
+		of servitude.
+	</div>
+
+	<div id="t_208_49" style="position: absolute; left: 33.68%; top:33.95%;" class="c_208_3">
+		2. The Congress shall have power to enforce this article by appropriate legislation.
+	</div>
+
+	<div id="t_208_50" style="position: absolute; left: 32.21%; top:36.45%;" class="c_208_4">
+		AMENDMENT 16. Status of Income Tax Clarified. <span class="c_208_5">Ratified 2/3/1913.</span>
+	</div>
+
+	<div id="t_208_51" style="position: absolute; left: 33.68%; top:37.97%;" class="c_208_3">
+		The Congress shall have power to lay and collect taxes on incomes, from whatever
+	</div>
+
+	<div id="t_208_52" style="position: absolute; left: 32.21%; top:39.49%;" class="c_208_3">
+		source derived, without apportionment among the several States, and without
+	</div>
+
+	<div id="t_208_53" style="position: absolute; left: 32.21%; top:41.00%;" class="c_208_3">
+		regard to any census or enumeration.
+	</div>
+
+	<div id="t_208_54" style="position: absolute; left: 32.21%; top:43.50%;" class="c_208_4">
+		AMENDMENT 17. Senators Elected by Popular Vote. <span class="c_208_5">Ratified 4/8/1913.</span>
+	</div>
+
+	<div id="t_208_55" style="position: absolute; left: 33.68%; top:45.02%;" class="c_208_3">
+		The Senate of the United States shall be composed of two Senators from each
+	</div>
+
+	<div id="t_208_56" style="position: absolute; left: 32.21%; top:46.54%;" class="c_208_3">
+		State, elected by the people thereof, for six years; and each Senator shall have one
+	</div>
+
+	<div id="t_208_57" style="position: absolute; left: 32.21%; top:48.05%;" class="c_208_3">
+		vote. The electors in each State shall have the qualifications requisite for electors of
+	</div>
+
+	<div id="t_208_58" style="position: absolute; left: 32.21%; top:49.57%;" class="c_208_3">
+		the most numerous branch of the State legislatures.
+	</div>
+
+	<div id="t_208_59" style="position: absolute; left: 33.68%; top:51.08%;" class="c_208_3">
+		When vacancies happen in the representation of any State in the Senate, the
+	</div>
+
+	<div id="t_208_60" style="position: absolute; left: 32.21%; top:52.60%;" class="c_208_3">
+		executive authority of such State shall issue writs of election to fill such vacancies:
+	</div>
+
+	<div id="t_208_61" style="position: absolute; left: 32.21%; top:54.11%;" class="c_208_3">
+		Provided, That the legislature of any State may empower the executive thereof to
+	</div>
+
+	<div id="t_208_62" style="position: absolute; left: 32.21%; top:55.63%;" class="c_208_3">
+		make temporary appointments until the people fill the vacancies by election as the
+	</div>
+
+	<div id="t_208_63" style="position: absolute; left: 32.21%; top:57.14%;" class="c_208_3">
+		legislature may direct.
+	</div>
+
+	<div id="t_208_64" style="position: absolute; left: 33.68%; top:58.66%;" class="c_208_3">
+		This amendment shall not be so construed as to affect the election or term of any
+	</div>
+
+	<div id="t_208_65" style="position: absolute; left: 32.21%; top:60.17%;" class="c_208_3">
+		Senator chosen before it becomes valid as part of the Constitution.
+	</div>
+
+	<div id="t_208_66" style="position: absolute; left: 32.21%; top:62.68%;" class="c_208_4">
+		AMENDMENT 18. Making, Selling, and Distributing Liquor. <span class="c_208_5">Ratified</span>
+	</div>
+
+	<div id="t_208_67" style="position: absolute; left: 32.21%; top:64.20%;" class="c_208_3">
+		1/16/1919. Repealed by Amendment 21, 12/5/1933.
+	</div>
+
+	<div id="t_208_68" style="position: absolute; left: 33.68%; top:65.71%;" class="c_208_3">
+		1. After one year from the ratification of this article the manufacture, sale, or
+	</div>
+
+	<div id="t_208_69" style="position: absolute; left: 32.21%; top:67.23%;" class="c_208_3">
+		transportation of intoxicating liquors within, the importation thereof into, or the
+	</div>
+
+	<div id="t_208_70" style="position: absolute; left: 32.21%; top:68.74%;" class="c_208_3">
+		exportation thereof from the United States and all territory subject to the jurisdiction
+	</div>
+
+	<div id="t_208_71" style="position: absolute; left: 32.21%; top:70.26%;" class="c_208_3">
+		thereof for beverage purposes is hereby prohibited.
+	</div>
+
+	<div id="t_208_72" style="position: absolute; left: 33.68%; top:71.77%;" class="c_208_3">
+		2. The Congress and the several States shall have concurrent power to enforce this
+	</div>
+
+	<div id="t_208_73" style="position: absolute; left: 32.21%; top:73.29%;" class="c_208_3">
+		article by appropriate legislation.
+	</div>
+
+	<div id="t_208_74" style="position: absolute; left: 33.68%; top:74.80%;" class="c_208_3">
+		3. This article shall be inoperative unless it shall have been ratified as an
+	</div>
+
+	<div id="t_208_75" style="position: absolute; left: 32.21%; top:76.32%;" class="c_208_3">
+		amendment to the Constitution by the legislatures of the several States, as provided
+	</div>
+
+	<div id="t_208_76" style="position: absolute; left: 32.21%; top:77.83%;" class="c_208_3">
+		in the Constitution, within seven years from the date of the submission hereof to the
+	</div>
+
+	<div id="t_208_77" style="position: absolute; left: 32.21%; top:79.35%;" class="c_208_3">
+		States by the Congress.
+	</div>
+
+	<div id="t_208_78" style="position: absolute; left: 32.21%; top:81.85%;" class="c_208_4">
+		AMENDMENT 19. Women's Suffrage. <span class="c_208_5">Ratified 8/18/1920.</span>
+	</div>
+
+	<div id="t_208_79" style="position: absolute; left: 33.68%; top:83.37%;" class="c_208_3">
+		The right of citizens of the United States to vote shall not be denied or abridged
+	</div>
+
+	<div id="t_208_80" style="position: absolute; left: 32.21%; top:84.88%;" class="c_208_3">
+		by the United States or by any State on account of sex.
+	</div>
+
+	<div id="t_208_81" style="position: absolute; left: 33.68%; top:86.40%;" class="c_208_3">
+		Congress shall have power to enforce this article by appropriate legislation.
+	</div>
+
+	<div id="t_208_82" style="position: absolute; left: 32.21%; top:88.90%;" class="c_208_4">
+		AMENDMENT 20. Presidential, Congressional Terms. <span class="c_208_5">Ratified 1/23/1933.</span>
+	</div>
+
+	<div id="t_208_83" style="position: absolute; left: 33.68%; top:90.42%;" class="c_208_3">
+		1. The terms of the President and Vice President shall end at noon on the 20th day
+	</div>
+
+	<div id="t_208_84" style="position: absolute; left: 32.21%; top:91.94%;" class="c_208_3">
+		of January, and the terms of Senators and Representatives at noon on the 3rd day of
+	</div>
+
+	<div id="t_208_85" style="position: absolute; left: 32.21%; top:93.45%;" class="c_208_3">
+		January, of the years in which such terms would have ended if this article had not
+	</div>
+
+	<div id="t_208_86" style="position: absolute; left: 32.21%; top:94.97%;" class="c_208_3">
+		been ratified; and the terms of their successors shall then begin.
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_209">
+                                                                                                <div class="pageData">
+
+	<div id="t_209_0" style="position: absolute; left: 10.30%; top:4.40%;" class="c_209_0">
+		2. The Congress shall assemble at least once in every year, and such meeting
+	</div>
+
+	<div id="t_209_1" style="position: absolute; left: 8.83%; top:5.91%;" class="c_209_0">
+		shall begin at noon on the 3rd day of January, unless they shall by law appoint a
+	</div>
+
+	<div id="t_209_2" style="position: absolute; left: 8.83%; top:7.43%;" class="c_209_0">
+		different day.
+	</div>
+
+	<div id="t_209_3" style="position: absolute; left: 10.30%; top:8.94%;" class="c_209_0">
+		3. If, at the time fixed for the beginning of the term of the President, the
+	</div>
+
+	<div id="t_209_4" style="position: absolute; left: 8.83%; top:10.46%;" class="c_209_0">
+		President-elect shall have died, the Vice President-elect shall become President. If a
+	</div>
+
+	<div id="t_209_5" style="position: absolute; left: 8.83%; top:11.97%;" class="c_209_0">
+		President shall not have been chosen before the time fixed for the beginning of
+	</div>
+
+	<div id="t_209_6" style="position: absolute; left: 8.83%; top:13.49%;" class="c_209_0">
+		his term, or if the President-elect shall have failed to qualify, then the Vice
+	</div>
+
+	<div id="t_209_7" style="position: absolute; left: 8.83%; top:15.00%;" class="c_209_0">
+		President-elect shall act as President until a President shall have qualified; and the
+	</div>
+
+	<div id="t_209_8" style="position: absolute; left: 8.83%; top:16.52%;" class="c_209_0">
+		Congress may by law provide for the case wherein neither a President elect nor a
+	</div>
+
+	<div id="t_209_9" style="position: absolute; left: 8.83%; top:18.03%;" class="c_209_0">
+		Vice President-elect shall have qualified, declaring who shall then act as President,
+	</div>
+
+	<div id="t_209_10" style="position: absolute; left: 8.83%; top:19.55%;" class="c_209_0">
+		or the manner in which one who is to act shall be selected, and such person shall
+	</div>
+
+	<div id="t_209_11" style="position: absolute; left: 8.83%; top:21.06%;" class="c_209_0">
+		act accordingly until a President or Vice President shall have qualified.
+	</div>
+
+	<div id="t_209_12" style="position: absolute; left: 10.30%; top:22.58%;" class="c_209_0">
+		4. The Congress may by law provide for the case of the death of any of the
+	</div>
+
+	<div id="t_209_13" style="position: absolute; left: 8.83%; top:24.09%;" class="c_209_0">
+		persons from whom the House of Representatives may choose a President
+	</div>
+
+	<div id="t_209_14" style="position: absolute; left: 8.83%; top:25.61%;" class="c_209_0">
+		whenever the right of choice shall have devolved upon them, and for the case of
+	</div>
+
+	<div id="t_209_15" style="position: absolute; left: 8.83%; top:27.12%;" class="c_209_0">
+		the death of any of the persons from whom the Senate may choose a Vice
+	</div>
+
+	<div id="t_209_16" style="position: absolute; left: 8.83%; top:28.64%;" class="c_209_0">
+		President whenever the right of choice shall have devolved upon them.
+	</div>
+
+	<div id="t_209_17" style="position: absolute; left: 10.79%; top:30.15%;" class="c_209_0">
+		5. Sections 1 and 2 shall take effect on the 15th day of October following the
+	</div>
+
+	<div id="t_209_18" style="position: absolute; left: 8.83%; top:31.67%;" class="c_209_0">
+		ratification of this article.
+	</div>
+
+	<div id="t_209_19" style="position: absolute; left: 10.30%; top:33.18%;" class="c_209_0">
+		6. This article shall be inoperative unless it shall have been ratified as an
+	</div>
+
+	<div id="t_209_20" style="position: absolute; left: 8.83%; top:34.70%;" class="c_209_0">
+		amendment to the Constitution by the legislatures of three-fourths of the several
+	</div>
+
+	<div id="t_209_21" style="position: absolute; left: 8.83%; top:36.21%;" class="c_209_0">
+		States within seven years from the date of its submission.
+	</div>
+
+	<div id="t_209_22" style="position: absolute; left: 8.83%; top:38.72%;" class="c_209_1">
+		AMENDMENT 21. Amendment 18 Repealed. <span class="c_209_2">Ratified 12/5/1933.</span>
+	</div>
+
+	<div id="t_209_23" style="position: absolute; left: 10.30%; top:40.24%;" class="c_209_0">
+		1. The eighteenth article of amendment to the Constitution of the United States
+	</div>
+
+	<div id="t_209_24" style="position: absolute; left: 8.83%; top:41.75%;" class="c_209_0">
+		is hereby repealed.
+	</div>
+
+	<div id="t_209_25" style="position: absolute; left: 10.30%; top:43.27%;" class="c_209_0">
+		2. The transportation or importation into any State, Territory, or possession of
+	</div>
+
+	<div id="t_209_26" style="position: absolute; left: 8.83%; top:44.78%;" class="c_209_0">
+		the United States for delivery or use therein of intoxicating liquors, in violation of
+	</div>
+
+	<div id="t_209_27" style="position: absolute; left: 8.83%; top:46.30%;" class="c_209_0">
+		the laws thereof, is hereby prohibited.
+	</div>
+
+	<div id="t_209_28" style="position: absolute; left: 10.30%; top:47.81%;" class="c_209_0">
+		3. The article shall be inoperative unless it shall have been ratified as an
+	</div>
+
+	<div id="t_209_29" style="position: absolute; left: 8.83%; top:49.33%;" class="c_209_0">
+		amendment to the Constitution by conventions in the several States, as provided
+	</div>
+
+	<div id="t_209_30" style="position: absolute; left: 8.83%; top:50.84%;" class="c_209_0">
+		in the Constitution, within seven years from the date of the submission hereof to
+	</div>
+
+	<div id="t_209_31" style="position: absolute; left: 8.83%; top:52.36%;" class="c_209_0">
+		the States by the Congress.
+	</div>
+
+	<div id="t_209_32" style="position: absolute; left: 8.83%; top:54.86%;" class="c_209_1">
+		AMENDMENT 22. Presidential Term Limits. <span class="c_209_2">Ratified 2/27/1951.</span>
+	</div>
+
+	<div id="t_209_33" style="position: absolute; left: 10.29%; top:56.38%;" class="c_209_0">
+		1. No person shall be elected to the office of the President more than twice,
+	</div>
+
+	<div id="t_209_34" style="position: absolute; left: 8.82%; top:57.89%;" class="c_209_0">
+		and no person who has held the office of President, or acted as President, for
+	</div>
+
+	<div id="t_209_35" style="position: absolute; left: 8.82%; top:59.41%;" class="c_209_0">
+		more than two years of a term to which some other person was elected President
+	</div>
+
+	<div id="t_209_36" style="position: absolute; left: 8.82%; top:60.92%;" class="c_209_0">
+		shall be elected to the office of the President more than once. But this Article shall
+	</div>
+
+	<div id="t_209_37" style="position: absolute; left: 8.82%; top:62.44%;" class="c_209_0">
+		not apply to any person holding the office of President, when this Article was
+	</div>
+
+	<div id="t_209_38" style="position: absolute; left: 8.82%; top:63.95%;" class="c_209_0">
+		proposed by the Congress, and shall not prevent any person who may be holding
+	</div>
+
+	<div id="t_209_39" style="position: absolute; left: 8.82%; top:65.47%;" class="c_209_0">
+		the office of President, or acting as President, during the term within which this
+	</div>
+
+	<div id="t_209_40" style="position: absolute; left: 8.82%; top:66.98%;" class="c_209_0">
+		Article becomes operative from holding the office of President or acting as
+	</div>
+
+	<div id="t_209_41" style="position: absolute; left: 8.82%; top:68.50%;" class="c_209_0">
+		President during the remainder of such term.
+	</div>
+
+	<div id="t_209_42" style="position: absolute; left: 10.29%; top:70.02%;" class="c_209_0">
+		2. This article shall be inoperative unless it shall have been ratified as an
+	</div>
+
+	<div id="t_209_43" style="position: absolute; left: 8.82%; top:71.53%;" class="c_209_0">
+		amendment to the Constitution by the legislatures of three-fourths of the several
+	</div>
+
+	<div id="t_209_44" style="position: absolute; left: 8.82%; top:73.05%;" class="c_209_0">
+		States within seven years from the date of its submission to the States by the
+	</div>
+
+	<div id="t_209_45" style="position: absolute; left: 8.82%; top:74.56%;" class="c_209_0">
+		Congress.
+	</div>
+
+	<div id="t_209_46" style="position: absolute; left: 8.82%; top:77.06%;" class="c_209_1">
+		AMENDMENT 23. Presidential Vote for District of Columbia. <span class="c_209_2">Ratified</span>
+	</div>
+
+	<div id="t_209_47" style="position: absolute; left: 8.82%; top:78.58%;" class="c_209_0">
+		3/29/1961.
+	</div>
+
+	<div id="t_209_48" style="position: absolute; left: 10.29%; top:80.10%;" class="c_209_0">
+		1. The District constituting the seat of Government of the United States shall
+	</div>
+
+	<div id="t_209_49" style="position: absolute; left: 8.82%; top:81.61%;" class="c_209_0">
+		appoint in such manner as the Congress may direct: A number of electors of
+	</div>
+
+	<div id="t_209_50" style="position: absolute; left: 8.82%; top:83.13%;" class="c_209_0">
+		President and Vice President equal to the whole number of Senators and
+	</div>
+
+	<div id="t_209_51" style="position: absolute; left: 8.82%; top:84.64%;" class="c_209_0">
+		Representatives in Congress to which the District would be entitled if it were a
+	</div>
+
+	<div id="t_209_52" style="position: absolute; left: 8.82%; top:86.16%;" class="c_209_0">
+		State, but in no event more than the least populous State; they shall be in
+	</div>
+
+	<div id="t_209_53" style="position: absolute; left: 8.82%; top:87.67%;" class="c_209_0">
+		addition to those appointed by the States, but they shall be considered, for the
+	</div>
+
+	<div id="t_209_54" style="position: absolute; left: 8.82%; top:89.19%;" class="c_209_0">
+		purposes of the election of President and Vice President, to be electors appointed
+	</div>
+
+	<div id="t_209_55" style="position: absolute; left: 8.82%; top:90.70%;" class="c_209_0">
+		by a State; and they shall meet in the District and perform such duties as provided
+	</div>
+
+	<div id="t_209_56" style="position: absolute; left: 8.82%; top:92.22%;" class="c_209_0">
+		by the twelfth article of amendment.
+	</div>
+
+	<div id="t_209_57" style="position: absolute; left: 10.29%; top:93.73%;" class="c_209_0">
+		2. The Congress shall have power to enforce this article by appropriate
+	</div>
+
+	<div id="t_209_58" style="position: absolute; left: 8.82%; top:95.25%;" class="c_209_0">
+		legislation.
+	</div>
+
+	<div id="t_209_59" style="position: absolute; left: 69.24%; top: 3.31%; letter-spacing: 0.01em;" class="c_209_3">
+		The U.S.
+	</div>
+
+	<div id="t_209_60" style="position: absolute; left: 69.24%; top: 4.95%; letter-spacing: 0.01em;" class="c_209_3">
+		Capitol,
+	</div>
+
+	<div id="t_209_61" style="position: absolute; left: 69.24%; top: 6.59%; letter-spacing: 0.01em;" class="c_209_3">
+		where
+	</div>
+
+	<div id="t_209_62" style="position: absolute; left: 69.24%; top: 8.23%; letter-spacing: 0.01em;" class="c_209_3">
+		Congress
+	</div>
+
+	<div id="t_209_63" style="position: absolute; left: 69.24%; top: 9.87%; letter-spacing: 0.01em;" class="c_209_3">
+		meets.
+	</div>
+
+	<div id="t_209_64" style="position: absolute; left: 71.25%; top:38.98%;" class="c_209_4">
+		21ST AMENDMENT
+	</div>
+
+	<div id="t_209_65" style="position: absolute; left: 71.25%; top:40.74%;" class="c_209_5">
+		Amendment 18 is repealed.
+	</div>
+
+	<div id="t_209_66" style="position: absolute; left: 71.25%; top:42.25%;" class="c_209_5">
+		The production, sale, and use
+	</div>
+
+	<div id="t_209_67" style="position: absolute; left: 71.25%; top:43.77%;" class="c_209_5">
+		of alcohol are legal, unless a
+	</div>
+
+	<div id="t_209_68" style="position: absolute; left: 71.25%; top:45.28%;" class="c_209_5">
+		state law says otherwise.
+	</div>
+
+	<div id="t_209_69" style="position: absolute; left: 71.25%; top:46.80%;" class="c_209_6">
+		(The only way to get rid of an
+	</div>
+
+	<div id="t_209_70" style="position: absolute; left: 71.25%; top:48.31%;" class="c_209_6">
+		amendment is with another
+	</div>
+
+	<div id="t_209_71" style="position: absolute; left: 71.25%; top:49.83%;" class="c_209_6">
+		amendment.)
+	</div>
+
+	<div id="t_209_72" style="position: absolute; left: 71.06%; top:55.53%;" class="c_209_4">
+		22ND AMENDMENT
+	</div>
+
+	<div id="t_209_73" style="position: absolute; left: 71.06%; top:57.29%;" class="c_209_5">
+		No person can be elected
+	</div>
+
+	<div id="t_209_74" style="position: absolute; left: 71.06%; top:58.80%;" class="c_209_5">
+		president more than twice.
+	</div>
+
+	<div id="t_209_75" style="position: absolute; left: 71.06%; top:60.32%;" class="c_209_5">
+		This was decided based on
+	</div>
+
+	<div id="t_209_76" style="position: absolute; left: 71.06%; top:61.83%;" class="c_209_5">
+		George Washington&rsquo;s
+	</div>
+
+	<div id="t_209_77" style="position: absolute; left: 71.06%; top:63.35%;" class="c_209_5">
+		decision to only serve two
+	</div>
+
+	<div id="t_209_78" style="position: absolute; left: 71.06%; top:64.86%;" class="c_209_5">
+		terms.
+	</div>
+
+	<div id="t_209_79" style="position: absolute; left: 71.06%; top:66.38%;" class="c_209_5">
+		Only one president,
+	</div>
+
+	<div id="t_209_80" style="position: absolute; left: 71.06%; top:67.89%;" class="c_209_5">
+		Franklin D. Roosevelt,
+	</div>
+
+	<div id="t_209_81" style="position: absolute; left: 71.06%; top:69.41%;" class="c_209_5">
+		served more than two
+	</div>
+
+	<div id="t_209_82" style="position: absolute; left: 71.06%; top:70.92%;" class="c_209_5">
+		terms. He was president
+	</div>
+
+	<div id="t_209_83" style="position: absolute; left: 71.06%; top:72.44%;" class="c_209_5">
+		during the difficult days of
+	</div>
+
+	<div id="t_209_84" style="position: absolute; left: 71.06%; top:73.95%;" class="c_209_5">
+		the Great Depression and
+	</div>
+
+	<div id="t_209_85" style="position: absolute; left: 71.06%; top:75.47%;" class="c_209_5">
+		World War II. This
+	</div>
+
+	<div id="t_209_86" style="position: absolute; left: 71.06%; top:76.98%;" class="c_209_5">
+		amendment was passed
+	</div>
+
+	<div id="t_209_87" style="position: absolute; left: 71.06%; top:78.50%;" class="c_209_5">
+		after his death.
+	</div>
+
+	<div id="t_209_88" style="position: absolute; left: 92.53%; top: 96.28%; letter-spacing: -0.15em;" class="c_209_7">
+		209
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="208.html?page=right"; onclick="goto('208.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="210.html"; onclick="goto('210.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="210.html"; onclick="goto('210.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

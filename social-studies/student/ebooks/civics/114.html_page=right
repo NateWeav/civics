@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_114.css">
+                <link rel="stylesheet" href="css/civics_115.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="112.html?page=right"; onclick="goto('112.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="114.html"; onclick="goto('114.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="112.html?page=right"; onclick="goto('112.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_114_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_115_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_114_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="114.html?page=right"; onclick="goto('114.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="116.html"; onclick="goto('116.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="116.html"; onclick="goto('116.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="112.html?page=right"; onclick="goto('112.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="114.html"; onclick="goto('114.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="112.html?page=right"; onclick="goto('112.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_114">
+                                                                                                <div class="pageData">
+
+	<div id="t_114_0" style="position: absolute; left: 6.22%; top:4.01%;" class="c_114_0">
+		Local governments exercise legislative,
+	</div>
+
+	<div id="t_114_1" style="position: absolute; left: 6.22%; top:5.78%;" class="c_114_0">
+		executive, and judicial powers
+	</div>
+
+	<div id="t_114_2" style="position: absolute; left: 50.33%; top: 13.87%; letter-spacing: -0.01em;" class="c_114_1">
+		Our cities and counties depend on these key positions.
+	</div>
+
+	<div id="t_114_3" style="position: absolute; left: 50.94%; top: 15.40%; letter-spacing: -0.02em;" class="c_114_2">
+		Five Important
+	</div>
+
+	<div id="t_114_4" style="position: absolute; left: 55.92%; top: 20.83%; letter-spacing: -0.02em;" class="c_114_2">
+		Jobs
+	</div>
+
+	<div id="t_114_5" style="position: absolute; left: 67.89%; top: 23.39%; letter-spacing: 0.01em;" class="c_114_1">
+		If you had to pick one, which
+	</div>
+
+	<div id="t_114_6" style="position: absolute; left: 67.89%; top: 25.29%; letter-spacing: 0.01em;" class="c_114_1">
+		office would you run for?
+	</div>
+
+	<div id="t_114_7" style="position: absolute; left: 9.80%; top:16.26%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_3">
+		COMMONWEALTH&rsquo;S ATTORNEY
+	</div>
+
+	<div id="t_114_8" style="position: absolute; left: 9.80%; top:19.16%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_4">
+		Where can victims of serious crimes get help?
+	</div>
+
+	<div id="t_114_9" style="position: absolute; left: 10.46%; top:21.06%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_4">
+		Commonwealth&rsquo;s Attorneys are there to help!
+	</div>
+
+	<div id="t_114_10" style="position: absolute; left: 12.42%; top:24.28%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		Due process and the Bill of Rights
+	</div>
+
+	<div id="t_114_11" style="position: absolute; left: 11.93%; top:25.98%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		protect people <span class="c_114_6">accused</span><span class="c_114_7"> of a crime. But</span>
+	</div>
+
+	<div id="t_114_12" style="position: absolute; left: 12.42%; top:27.68%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		what about the victims? Let&rsquo;s say that a
+	</div>
+
+	<div id="t_114_13" style="position: absolute; left: 12.91%; top:29.38%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		man has broken into a jewelry store and
+	</div>
+
+	<div id="t_114_14" style="position: absolute; left: 13.40%; top:31.02%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		stolen six diamond bracelets. He is
+	</div>
+
+	<div id="t_114_15" style="position: absolute; left: 13.89%; top:32.61%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		caught, taken to jail, and given a court
+	</div>
+
+	<div id="t_114_16" style="position: absolute; left: 14.38%; top:34.07%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		date. The victim&mdash;the store owner&mdash;
+	</div>
+
+	<div id="t_114_17" style="position: absolute; left: 14.87%; top:35.86%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		does not have to hire a lawyer. The
+	</div>
+
+	<div id="t_114_18" style="position: absolute; left: 15.36%; top:37.53%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		state will provide one.
+	</div>
+
+	<div id="t_114_19" style="position: absolute; left: 17.48%; top:39.25%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		There are 120 Commonwealth&rsquo;s Attorneys
+	</div>
+
+	<div id="t_114_20" style="position: absolute; left: 16.34%; top:41.34%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		in Virginia, all supervising teams of lawyers
+	</div>
+
+	<div id="t_114_21" style="position: absolute; left: 16.83%; top:43.06%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		who will go to court and try to convince a
+	</div>
+
+	<div id="t_114_22" style="position: absolute; left: 17.32%; top:44.77%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		judge and a jury of the accused&rsquo;s guilt and
+	</div>
+
+	<div id="t_114_23" style="position: absolute; left: 17.81%; top:46.58%; -ms-transform-origin: 0% 50%; -webkit-transform-origin: 0% 50%; transform-origin: 0% 50%; -ms-transform: rotate(-12.20deg); -webkit-transform: rotate(-12.20deg); transform: rotate(-12.20deg); letter-spacing:-0.0em;" class="c_114_5">
+		put that person behind bars!
+	</div>
+
+	<div id="t_114_24" style="position: absolute; left: 19.85%; top:56.26%;" class="c_114_8">
+		A county sheriff&rsquo;s
+	</div>
+
+	<div id="t_114_25" style="position: absolute; left: 19.85%; top:58.15%;" class="c_114_8">
+		biggest jobs are to
+	</div>
+
+	<div id="t_114_26" style="position: absolute; left: 19.85%; top:60.04%;" class="c_114_8">
+		watch over the jails,
+	</div>
+
+	<div id="t_114_27" style="position: absolute; left: 19.85%; top:61.94%;" class="c_114_8">
+		to keep the court-
+	</div>
+
+	<div id="t_114_28" style="position: absolute; left: 19.85%; top:63.83%;" class="c_114_8">
+		houses safe, to move
+	</div>
+
+	<div id="t_114_29" style="position: absolute; left: 19.85%; top:65.73%;" class="c_114_8">
+		prisoners, and to
+	</div>
+
+	<div id="t_114_30" style="position: absolute; left: 19.85%; top:67.62%;" class="c_114_8">
+		make sure documents
+	</div>
+
+	<div id="t_114_31" style="position: absolute; left: 19.85%; top:69.51%;" class="c_114_8">
+		for civil suits are
+	</div>
+
+	<div id="t_114_32" style="position: absolute; left: 19.85%; top:71.41%;" class="c_114_8">
+		processed correctly.
+	</div>
+
+	<div id="t_114_33" style="position: absolute; left: 59.30%; top:51.78%;" class="c_114_9">
+		SHERIFF
+	</div>
+
+	<div id="t_114_34" style="position: absolute; left: 39.69%; top:54.13%;" class="c_114_10">
+		A sheriff is the chief law enforcement officer of a county or
+	</div>
+
+	<div id="t_114_35" style="position: absolute; left: 38.38%; top:56.02%;" class="c_114_10">
+		any area that does not have a police department. In places
+	</div>
+
+	<div id="t_114_36" style="position: absolute; left: 38.38%; top:57.89%;" class="c_114_10">
+		where there <span class="c_114_11">is</span> <span class="c_114_7">a police department, sheriffs still have many</span>
+	</div>
+
+	<div id="t_114_37" style="position: absolute; left: 38.38%; top:59.81%;" class="c_114_10">
+		responsibilities.
+	</div>
+
+	<div id="t_114_38" style="position: absolute; left: 39.80%; top:61.71%;" class="c_114_10">
+		Jails are places where people charged with a serious crime
+	</div>
+
+	<div id="t_114_39" style="position: absolute; left: 38.38%; top:63.60%;" class="c_114_10">
+		await trial. If they are found guilty, they will go to a prison,
+	</div>
+
+	<div id="t_114_40" style="position: absolute; left: 38.38%; top:65.49%;" class="c_114_10">
+		which is watched over by a different group. Until then,
+	</div>
+
+	<div id="t_114_41" style="position: absolute; left: 38.38%; top:67.39%;" class="c_114_10">
+		sheriffs are responsible for a prisoner&rsquo;s safety.
+	</div>
+
+	<div id="t_114_42" style="position: absolute; left: 39.80%; top:69.28%;" class="c_114_10">
+		Sheriffs do a lot more. People who have not paid their rent
+	</div>
+
+	<div id="t_114_43" style="position: absolute; left: 38.38%; top:71.18%;" class="c_114_10">
+		or who are very behind on their property taxes can be
+	</div>
+
+	<div id="t_114_44" style="position: absolute; left: 38.38%; top:73.07%;" class="c_114_10">
+		evicted from their homes. It is a sheriff&rsquo;s job to handle this. If
+	</div>
+
+	<div id="t_114_45" style="position: absolute; left: 38.38%; top:74.97%;" class="c_114_10">
+		property, such as a car or boat, is seized in a court action,
+	</div>
+
+	<div id="t_114_46" style="position: absolute; left: 38.38%; top:76.83%;" class="c_114_10">
+		the sheriff will hold an auction to sell it. Because there is <span class="c_114_11">so</span>
+	</div>
+
+	<div id="t_114_47" style="position: absolute; left: 38.38%; top:78.76%;" class="c_114_10">
+		much to do, sheriffs can hire deputies to help.
+	</div>
+
+	<div id="t_114_48" style="position: absolute; left: 42.48%; top:79.35%; -ms-transform: rotate(-10deg); -webkit-transform: rotate(-10deg); transform: rotate(-10deg);" class="c_114_12">
+		All these positions are
+	</div>
+
+	<div id="t_114_49" style="position: absolute; left: 42.97%; top:80.74%; -ms-transform: rotate(-10deg); -webkit-transform: rotate(-10deg); transform: rotate(-10deg); letter-spacing:-0.02em;" class="c_114_12">
+		elected offices mandated
+	</div>
+
+	<div id="t_114_50" style="position: absolute; left: 43.30%; top:82.35%; -ms-transform: rotate(-10deg); -webkit-transform: rotate(-10deg); transform: rotate(-10deg);" class="c_114_12">
+		by the Virginia
+	</div>
+
+	<div id="t_114_51" style="position: absolute; left: 43.63%; top:84.0%; -ms-transform: rotate(-10deg); -webkit-transform: rotate(-10deg); transform: rotate(-10deg);" class="c_114_12">
+		Constitution.
+	</div>
+
+	<div id="t_114_52" style="position: absolute; left: 62.61%; top:86.29%;" class="c_114_13">
+		Clerks of the circuit court serve for eight
+	</div>
+
+	<div id="t_114_53" style="position: absolute; left: 62.61%; top:87.68%;" class="c_114_13">
+		years. All the others serve a four-year
+	</div>
+
+	<div id="t_114_54" style="position: absolute; left: 62.61%; top:89.07%;" class="c_114_13">
+		term. All can run for re-election as many
+	</div>
+
+	<div id="t_114_55" style="position: absolute; left: 62.61%; top:90.46%;" class="c_114_13">
+		times as they like.
+	</div>
+
+	<div id="t_114_56" style="position: absolute; left: 4.37%; top:94.48%;" class="c_114_14">
+		114
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_114_local_governments.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 48%; top: 10%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_114_five_important_jobs.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 20%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_114_commonwealths_attorney.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 52%; top: 50%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_114_sheriff.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 38%; top: 84%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_114_all_these_positions.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_115">
+                                                                                                <div class="pageData">
+
+	<div id="t_115_0" style="position: absolute; left: 11.54%; top:10.59%;" class="c_115_0">
+		Even in the quietest district courts, a lot of money
+	</div>
+
+	<div id="t_115_1" style="position: absolute; left: 11.54%; top:12.49%;" class="c_115_0">
+		changes hands in a courtroom. Fine are paid,
+	</div>
+
+	<div id="t_115_2" style="position: absolute; left: 11.54%; top:14.38%;" class="c_115_0">
+		judgments levied.This person is responsible for all
+	</div>
+
+	<div id="t_115_3" style="position: absolute; left: 11.54%; top:16.27%;" class="c_115_0">
+		the monies that pass through these county courts.
+	</div>
+
+	<div id="t_115_4" style="position: absolute; left: 11.60%; top:19.87%;" class="c_115_1">
+		CLERK OF THE CIRCUIT COURT
+	</div>
+
+	<div id="t_115_5" style="position: absolute; left: 12.58%; top:22.22%;" class="c_115_2">
+		Keeping track of all the financial and legal
+	</div>
+
+	<div id="t_115_6" style="position: absolute; left: 11.16%; top:24.11%;" class="c_115_2">
+		transactions of the court is a big job. There are
+	</div>
+
+	<div id="t_115_7" style="position: absolute; left: 11.16%; top:26.00%;" class="c_115_2">
+		unpaid fines and past-due fees owed to the court
+	</div>
+
+	<div id="t_115_8" style="position: absolute; left: 11.16%; top:27.90%;" class="c_115_2">
+		that must be collected. In addition to keeping track
+	</div>
+
+	<div id="t_115_9" style="position: absolute; left: 11.16%; top:29.79%;" class="c_115_2">
+		of all the court&rsquo;s records, and summoning people for
+	</div>
+
+	<div id="t_115_10" style="position: absolute; left: 11.16%; top:31.69%;" class="c_115_2">
+		jury duty, in some places, the clerk is called in to read
+	</div>
+
+	<div id="t_115_11" style="position: absolute; left: 11.16%; top:33.58%;" class="c_115_2">
+		verdicts. The clerk&rsquo;s office also handles questions about
+	</div>
+
+	<div id="t_115_12" style="position: absolute; left: 11.16%; top:35.48%;" class="c_115_2">
+		court hours and schedules. Because there is so much to keep
+	</div>
+
+	<div id="t_115_13" style="position: absolute; left: 11.16%; top:37.37%;" class="c_115_2">
+		track of, the clerk has a team of employees to help.
+	</div>
+
+	<div id="t_115_14" style="position: absolute; left: 19.72%; top:46.32%;" class="c_115_1">
+		COMMISSIONER OF
+	</div>
+
+	<div id="t_115_15" style="position: absolute; left: 25.15%; top:48.22%;" class="c_115_1">
+		REVENUE
+	</div>
+
+	<div id="t_115_16" style="position: absolute; left: 25.38%; top:50.71%;" class="c_115_3">
+		Without this person, there
+	</div>
+
+	<div id="t_115_17" style="position: absolute; left: 25.38%; top:52.61%;" class="c_115_3">
+		would be no schools, parks,
+	</div>
+
+	<div id="t_115_18" style="position: absolute; left: 25.38%; top:54.50%;" class="c_115_3">
+		or police, because tax
+	</div>
+
+	<div id="t_115_19" style="position: absolute; left: 25.38%; top:56.40%;" class="c_115_3">
+		money makes all those
+	</div>
+
+	<div id="t_115_20" style="position: absolute; left: 25.38%; top:58.29%;" class="c_115_3">
+		things possible.
+	</div>
+
+	<div id="t_115_21" style="position: absolute; left: 12.87%; top:61.16%;" class="c_115_2">
+		A commissioner of revenue has a
+	</div>
+
+	<div id="t_115_22" style="position: absolute; left: 11.45%; top:62.99%;" class="c_115_2">
+		very complicated job. People pay taxes
+	</div>
+
+	<div id="t_115_23" style="position: absolute; left: 11.45%; top:64.82%;" class="c_115_2">
+		based on how much they earn and how
+	</div>
+
+	<div id="t_115_24" style="position: absolute; left: 11.45%; top:66.66%;" class="c_115_2">
+		much their property is worth. Income
+	</div>
+
+	<div id="t_115_25" style="position: absolute; left: 11.45%; top:68.49%;" class="c_115_2">
+		tax is easy to figure out. Property
+	</div>
+
+	<div id="t_115_26" style="position: absolute; left: 11.45%; top:70.32%;" class="c_115_2">
+		values are more difficult to calculate.
+	</div>
+
+	<div id="t_115_27" style="position: absolute; left: 11.45%; top:72.15%;" class="c_115_2">
+		This person determines how much
+	</div>
+
+	<div id="t_115_28" style="position: absolute; left: 11.45%; top:73.98%;" class="c_115_2">
+		residents and local businesses must pay
+	</div>
+
+	<div id="t_115_29" style="position: absolute; left: 11.45%; top:75.81%;" class="c_115_2">
+		in taxes each year.
+	</div>
+
+	<div id="t_115_30" style="position: absolute; left: 62.90%; top:61.96%;" class="c_115_1">
+		TREASURER
+	</div>
+
+	<div id="t_115_31" style="position: absolute; left: 52.80%; top:64.11%;" class="c_115_0">
+		Working closely with the commissioner of
+	</div>
+
+	<div id="t_115_32" style="position: absolute; left: 52.80%; top:66.00%;" class="c_115_0">
+		revenue, this person collects and spends the
+	</div>
+
+	<div id="t_115_33" style="position: absolute; left: 52.80%; top:67.90%;" class="c_115_0">
+		tax monies.
+	</div>
+
+	<div id="t_115_34" style="position: absolute; left: 53.90%; top:71.21%;" class="c_115_2">
+		Think of a football team. A quarterback
+	</div>
+
+	<div id="t_115_35" style="position: absolute; left: 52.47%; top:73.10%;" class="c_115_2">
+		orchestrates the play and throws the ball.
+	</div>
+
+	<div id="t_115_36" style="position: absolute; left: 52.47%; top:75.00%;" class="c_115_2">
+		Another player receives it. The same
+	</div>
+
+	<div id="t_115_37" style="position: absolute; left: 52.47%; top:76.89%;" class="c_115_2">
+		thing happens here. The treasurer is the
+	</div>
+
+	<div id="t_115_38" style="position: absolute; left: 52.47%; top:78.79%;" class="c_115_2">
+		receiver of taxes&mdash;the keeper of all the
+	</div>
+
+	<div id="t_115_39" style="position: absolute; left: 52.47%; top:80.68%;" class="c_115_2">
+		money generated by the commissioner of
+	</div>
+
+	<div id="t_115_40" style="position: absolute; left: 52.47%; top:82.57%;" class="c_115_2">
+		revenue. After collecting the money, the
+	</div>
+
+	<div id="t_115_41" style="position: absolute; left: 52.47%; top:84.47%;" class="c_115_2">
+		treasurer must pay all the bills&mdash;salaries,
+	</div>
+
+	<div id="t_115_42" style="position: absolute; left: 52.47%; top:86.36%;" class="c_115_2">
+		equipment, and other costs&mdash;and
+	</div>
+
+	<div id="t_115_43" style="position: absolute; left: 52.47%; top:88.26%;" class="c_115_2">
+		safeguard what is left over.
+	</div>
+
+	<div id="t_115_44" style="position: absolute; left: 92.98%; top:94.47%;" class="c_115_4">
+		115
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 43%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_115_commissioner_of_revenue.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 48%; top: 46%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_115_treasurer.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 7%; top: 7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_115_clerk_of_the_circuit_court.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_114_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_115_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_114_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="114.html?page=right"; onclick="goto('114.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="116.html"; onclick="goto('116.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="116.html"; onclick="goto('116.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

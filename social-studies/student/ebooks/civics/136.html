@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_136.css">
+                <link rel="stylesheet" href="css/civics_137.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="134.html?page=right"; onclick="goto('134.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="136.html"; onclick="goto('136.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="134.html?page=right"; onclick="goto('134.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_136_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_137_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_136_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="136.html?page=right"; onclick="goto('136.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="138.html"; onclick="goto('138.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="138.html"; onclick="goto('138.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="134.html?page=right"; onclick="goto('134.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="136.html"; onclick="goto('136.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="134.html?page=right"; onclick="goto('134.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_136">
+                                                                                                <div class="pageData">
+
+	<div id="t_136_0" style="position: absolute; left: 38.84%; top: 5.59%; letter-spacing: 0.01em;" class="c_136_0">
+		Power. Who has it? How can they use it? The people who are drawn
+	</div>
+
+	<div id="t_136_1" style="position: absolute; left: 38.84%; top: 7.36%; letter-spacing: 0.01em;" class="c_136_0">
+		into a life in government have very strong opinions about things!
+	</div>
+
+	<div id="t_136_2" style="position: absolute; left: 38.66%; top: 8.48%; letter-spacing: -0.02em;" class="c_136_1">
+		The High Courts:
+	</div>
+
+	<div id="t_136_3" style="position: absolute; left: 38.66%; top: 13.91%; letter-spacing: -0.02em;" class="c_136_1">
+		A Closer Look
+	</div>
+
+	<div id="t_136_4" style="position: absolute; left: 5.73%; top:4.89%;" class="c_136_2">
+		The power of judicial review is an
+	</div>
+
+	<div id="t_136_5" style="position: absolute; left: 5.73%; top:6.65%;" class="c_136_2">
+		important check on the legislative and
+	</div>
+
+	<div id="t_136_6" style="position: absolute; left: 5.73%; top:8.42%;" class="c_136_2">
+		executive branches of government.
+	</div>
+
+	<div id="t_136_7" style="position: absolute; left: 39.69%; top: 20.78%;" class="c_136_3">
+		Who decides if a law written by Congress and approved by the
+	</div>
+
+	<div id="t_136_8" style="position: absolute; left: 38.38%; top: 22.68%;" class="c_136_3">
+		president is constitutional? Who decides if a law written by
+	</div>
+
+	<div id="t_136_9" style="position: absolute; left: 38.38%; top: 24.57%;" class="c_136_3">
+		Virginia&rsquo;s legislature and approved by the governor agrees with
+	</div>
+
+	<div id="t_136_10" style="position: absolute; left: 38.38%; top: 26.47%;" class="c_136_3">
+		Virginia&rsquo;s Constitution? That responsibility lies with the Supreme
+	</div>
+
+	<div id="t_136_11" style="position: absolute; left: 38.38%; top: 28.36%;" class="c_136_3">
+		Courts of the United States or Virginia. This power is called
+	</div>
+
+	<div id="t_136_12" style="position: absolute; left: 38.38%; top:30.16%;" class="c_136_4">
+		judicial review<span class="c_136_5">. But it was not always like that.</span>
+	</div>
+
+	<div id="t_136_13" style="position: absolute; left: 39.69%; top:32.05%;" class="c_136_6">
+		Marbury v. Madison<span class="c_136_7"> is the most important case in Supreme</span>
+	</div>
+
+	<div id="t_136_14" style="position: absolute; left: 38.38%; top: 34.04%;" class="c_136_3">
+		Court history. Because of that case, federal courts gained the
+	</div>
+
+	<div id="t_136_15" style="position: absolute; left: 38.38%; top: 35.94%;" class="c_136_3">
+		power to strike down acts of the president and Congress, if they
+	</div>
+
+	<div id="t_136_16" style="position: absolute; left: 38.38%; top: 37.83%;" class="c_136_3">
+		are in conflict with the Constitution. It all began with one unhappy
+	</div>
+
+	<div id="t_136_17" style="position: absolute; left: 38.38%; top: 39.73%;" class="c_136_3">
+		man, two strong-willed presidents who didn&rsquo;t happen to see eye-
+	</div>
+
+	<div id="t_136_18" style="position: absolute; left: 38.38%; top: 41.62%;" class="c_136_3">
+		to-eye, and a very thoughtful justice.
+	</div>
+
+	<div id="t_136_19" style="position: absolute; left: 32.56%; top:45.45%;" class="c_136_8">
+		Marbury v.
+	</div>
+
+	<div id="t_136_20" style="position: absolute; left: 35.49%; top:50.88%;" class="c_136_8">
+		Madison
+	</div>
+
+	<div id="t_136_21" style="position: absolute; left: 40.35%; top:58.48%;" class="c_136_9">
+		LET&rsquo;S DIG DEEPER
+	</div>
+
+	<div id="t_136_22" style="position: absolute; left: 77.28%; top: 57.23%; letter-spacing: 0.01em;" class="c_136_10">
+		James Madison
+	</div>
+
+	<div id="t_136_23" style="position: absolute; left: 3.58%; top:34.17%;" class="c_136_11">
+		John Marshall
+	</div>
+
+	<div id="t_136_24" style="position: absolute; left: 3.58%; top:35.81%;" class="c_136_11">
+		Chief Justice of the
+	</div>
+
+	<div id="t_136_25" style="position: absolute; left: 3.58%; top:37.45%;" class="c_136_11">
+		United States
+	</div>
+
+	<div id="t_136_26" style="position: absolute; left: 3.58%; top:39.09%;" class="c_136_11">
+		1801<span class="c_136_12">&ndash;</span><span class="c_136_13">1835</span>
+	</div>
+
+	<div id="t_136_27" style="position: absolute; left: 4.04%; top: 55.06%; letter-spacing: 0.01em;" class="c_136_10">
+		William Marbury
+	</div>
+
+	<div id="t_136_28" style="position: absolute; left: 17.93%; top: 63.17%;" class="c_136_3">
+		In 1801 William Marbury was chosen to be a justice of the peace. He and several
+	</div>
+
+	<div id="t_136_29" style="position: absolute; left: 16.18%; top: 65.07%;" class="c_136_3">
+		others were hurriedly appointed to government posts in the last days of John
+	</div>
+
+	<div id="t_136_30" style="position: absolute; left: 16.18%; top: 66.96%;" class="c_136_3">
+		Adams&rsquo;s presidency. Marbury and the others got their Senate approvals. Their
+	</div>
+
+	<div id="t_136_31" style="position: absolute; left: 16.18%; top: 68.85%;" class="c_136_3">
+		documents were signed and sealed by President Adams and then, somehow, the
+	</div>
+
+	<div id="t_136_32" style="position: absolute; left: 16.18%; top: 70.75%;" class="c_136_3">
+		documents were never delivered.
+	</div>
+
+	<div id="t_136_33" style="position: absolute; left: 17.49%; top: 72.64%;" class="c_136_3">
+		Newly sworn-in President Thomas Jefferson&mdash;who had very different political
+	</div>
+
+	<div id="t_136_34" style="position: absolute; left: 16.18%; top: 74.54%;" class="c_136_3">
+		ideas than Adams&mdash;decided to ignore Adams&rsquo;s choices and told his secretary of
+	</div>
+
+	<div id="t_136_35" style="position: absolute; left: 16.18%; top: 76.43%;" class="c_136_3">
+		state, James Madison, not to deliver the notice of appointments. According to the
+	</div>
+
+	<div id="t_136_36" style="position: absolute; left: 16.18%; top: 78.32%;" class="c_136_3">
+		law, the papers had to be delivered to be official.
+	</div>
+
+	<div id="t_136_37" style="position: absolute; left: 17.49%; top: 80.22%;" class="c_136_3">
+		How would you feel if you were Mr. Marbury? Probably a little angry! So Marbury
+	</div>
+
+	<div id="t_136_38" style="position: absolute; left: 16.18%; top: 82.11%;" class="c_136_3">
+		went to the Supreme Court to sue for his job.
+	</div>
+
+	<div id="t_136_39" style="position: absolute; left: 17.49%; top: 84.01%;" class="c_136_3">
+		There were three important questions that Chief Justice John Marshall had to
+	</div>
+
+	<div id="t_136_40" style="position: absolute; left: 16.18%; top: 85.9%;" class="c_136_3">
+		think about. Was Marbury entitled to his new job? Justice Marshall thought &ldquo;yes.&rdquo;
+	</div>
+
+	<div id="t_136_41" style="position: absolute; left: 16.18%; top: 87.8%;" class="c_136_3">
+		Was this lawsuit the proper way to get it? Again, &ldquo;yes.&rdquo; Still, there was one big
+	</div>
+
+	<div id="t_136_42" style="position: absolute; left: 16.18%; top: 89.69%;" class="c_136_3">
+		&ldquo;but.&rdquo; Was the Supreme Court the place to make this ruling? Marshall and his
+	</div>
+
+	<div id="t_136_43" style="position: absolute; left: 16.18%; top: 91.58%;" class="c_136_3">
+		fellow justices thought long and hard about it. The Constitution of the United
+	</div>
+
+	<div id="t_136_44" style="position: absolute; left: 16.18%; top: 93.48%;" class="c_136_3">
+		States is the supreme law of the land. What exactly did the Constitution say?
+	</div>
+
+	<div id="t_136_45" style="position: absolute; left: 4.27%; top: 94.76%;" class="c_136_14">
+		136
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_136_the_power_of_judicial.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 34%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_136_the_high_courts.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 0%; top: 30%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_136_john_marshall.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 0%; top: 51%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_136_william_marbury.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 28%; top: 43%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_136_marbury_v_madison.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 71.2%; top: 56.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_136_james_madison.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_137">
+                                                                                                <div class="pageData">
+
+	<div id="t_137_0" style="position: absolute; left: 60.15%; top:5.43%;" class="c_137_0">
+		POOR MR. MARBURY
+	</div>
+
+	<div id="t_137_1" style="position: absolute; left: 54.24%; top: 7.9%;" class="c_137_1">
+		That &ldquo;illegal&rdquo; Judiciary Act kept William
+	</div>
+
+	<div id="t_137_2" style="position: absolute; left: 52.98%; top: 9.8%;" class="c_137_1">
+		Marbury from ever becoming a justice, but
+	</div>
+
+	<div id="t_137_3" style="position: absolute; left: 52.98%; top: 11.69%;" class="c_137_1">
+		instead of becoming just a footnote in history, his
+	</div>
+
+	<div id="t_137_4" style="position: absolute; left: 52.98%; top: 13.59%;" class="c_137_1">
+		name lives on in the most famous of all Supreme
+	</div>
+
+	<div id="t_137_5" style="position: absolute; left: 52.98%; top: 15.48%;" class="c_137_1">
+		Court decisions. As a result of Marbury&rsquo;s quest
+	</div>
+
+	<div id="t_137_6" style="position: absolute; left: 52.98%; top: 17.38%;" class="c_137_1">
+		for justice, the court&rsquo;s decision led to greater
+	</div>
+
+	<div id="t_137_7" style="position: absolute; left: 52.98%; top: 19.27%;" class="c_137_1">
+		Supreme Court powers&mdash;making it very much
+	</div>
+
+	<div id="t_137_8" style="position: absolute; left: 52.98%; top: 21.17%;" class="c_137_1">
+		the equal of Congress and the executive branch
+	</div>
+
+	<div id="t_137_9" style="position: absolute; left: 52.98%; top: 23.06%;" class="c_137_1">
+		in the way the nation is run. Today we have three
+	</div>
+
+	<div id="t_137_10" style="position: absolute; left: 52.98%; top: 24.95%;" class="c_137_1">
+		balanced branches of government with a system
+	</div>
+
+	<div id="t_137_11" style="position: absolute; left: 52.98%; top: 26.85%;" class="c_137_1">
+		of checks and balances&mdash;all because of some
+	</div>
+
+	<div id="t_137_12" style="position: absolute; left: 52.98%; top: 28.74%;" class="c_137_1">
+		paperwork that did not get delivered.
+	</div>
+
+	<div id="t_137_13" style="position: absolute; left: 64.21%; top:31.25%;" class="c_137_2">
+		Who
+	</div>
+
+	<div id="t_137_14" style="position: absolute; left: 58.99%; top:36.68%;" class="c_137_2">
+		Judges?
+	</div>
+
+	<div id="t_137_15" style="position: absolute; left: 53.81%; top:44.51%;" class="c_137_3">
+		FOR THE NATION AND OUR STATE
+	</div>
+
+	<div id="t_137_16" style="position: absolute; left: 51.12%; top: 47.92%;" class="c_137_1">
+		At the federal level, justices are appointed for life,
+	</div>
+
+	<div id="t_137_17" style="position: absolute; left: 49.81%; top: 49.82%;" class="c_137_1">
+		selected by the president and approved by the
+	</div>
+
+	<div id="t_137_18" style="position: absolute; left: 49.81%; top: 51.71%;" class="c_137_1">
+		Senate. Naturally, the person doing the appointing
+	</div>
+
+	<div id="t_137_19" style="position: absolute; left: 49.81%; top: 53.61%;" class="c_137_1">
+		wants someone who shares the same views of how
+	</div>
+
+	<div id="t_137_20" style="position: absolute; left: 49.81%; top: 55.5%;" class="c_137_1">
+		best to run the country.
+	</div>
+
+	<div id="t_137_21" style="position: absolute; left: 51.12%; top: 57.39%;" class="c_137_1">
+		In Virginia all judges are elected by the General
+	</div>
+
+	<div id="t_137_22" style="position: absolute; left: 49.81%; top: 59.29%;" class="c_137_1">
+		Assembly. They serve for 12 years and then stand for
+	</div>
+
+	<div id="t_137_23" style="position: absolute; left: 49.81%; top: 61.18%;" class="c_137_1">
+		re-election. Lifetime appointment or periodic review?
+	</div>
+
+	<div id="t_137_24" style="position: absolute; left: 49.81%; top: 63.08%;" class="c_137_1">
+		Which system do you think is better?
+	</div>
+
+	<div id="t_137_25" style="position: absolute; left: 50.60%; top:66.83%;" class="c_137_4">
+		Until 1983, Virginia&rsquo;s Supreme Court
+	</div>
+
+	<div id="t_137_26" style="position: absolute; left: 50.60%; top:68.47%;" class="c_137_4">
+		was all white and all male. That is
+	</div>
+
+	<div id="t_137_27" style="position: absolute; left: 50.60%; top:70.11%;" class="c_137_4">
+		when John Charles Thomas became
+	</div>
+
+	<div id="t_137_28" style="position: absolute; left: 50.60%; top:71.75%;" class="c_137_4">
+		the first black justice. Five years later,
+	</div>
+
+	<div id="t_137_29" style="position: absolute; left: 50.60%; top:73.39%;" class="c_137_4">
+		Elizabeth B. Lacy became the first
+	</div>
+
+	<div id="t_137_30" style="position: absolute; left: 50.60%; top:75.03%;" class="c_137_4">
+		woman on the court. Today there is
+	</div>
+
+	<div id="t_137_31" style="position: absolute; left: 50.60%; top:76.68%;" class="c_137_4">
+		much more diversity.
+	</div>
+
+	<div id="t_137_32" style="position: absolute; left: 22.32%; top:5.32%;" class="c_137_0">
+		MARBURY:
+	</div>
+
+	<div id="t_137_33" style="position: absolute; left: 17.92%; top:7.21%;" class="c_137_0">
+		THE VERDICT IS IN
+	</div>
+
+	<div id="t_137_34" style="position: absolute; left: 10.09%; top: 9.68%;" class="c_137_1">
+		In 1789 Congress had written the Judiciary Act<span class="c_137_5">,</span>
+	</div>
+
+	<div id="t_137_35" style="position: absolute; left: 8.82%; top: 11.58%;" class="c_137_1">
+		a law that detailed the process for delivering
+	</div>
+
+	<div id="t_137_36" style="position: absolute; left: 8.82%; top: 13.47%;" class="c_137_1">
+		commissions for judges and justices of the peace.
+	</div>
+
+	<div id="t_137_37" style="position: absolute; left: 8.82%; top: 15.37%;" class="c_137_1">
+		As Chief Justice Marshall looked at this law, he
+	</div>
+
+	<div id="t_137_38" style="position: absolute; left: 8.82%; top: 17.26%;" class="c_137_1">
+		realized that it went <span class="c_137_5">against</span> <span class="c_137_6">the Constitution. The</span>
+	</div>
+
+	<div id="t_137_39" style="position: absolute; left: 8.82%; top: 19.16%;" class="c_137_1">
+		Judiciary Act had actually given the Supreme
+	</div>
+
+	<div id="t_137_40" style="position: absolute; left: 8.82%; top: 21.05%;" class="c_137_1">
+		Court <span class="c_137_5">more</span> <span class="c_137_6">power than it had been granted by</span>
+	</div>
+
+	<div id="t_137_41" style="position: absolute; left: 8.82%; top: 22.95%;" class="c_137_1">
+		the Constitution. The Constitution was the
+	</div>
+
+	<div id="t_137_42" style="position: absolute; left: 8.82%; top: 24.84%;" class="c_137_1">
+		supreme law of the land, so the justices ruled that
+	</div>
+
+	<div id="t_137_43" style="position: absolute; left: 8.82%; top: 26.73%;" class="c_137_1">
+		since the Judiciary Act of 1789 itself was illegal, it
+	</div>
+
+	<div id="t_137_44" style="position: absolute; left: 8.82%; top: 28.63%;" class="c_137_1">
+		could not be used as a law.
+	</div>
+
+	<div id="t_137_45" style="position: absolute; left: 10.89%; top:32.67%;" class="c_137_7">
+		&ldquo;It is emphatically the province and
+	</div>
+
+	<div id="t_137_46" style="position: absolute; left: 10.89%; top:35.58%; letter-spacing: -0.01em;" class="c_137_7">
+		duty of the Judicial Department to say
+	</div>
+
+	<div id="t_137_47" style="position: absolute; left: 10.89%; top:38.48%;" class="c_137_7">
+		what the law is.&rdquo;
+	</div>
+
+	<div id="t_137_48" style="position: absolute; left: 30.28%; top:38.48%;" class="c_137_7">
+		&ndash;<span class="c_137_8">John Marshall</span>
+	</div>
+
+	<div id="t_137_49" style="position: absolute; left: 31.54%; top:41.10%;" class="c_137_9">
+		Marbury v. Madison, 1803
+	</div>
+
+	<div id="t_137_50" style="position: absolute; left: 16.61%; top:44.49%;" class="c_137_0">
+		LANDMARK CASES
+	</div>
+
+	<div id="t_137_51" style="position: absolute; left: 10.09%; top: 46.96%;" class="c_137_1">
+		There have been so many brilliant justices in
+	</div>
+
+	<div id="t_137_52" style="position: absolute; left: 8.82%; top: 48.85%;" class="c_137_1">
+		the years since John Marshall wrestled with
+	</div>
+
+	<div id="t_137_53" style="position: absolute; left: 8.82%; top: 50.75%;" class="c_137_1">
+		William Marbury&rsquo;s plight, but there have also
+	</div>
+
+	<div id="t_137_54" style="position: absolute; left: 8.82%; top: 52.64%;" class="c_137_1">
+		been some controversial decisions. Justices
+	</div>
+
+	<div id="t_137_55" style="position: absolute; left: 8.82%; top: 54.53%;" class="c_137_1">
+		are human, and times and opinions change.
+	</div>
+
+	<div id="t_137_56" style="position: absolute; left: 10.14%; top: 56.43%;" class="c_137_1">
+		How does a case get to the highest court in
+	</div>
+
+	<div id="t_137_57" style="position: absolute; left: 8.82%; top: 58.32%;" class="c_137_1">
+		the land or the Virginia Supreme Court? It is a
+	</div>
+
+	<div id="t_137_58" style="position: absolute; left: 8.82%; top: 60.22%;" class="c_137_1">
+		very long process. Every year, more than
+	</div>
+
+	<div id="t_137_59" style="position: absolute; left: 8.82%; top: 62.11%;" class="c_137_1">
+		10,000 cases are sent to the U.S. Supreme Court
+	</div>
+
+	<div id="t_137_60" style="position: absolute; left: 8.82%; top: 64.01%;" class="c_137_1">
+		on appeal. Of those, typically fewer than 100
+	</div>
+
+	<div id="t_137_61" style="position: absolute; left: 8.82%; top: 65.9%;" class="c_137_1">
+		are chosen for review. The justices look for
+	</div>
+
+	<div id="t_137_62" style="position: absolute; left: 8.82%; top: 67.8%;" class="c_137_1">
+		cases with national importance, or cases that
+	</div>
+
+	<div id="t_137_63" style="position: absolute; left: 8.82%; top: 69.69%;" class="c_137_1">
+		might settle differences between federal circuit
+	</div>
+
+	<div id="t_137_64" style="position: absolute; left: 8.82%; top: 71.58%;" class="c_137_1">
+		courts on rulings. They will also hear cases
+	</div>
+
+	<div id="t_137_65" style="position: absolute; left: 8.82%; top: 73.48%;" class="c_137_1">
+		from a state supreme court if it regards a
+	</div>
+
+	<div id="t_137_66" style="position: absolute; left: 8.82%; top: 75.37%;" class="c_137_1">
+		constitutional matter.
+	</div>
+
+	<div id="t_137_67" style="position: absolute; left: 10.14%; top: 77.27%;" class="c_137_1">
+		Rarely, the Supreme Court is the first and
+	</div>
+
+	<div id="t_137_68" style="position: absolute; left: 8.82%; top: 79.16%;" class="c_137_1">
+		only court to hear a case. This is called
+	</div>
+
+	<div id="t_137_69" style="position: absolute; left: 8.82%; top:80.93%;" class="c_137_10">
+		original jurisdiction<span class="c_137_6">. It only happens if a</span>
+	</div>
+
+	<div id="t_137_70" style="position: absolute; left: 8.82%; top: 82.95%;" class="c_137_1">
+		state sues another state or troubles brew
+	</div>
+
+	<div id="t_137_71" style="position: absolute; left: 8.82%; top: 84.85%;" class="c_137_1">
+		with ambassadors or other high-ranking
+	</div>
+
+	<div id="t_137_72" style="position: absolute; left: 8.82%; top: 86.74%;" class="c_137_1">
+		government officials. Most of the cases
+	</div>
+
+	<div id="t_137_73" style="position: absolute; left: 8.82%; top: 88.63%;" class="c_137_1">
+		the U.S. Supreme Court and the Virginia
+	</div>
+
+	<div id="t_137_74" style="position: absolute; left: 8.82%; top: 90.53%;" class="c_137_1">
+		Supreme Court hear are appeals from
+	</div>
+
+	<div id="t_137_75" style="position: absolute; left: 8.82%; top: 92.42%;" class="c_137_1">
+		lower courts.
+	</div>
+
+	<div id="t_137_76" style="position: absolute; left: 93.74%; top: 94.77%;" class="c_137_11">
+		137
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 10%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_137_marbury_the_verdict.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_137_poor_mr_marbury.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 30%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_137_it_is_emphatically.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 31%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_137_who_judges.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 44%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_137_landmark_cases.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 45.5%; top: 64%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_137_until_1983.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_136_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_137_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_136_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="136.html?page=right"; onclick="goto('136.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="138.html"; onclick="goto('138.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="138.html"; onclick="goto('138.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

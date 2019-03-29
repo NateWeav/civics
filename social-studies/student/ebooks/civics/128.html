@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_128.css">
+                <link rel="stylesheet" href="css/civics_129.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="126.html?page=right"; onclick="goto('126.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="128.html"; onclick="goto('128.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="126.html?page=right"; onclick="goto('126.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_128_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_129_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_128_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="128.html?page=right"; onclick="goto('128.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="130.html"; onclick="goto('130.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="130.html"; onclick="goto('130.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="126.html?page=right"; onclick="goto('126.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="128.html"; onclick="goto('128.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="126.html?page=right"; onclick="goto('126.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_128">
+                                                                                                <div class="pageData">
+
+	<div id="t_128_0" style="position: absolute; left: 36.19%; top:4.15%;" class="c_128_0">
+		Local governments may be
+	</div>
+
+	<div id="t_128_1" style="position: absolute; left: 36.19%; top:5.92%;" class="c_128_0">
+		required to formulate, adopt,
+	</div>
+
+	<div id="t_128_2" style="position: absolute; left: 36.19%; top:7.69%;" class="c_128_0">
+		and implement public policies
+	</div>
+
+	<div id="t_128_3" style="position: absolute; left: 36.19%; top:9.46%;" class="c_128_0">
+		in response to international
+	</div>
+
+	<div id="t_128_4" style="position: absolute; left: 36.19%; top:11.23%;" class="c_128_0">
+		issues and events.
+	</div>
+
+	<div id="t_128_5" style="position: absolute; left: 64.71%; top:4.48%;" class="c_128_1">
+		&ldquo;I learned that courage
+	</div>
+
+	<div id="t_128_6" style="position: absolute; left: 64.71%; top:7.39%; letter-spacing: -0.03em;" class="c_128_1">
+		was not the absence of fear,
+	</div>
+
+	<div id="t_128_7" style="position: absolute; left: 64.71%; top:10.29%;" class="c_128_1">
+		but the triumph over it.
+	</div>
+
+	<div id="t_128_8" style="position: absolute; left: 64.71%; top:13.20%;" class="c_128_1">
+		The brave man is not he
+	</div>
+
+	<div id="t_128_9" style="position: absolute; left: 64.71%; top:16.10%;" class="c_128_1">
+		who does not feel afraid,
+	</div>
+
+	<div id="t_128_10" style="position: absolute; left: 64.71%; top:19.01%;" class="c_128_1">
+		but he who conquers that
+	</div>
+
+	<div id="t_128_11" style="position: absolute; left: 64.71%; top:21.91%;" class="c_128_1">
+		fear.&rdquo;<span class="c_128_2">&ndash;Nelson Mandela</span>
+	</div>
+
+	<div id="t_128_12" style="position: absolute; left: 76.26%; top:24.52%;" class="c_128_3">
+		Human Rights Activist
+	</div>
+
+	<div id="t_128_13" style="position: absolute; left: 13.28%; top: 32.18%; letter-spacing: 0.01em;" class="c_128_4">
+		There are many things beyond our
+	</div>
+
+	<div id="t_128_14" style="position: absolute; left: 13.28%; top: 33.94%; letter-spacing: 0.01em;" class="c_128_4">
+		control. One minute everything is fine,
+	</div>
+
+	<div id="t_128_15" style="position: absolute; left: 13.28%; top: 35.71%; letter-spacing: 0.01em;" class="c_128_4">
+		and then, suddenly, it is not. What then?
+	</div>
+
+	<div id="t_128_16" style="position: absolute; left: 55.34%; top:31.13%;" class="c_128_5">
+		A medical worker clad in biohazard gear
+	</div>
+
+	<div id="t_128_17" style="position: absolute; left: 55.34%; top:32.77%;" class="c_128_5">
+		studies a blood sample from a person
+	</div>
+
+	<div id="t_128_18" style="position: absolute; left: 55.34%; top:34.41%;" class="c_128_5">
+		possibly infected with a dangerous virus.
+	</div>
+
+	<div id="t_128_19" style="position: absolute; left: 8.82%; top: 37.01%; letter-spacing: -0.02em;" class="c_128_6">
+		A Clear and Present Danger
+	</div>
+
+	<div id="t_128_20" style="position: absolute; left: 10.14%; top: 44.15%;" class="c_128_7">
+		This has been a chapter about power. Who has it? How is it
+	</div>
+
+	<div id="t_128_21" style="position: absolute; left: 8.82%; top: 46.05%;" class="c_128_7">
+		used? But there are things that are more powerful than people, and
+	</div>
+
+	<div id="t_128_22" style="position: absolute; left: 8.82%; top: 47.94%;" class="c_128_7">
+		when we are faced with events and issues that seem frightening or
+	</div>
+
+	<div id="t_128_23" style="position: absolute; left: 8.82%; top: 49.84%;" class="c_128_7">
+		overwhelming, our government&mdash;federal, state, and local&mdash;is
+	</div>
+
+	<div id="t_128_24" style="position: absolute; left: 8.82%; top: 51.73%;" class="c_128_7">
+		designed to step in and offer help.
+	</div>
+
+	<div id="t_128_25" style="position: absolute; left: 10.14%; top: 53.62%;" class="c_128_7">
+		It might be a deadly virus or bacteria capable of causing
+	</div>
+
+	<div id="t_128_26" style="position: absolute; left: 8.82%; top: 55.52%;" class="c_128_7">
+		widespread suffering. Perhaps it is an act of cowardly terrorism
+	</div>
+
+	<div id="t_128_27" style="position: absolute; left: 8.82%; top: 57.41%;" class="c_128_7">
+		that turns a peaceful day into one of despair. Both of these are
+	</div>
+
+	<div id="t_128_28" style="position: absolute; left: 8.82%; top: 59.31%;" class="c_128_7">
+		dangerous situations and need swift responses. Other dangers
+	</div>
+
+	<div id="t_128_29" style="position: absolute; left: 8.82%; top: 61.2%;" class="c_128_7">
+		overtake us more slowly. Emerging global economies can affect the
+	</div>
+
+	<div id="t_128_30" style="position: absolute; left: 8.82%; top: 63.1%;" class="c_128_7">
+		way we earn our livings here in America, and for some animals and
+	</div>
+
+	<div id="t_128_31" style="position: absolute; left: 8.82%; top: 64.99%;" class="c_128_7">
+		plants, global warming and a changing environment mean doom.
+	</div>
+
+	<div id="t_128_32" style="position: absolute; left: 14.46%; top:67.56%;" class="c_128_8">
+		ONE MICROBE = GLOBAL DANGER
+	</div>
+
+	<div id="t_128_33" style="position: absolute; left: 9.40%; top: 70.10%;" class="c_128_7">
+		In 1918 a deadly mutant flu virus swept across the world. It was
+	</div>
+
+	<div id="t_128_34" style="position: absolute; left: 8.09%; top: 71.84%;" class="c_128_7">
+		the worst <span class="c_128_9">pandemic</span> <span class="c_128_10">in recorded history. Medicine has come a</span>
+	</div>
+
+	<div id="t_128_35" style="position: absolute; left: 8.09%; top: 73.82%;" class="c_128_7">
+		long way in a hundred years, and public health
+	</div>
+
+	<div id="t_128_36" style="position: absolute; left: 8.09%; top: 75.72%;" class="c_128_7">
+		officials at places such as the Centers for
+	</div>
+
+	<div id="t_128_37" style="position: absolute; left: 8.09%; top: 77.61%;" class="c_128_7">
+		Disease Control (CDC) are determined to keep
+	</div>
+
+	<div id="t_128_38" style="position: absolute; left: 8.09%; top: 79.51%;" class="c_128_7">
+		that from ever happening again. The CDC
+	</div>
+
+	<div id="t_128_39" style="position: absolute; left: 8.09%; top: 81.3%;" class="c_128_7">
+		develops plans for dealing with <span class="c_128_9">communicable</span>
+	</div>
+
+	<div id="t_128_40" style="position: absolute; left: 8.09%; top: 83.29%;" class="c_128_7">
+		diseases by researching vaccines, monitoring
+	</div>
+
+	<div id="t_128_41" style="position: absolute; left: 8.09%; top: 85.19%;" class="c_128_7">
+		outbreaks, and sharing its knowledge with both
+	</div>
+
+	<div id="t_128_42" style="position: absolute; left: 8.09%; top: 87.08%;" class="c_128_7">
+		health care workers and the general public. Our
+	</div>
+
+	<div id="t_128_43" style="position: absolute; left: 8.09%; top: 88.98%;" class="c_128_7">
+		state also requires vaccinations for all public
+	</div>
+
+	<div id="t_128_44" style="position: absolute; left: 8.09%; top: 90.87%;" class="c_128_7">
+		school students, to protect their health and the
+	</div>
+
+	<div id="t_128_45" style="position: absolute; left: 8.09%; top: 92.77%;" class="c_128_7">
+		health of their classmates.
+	</div>
+
+	<div id="t_128_46" style="position: absolute; left: 4.8%; top: 95.00%;" class="c_128_11">
+		128
+	</div>
+
+	<div id="t_128_47" style="position: absolute; left: 65.27%; top:44.46%;" class="c_128_12">
+		Words to Know
+	</div>
+
+	<div id="t_128_48" style="position: absolute; left: 67.27%; top:47.91%;" class="c_128_13">
+		<span class="c_128_14">pandemic</span>
+	</div>
+
+	<div id="t_128_49" style="position: absolute; left: 64.87%; top:46.16%; font-size: 2.5em;" class="c_128_13">&#8227;</div>
+	<div id="t_128_50" style="position: absolute; left: 67.21%; top:50.24%;" class="c_128_15">
+		(<span class="c_128_16">pan-dem-ick</span><span class="c_128_17">)</span>
+	</div>
+
+	<div id="t_128_51" style="position: absolute; left: 65.27%; top:52.38%;" class="c_128_18">
+		A disease that spreads over a
+	</div>
+
+	<div id="t_128_52" style="position: absolute; left: 65.27%; top:54.40%;" class="c_128_18">
+		wide area&mdash;a whole country
+	</div>
+
+	<div id="t_128_53" style="position: absolute; left: 65.27%; top:56.42%;" class="c_128_18">
+		and sometimes many parts
+	</div>
+
+	<div id="t_128_54" style="position: absolute; left: 65.27%; top:58.44%;" class="c_128_18">
+		of the world
+	</div>
+
+	<div id="t_128_55" style="position: absolute; left: 67.27%; top:61.04%;" class="c_128_13">
+		<span class="c_128_14">communicable</span>
+	</div>
+
+	<div id="t_128_56" style="position: absolute; left: 64.87%; top:59.29%; font-size: 2.5em;" class="c_128_13">&#8227;</div>
+	<div id="t_128_57" style="position: absolute; left: 67.21%; top:63.37%;" class="c_128_15">
+		(<span class="c_128_16">cuh-mew-nik-uh-bul</span><span class="c_128_17">)</span>
+	</div>
+
+	<div id="t_128_58" style="position: absolute; left: 65.27%; top:65.51%;" class="c_128_18">
+		Able to be passed from one
+	</div>
+
+	<div id="t_128_59" style="position: absolute; left: 65.27%; top:67.53%;" class="c_128_18">
+		person to another;
+	</div>
+
+	<div id="t_128_60" style="position: absolute; left: 65.27%; top:69.55%;" class="c_128_18">
+		contagious
+	</div>
+
+	<div id="t_128_61" style="position: absolute; left: 75.17%; top:88.19%;" class="c_128_19">
+		Gowns, gloves, and
+	</div>
+
+	<div id="t_128_62" style="position: absolute; left: 75.17%; top:89.83%;" class="c_128_19">
+		masks are the
+	</div>
+
+	<div id="t_128_63" style="position: absolute; left: 75.17%; top:91.47%;" class="c_128_19">
+		required garb when
+	</div>
+
+	<div id="t_128_64" style="position: absolute; left: 75.17%; top:93.11%;" class="c_128_19">
+		dealing with certain
+	</div>
+
+	<div id="t_128_65" style="position: absolute; left: 75.17%; top:94.76%;" class="c_128_19">
+		diseases.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 32%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_local_governments.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 59%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_i_learned_that_courage.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_a_clear_and_present_danger.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 28%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_a_medical_worker.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 59%; top: 51%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 66%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_one_microbe.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 68%; top: 88%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_128_gowns_gloves_and_masks.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_129">
+                                                                                                <div class="pageData">
+
+	<div id="t_129_0" style="position: absolute; left: 5.58%; top:5.82%;" class="c_129_0">
+		SHOES, BELTS, AND BAGS IN THE BIN
+	</div>
+
+	<div id="t_129_1" style="position: absolute; left: 6.46%; top: 8.54%;" class="c_129_1">
+		After the horrific 9/11 bombings, the Department of
+	</div>
+
+	<div id="t_129_2" style="position: absolute; left: 5.15%; top: 10.43%;" class="c_129_1">
+		Homeland Security was established. The government
+	</div>
+
+	<div id="t_129_3" style="position: absolute; left: 5.15%; top: 12.33%;" class="c_129_1">
+        responded swiftly. Every bag carried onto a plane is
+	</div>
+
+	<div id="t_129_4" style="position: absolute; left: 5.15%; top: 14.22%;" class="c_129_1">
+        inspected, as are the passengers. After an attempt,
+	</div>
+
+	<div id="t_129_5" style="position: absolute; left: 5.15%; top: 16.12%;" class="c_129_1">
+        several years ago, to smuggle explosives aboard an
+	</div>
+
+	<div id="t_129_6" style="position: absolute; left: 5.15%; top: 18.01%;" class="c_129_1">
+        aircraft in a pair of sneakers, shoes must be removed
+	</div>
+
+	<div id="t_129_7" style="position: absolute; left: 5.15%; top: 19.91%;" class="c_129_1">
+        and inspected. At big sporting events, such as the
+	</div>
+
+	<div id="t_129_8" style="position: absolute; left: 5.15%; top: 21.8%;" class="c_129_1">
+        Super Bowl or theWorld Series, security is tight as well.
+	</div>
+
+	<div id="t_129_9" style="position: absolute; left: 6.46%; top: 23.7%;" class="c_129_1">
+        We have learned from the terrible tragedy of
+	</div>
+
+	<div id="t_129_10" style="position: absolute; left: 5.15%; top: 25.59%;" class="c_129_1">
+        terrorism. Local police and firefighters often train to
+	</div>
+
+	<div id="t_129_11" style="position: absolute; left: 5.15%; top: 27.48%;" class="c_129_1">
+        handle worst-case scenarios so that they will be
+	</div>
+
+	<div id="t_129_12" style="position: absolute; left: 5.15%; top: 29.38%;" class="c_129_1">
+        prepared for difficult times.
+	</div>
+
+	<div id="t_129_13" style="position: absolute; left: 9.62%; top:34.35%;" class="c_129_2">
+		China is the world&rsquo;s
+	</div>
+
+	<div id="t_129_14" style="position: absolute; left: 9.62%; top:35.87%;" class="c_129_2">
+		largest steel producer
+	</div>
+
+	<div id="t_129_15" style="position: absolute; left: 9.62%; top:37.38%;" class="c_129_2">
+		these days.
+	</div>
+
+	<div id="t_129_16" style="position: absolute; left: 57.46%; top:32.29%;" class="c_129_0">
+		WHERE DID OUR JOBS GO?
+	</div>
+
+	<div id="t_129_17" style="position: absolute; left: 54.99%; top: 35.01%;" class="c_129_1">
+        Emerging global economies can have a huge
+	</div>
+
+	<div id="t_129_18" style="position: absolute; left: 53.68%; top: 36.9%;" class="c_129_1">
+        impact on our lives here, changing the way we live
+	</div>
+
+	<div id="t_129_19" style="position: absolute; left: 53.68%; top: 38.8%;" class="c_129_1">
+        and work. Back in the mid-1900s, America was the
+	</div>
+
+	<div id="t_129_20" style="position: absolute; left: 53.68%; top: 40.69%;" class="c_129_1">
+        manufacturing capital of the world&mdash;the biggest
+	</div>
+
+	<div id="t_129_21" style="position: absolute; left: 53.68%; top: 42.59%; letter-spacing: -0.02em;" class="c_129_1">
+        carmaker and steel producer. Not anymore. The way
+	</div>
+
+	<div id="t_129_22" style="position: absolute; left: 53.68%; top: 44.48%;" class="c_129_1">
+        we make things in the United States has also
+	</div>
+
+	<div id="t_129_23" style="position: absolute; left: 53.68%; top: 46.38%;" class="c_129_1">
+        changed. To help, federal, state, and local
+	</div>
+
+	<div id="t_129_24" style="position: absolute; left: 53.68%; top: 48.27%; letter-spacing: -0.02em;" class="c_129_1">
+        governments have created policies to aid Americans
+	</div>
+
+	<div id="t_129_25" style="position: absolute; left: 53.68%; top: 50.16%;" class="c_129_1">
+        in learning 21st-century skills with job training
+	</div>
+
+	<div id="t_129_26" style="position: absolute; left: 53.68%; top: 52.06%;" class="c_129_1">
+        programs and the growth of community colleges.
+	</div>
+
+	<div id="t_129_27" style="position: absolute; left: 50.47%; top:54.11%;" class="c_129_3">
+		Endangered
+	</div>
+
+	<div id="t_129_28" style="position: absolute; left: 57.41%; top:59.54%;" class="c_129_3">
+		Species
+	</div>
+
+	<div id="t_129_29" style="position: absolute; left: 58.25%; top:67.42%;" class="c_129_4">
+		CAN THEY BE SAVED?
+	</div>
+
+	<div id="t_129_30" style="position: absolute; left: 39.82%; top:70.98%;" class="c_129_0">
+		PROTECTING THE
+	</div>
+
+	<div id="t_129_31" style="position: absolute; left: 41.26%; top:72.87%;" class="c_129_0">
+		ENVIRONMENT
+	</div>
+
+	<div id="t_129_32" style="position: absolute; left: 33.19%; top: 75.6%;" class="c_129_1">
+		What do this elegant whooping crane and
+	</div>
+
+	<div id="t_129_33" style="position: absolute; left: 32.01%; top: 77.49%;" class="c_129_1">
+		this fierce grizzly bear have in common?
+	</div>
+
+	<div id="t_129_34" style="position: absolute; left: 11.77%; top: 79.39%;" class="c_129_1">
+		They are both in trouble. Their habitats are disappearing, and their
+	</div>
+
+	<div id="t_129_35" style="position: absolute; left: 11.77%; top: 81.28%;" class="c_129_1">
+		numbers are declining. They need help. Policies have been created
+	</div>
+
+	<div id="t_129_36" style="position: absolute; left: 11.77%; top: 83.17%;" class="c_129_1">
+        to raise awareness of their plight and to make harming them against
+	</div>
+
+	<div id="t_129_37" style="position: absolute; left: 11.77%; top: 85.07%;" class="c_129_1">
+        the law. The U.S. Fish and Wildlife Service keeps a list of endangered
+	</div>
+
+	<div id="t_129_38" style="position: absolute; left: 11.77%; top: 86.96%;" class="c_129_1">
+        species&mdash;from amphibians to arachnids, from ferns to flowering
+	</div>
+
+	<div id="t_129_39" style="position: absolute; left: 11.77%; top: 88.86%;" class="c_129_1">
+        plants&mdash;and monitors these species. Even at the local level, the loss
+	</div>
+
+	<div id="t_129_40" style="position: absolute; left: 11.77%; top: 90.75%;" class="c_129_1">
+        of a plant species might not seem like a big deal until you realize that
+	</div>
+
+	<div id="t_129_41" style="position: absolute; left: 11.77%; top: 92.65%;" class="c_129_1">
+        many animals could depend on that plant for food. We are all
+	</div>
+
+	<div id="t_129_42" style="position: absolute; left: 11.77%; top: 94.54%;" class="c_129_1">
+        connected in one great chain of life.
+	</div>
+
+	<div id="t_129_43" style="position: absolute; left: 93.47%; top: 95.00%;" class="c_129_5">
+		129
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 2%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_129_shoes_belts_and_bags.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 31.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_129_china_is_the_worlds.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 30%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_129_where_did_our_jobs_go.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 46%; top: 52%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_129_endangered_species.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_128_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_129_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_128_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="128.html?page=right"; onclick="goto('128.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="130.html"; onclick="goto('130.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="130.html"; onclick="goto('130.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

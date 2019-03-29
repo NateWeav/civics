@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_80.css">
+                <link rel="stylesheet" href="css/civics_81.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="78.html?page=right"; onclick="goto('78.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="80.html"; onclick="goto('80.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="78.html?page=right"; onclick="goto('78.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_80_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_81_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_80_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="80.html?page=right"; onclick="goto('80.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="82.html"; onclick="goto('82.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="82.html"; onclick="goto('82.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="78.html?page=right"; onclick="goto('78.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="80.html"; onclick="goto('80.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="78.html?page=right"; onclick="goto('78.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_80">
+                                                                                                <div class="pageData">
+
+	<div id="t_80_0" style="position: absolute; left: 5.75%; top:4.32%;" class="c_80_0">
+		The Constitution of the United
+	</div>
+
+	<div id="t_80_1" style="position: absolute; left: 5.75%; top:6.09%;" class="c_80_0">
+		States defines the structure and
+	</div>
+
+	<div id="t_80_2" style="position: absolute; left: 5.75%; top:7.85%;" class="c_80_0">
+		powers of the national government.
+	</div>
+
+	<div id="t_80_3" style="position: absolute; left: 36.87%; top: 4.48%; letter-spacing: -0.02em;" class="c_80_1">
+		So Much to Do!
+	</div>
+
+	<div id="t_80_4" style="position: absolute; left: 37.43%; top: 11.22%; letter-spacing: 0.01em;" class="c_80_2">
+		What would George Washington think if he could see all of the things
+	</div>
+
+	<div id="t_80_5" style="position: absolute; left: 46.71%; top: 12.86%; letter-spacing: 0.01em;" class="c_80_2">
+		our modern-day president is responsible for?
+	</div>
+
+	<div id="t_80_6" style="position: absolute; left: 58.32%; top: 16.2%;" class="c_80_3">
+		The job of being president has grown
+	</div>
+
+	<div id="t_80_7" style="position: absolute; left: 57.44%; top: 18.09%;" class="c_80_3">
+		more and more difficult with each
+	</div>
+
+	<div id="t_80_8" style="position: absolute; left: 57.44%; top: 19.98%;" class="c_80_3">
+		passing year. Our world grows more
+	</div>
+
+	<div id="t_80_9" style="position: absolute; left: 57.44%; top: 21.88%;" class="c_80_3">
+		complicated, technologies change all the
+	</div>
+
+	<div id="t_80_10" style="position: absolute; left: 57.44%; top: 23.77%;" class="c_80_3">
+		time, and we face natural disasters that
+	</div>
+
+	<div id="t_80_11" style="position: absolute; left: 57.44%; top: 25.67%;" class="c_80_3">
+		strain our resources. Nations that were
+	</div>
+
+	<div id="t_80_12" style="position: absolute; left: 57.44%; top: 27.56%;" class="c_80_3">
+		enemies become friends, and friendly
+	</div>
+
+	<div id="t_80_13" style="position: absolute; left: 57.44%; top: 29.46%;" class="c_80_3">
+		countries become mortal enemies. The
+	</div>
+
+	<div id="t_80_14" style="position: absolute; left: 57.44%; top: 31.35%;" class="c_80_3">
+		stresses of running the country can
+	</div>
+
+	<div id="t_80_15" style="position: absolute; left: 57.44%; top: 33.25%;" class="c_80_3">
+		seem overwhelming.
+	</div>
+
+	<div id="t_80_16" style="position: absolute; left: 57.59%; top:35.14%;" class="c_80_4">
+		A GREAT TASK
+	</div>
+
+	<div id="t_80_17" style="position: absolute; left: 43.55%; top: 37.87%;" class="c_80_3">
+		The executive branch&rsquo;s job is so big that even the Cabinet
+	</div>
+
+	<div id="t_80_18" style="position: absolute; left: 42.24%; top: 39.76%;" class="c_80_3">
+		departments cannot handle it all, so additional federal
+	</div>
+
+	<div id="t_80_19" style="position: absolute; left: 42.24%; top: 41.66%;" class="c_80_3">
+		agencies have been created. Unlike a Cabinet position,
+	</div>
+
+	<div id="t_80_20" style="position: absolute; left: 42.24%; top: 43.55%;" class="c_80_3">
+		which must be approved by a Senate vote, the heads of
+	</div>
+
+	<div id="t_80_21" style="position: absolute; left: 42.24%; top: 45.44%;" class="c_80_3">
+		some federal agencies are not under direct presidential
+	</div>
+
+	<div id="t_80_22" style="position: absolute; left: 42.24%; top: 47.34%;" class="c_80_3">
+		control, but their responsibilities can be just as daunting.
+	</div>
+
+	<div id="t_80_23" style="position: absolute; left: 43.55%; top: 49.23%;" class="c_80_3">
+		The people who work for all these many different agencies
+	</div>
+
+	<div id="t_80_24" style="position: absolute; left: 42.24%; top: 51.13%;" class="c_80_3">
+		make up a huge bureaucracy. Sometimes folks complain
+	</div>
+
+	<div id="t_80_25" style="position: absolute; left: 42.24%; top: 53.02%;" class="c_80_3">
+		about government &ldquo;red tape&rdquo; but the truth is, these are
+	</div>
+
+	<div id="t_80_26" style="position: absolute; left: 42.24%; top: 54.92%;" class="c_80_3">
+		enterprises on a vast and complex scale!
+	</div>
+
+	<div id="t_80_27" style="position: absolute; left: 48.45%; top:59.09%;" class="c_80_5">
+		AMTRAK
+	</div>
+
+	<div id="t_80_28" style="position: absolute; left: 76.57%; top:59.12%;" class="c_80_5">
+		CIA
+	</div>
+
+	<div id="t_80_29" style="position: absolute; left: 42.87%; top: 62.57%;" class="c_80_6">
+		&bull; <span class="c_80_7">National Railroad</span>
+	</div>
+
+	<div id="t_80_30" style="position: absolute; left: 42.87%; top:63.78%;" class="c_80_8">
+		Passenger Corporation
+	</div>
+
+	<div id="t_80_31" style="position: absolute; left: 52.69%; top: 65.73%;" class="c_80_3">
+		Helps keep
+	</div>
+
+	<div id="t_80_32" style="position: absolute; left: 52.69%; top: 67.62%;" class="c_80_3">
+		America&rsquo;s
+	</div>
+
+	<div id="t_80_33" style="position: absolute; left: 52.69%; top: 69.52%;" class="c_80_3">
+		passenger
+	</div>
+
+	<div id="t_80_34" style="position: absolute; left: 52.69%; top: 71.41%;" class="c_80_3">
+		trains moving
+	</div>
+
+	<div id="t_80_35" style="position: absolute; left: 67.41%; top: 62.57%;" class="c_80_6">
+		&bull; <span class="c_80_7">Central Intelligence Agency</span>
+	</div>
+
+	<div id="t_80_36" style="position: absolute; left: 67.41%; top: 64.21%;" class="c_80_3">
+		Gathers &ldquo;intel&rdquo;
+	</div>
+
+	<div id="t_80_37" style="position: absolute; left: 67.41%; top: 66.11%;" class="c_80_3">
+		from around the
+	</div>
+
+	<div id="t_80_38" style="position: absolute; left: 67.41%; top: 68%;" class="c_80_3">
+		world to help
+	</div>
+
+	<div id="t_80_39" style="position: absolute; left: 67.41%; top: 69.89%;" class="c_80_3">
+		keep us
+	</div>
+
+	<div id="t_80_40" style="position: absolute; left: 67.41%; top: 71.79%;" class="c_80_3">
+		safe
+	</div>
+
+	<div id="t_80_41" style="position: absolute; left: 50.98%; top:77.05%;" class="c_80_5">
+		NASA
+	</div>
+
+	<div id="t_80_42" style="position: absolute; left: 46.86%; top: 80.65%;" class="c_80_6">
+		&bull; <span class="c_80_7">National Aeronautics</span>
+	</div>
+
+	<div id="t_80_43" style="position: absolute; left: 46.86%; top:82.12%;" class="c_80_8">
+		and Space Administration
+	</div>
+
+	<div id="t_80_44" style="position: absolute; left: 46.86%; top: 84.06%;" class="c_80_3">
+		Explores space&mdash;
+	</div>
+
+	<div id="t_80_45" style="position: absolute; left: 46.86%; top: 85.96%;" class="c_80_3">
+		to the moon and
+	</div>
+
+	<div id="t_80_46" style="position: absolute; left: 46.86%; top: 87.85%;" class="c_80_3">
+		beyond
+	</div>
+
+	<div id="t_80_47" style="position: absolute; left: 75.71%; top:76.96%;" class="c_80_5">
+		USPS
+	</div>
+
+	<div id="t_80_48" style="position: absolute; left: 67.54%; top: 80.66%;" class="c_80_6">
+		&bull; <span class="c_80_7">The U.S. Postal Service</span>
+	</div>
+
+	<div id="t_80_49" style="position: absolute; left: 77.36%; top: 82.31%;" class="c_80_3">
+		Delivers the
+	</div>
+
+	<div id="t_80_50" style="position: absolute; left: 77.36%; top: 84.2%;" class="c_80_3">
+		mail through
+	</div>
+
+	<div id="t_80_51" style="position: absolute; left: 77.36%; top: 86.09%;" class="c_80_3">
+		rain, snow,
+	</div>
+
+	<div id="t_80_52" style="position: absolute; left: 77.36%; top: 87.99%;" class="c_80_3">
+		sleet, and hail
+	</div>
+
+	<div id="t_80_53" style="position: absolute; left: 9.85%; top:39.69%;" class="c_80_9">
+		Word to Know
+	</div>
+
+	<div id="t_80_54" style="position: absolute; left: 9.85%; top:43.14%;" class="c_80_10">
+		<span class="c_80_11">&nbsp;&nbsp;&nbsp;&nbsp;entitlements</span>
+	</div>
+
+	<div id="t_80_55" style="position: absolute; left: 9.45%; top:41.39%; font-size: 2.5em;" class="c_80_10">&#8227;</div>
+	<div id="t_80_56" style="position: absolute; left: 10.74%; top:45.47%;" class="c_80_12">
+(<span class="c_80_13">&nbsp;en-tie-tull-ments</span><span class="c_80_14">)</span>
+	</div>
+
+	<div id="t_80_57" style="position: absolute; left: 9.85%; top:47.48%;" class="c_80_15">
+		Government programs that provide
+	</div>
+
+	<div id="t_80_58" style="position: absolute; left: 9.85%; top:49.38%;" class="c_80_15">
+		benefits to a specific group, such as
+	</div>
+
+	<div id="t_80_59" style="position: absolute; left: 9.85%; top:51.27%;" class="c_80_15">
+		retirement benefits or health care
+	</div>
+
+	<div id="t_80_60" style="position: absolute; left: 13.11%; top:53.08%;" class="c_80_16">
+		Federal
+	</div>
+
+	<div id="t_80_61" style="position: absolute; left: 11.20%; top:58.89%;" class="c_80_16">
+		Agencies
+	</div>
+
+	<div id="t_80_62" style="position: absolute; left: 16.85%; top:66.88%;" class="c_80_17">
+		THE  &ldquo;ABCs&rdquo; OF
+	</div>
+
+	<div id="t_80_63" style="position: absolute; left: 15.53%; top:68.86%;" class="c_80_17">
+		SOME IMPORTANT
+	</div>
+
+	<div id="t_80_64" style="position: absolute; left: 12.09%; top:70.83%;" class="c_80_17">
+		GOVERNMENT AGENCIES
+	</div>
+
+	<div id="t_80_65" style="position: absolute; left: 11.19%; top: 74.96%;" class="c_80_3">
+		The people who wrote the
+	</div>
+
+	<div id="t_80_66" style="position: absolute; left: 9.87%; top: 76.85%;" class="c_80_3">
+		Constitution could not have
+	</div>
+
+	<div id="t_80_67" style="position: absolute; left: 9.87%; top: 78.75%;" class="c_80_3">
+		imagined the world we live in today.
+	</div>
+
+	<div id="t_80_68" style="position: absolute; left: 9.87%; top: 80.64%;" class="c_80_3">
+		Over time, these independent
+	</div>
+
+	<div id="t_80_69" style="position: absolute; left: 9.87%; top: 82.54%;" class="c_80_3">
+		extensions of the U.S. government
+	</div>
+
+	<div id="t_80_70" style="position: absolute; left: 9.87%; top: 84.43%;" class="c_80_3">
+		have been created. Each helps to
+	</div>
+
+	<div id="t_80_71" style="position: absolute; left: 9.87%; top: 86.33%;" class="c_80_3">
+		fulfill the executive branch&rsquo;s job.
+	</div>
+
+	<div id="t_80_72" style="position: absolute; left: 11.19%; top: 88.22%;" class="c_80_3">
+		Here are a few of the really
+	</div>
+
+	<div id="t_80_73" style="position: absolute; left: 9.87%; top: 90.12%;" class="c_80_3">
+		important ones.
+	</div>
+
+	<div id="t_80_74" style="position: absolute; left: 5.47%; top: 94.72%;" class="c_80_18">
+		80
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_80_the_constitution.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 35%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_80_so_much_to_do.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 41%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_80_word_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 34%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_80_a_great_task.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_80_federal_agencies.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_81">
+                                                                                                <div class="pageData">
+
+	<div id="t_81_0" style="position: absolute; left: 81.17%; top:4.65%;" class="c_81_0">
+		Here&rsquo;s what a
+	</div>
+
+	<div id="t_81_1" style="position: absolute; left: 81.17%; top:6.29%;" class="c_81_0">
+		typical federal
+	</div>
+
+	<div id="t_81_2" style="position: absolute; left: 81.17%; top:7.93%;" class="c_81_0">
+		budget might
+	</div>
+
+	<div id="t_81_3" style="position: absolute; left: 81.17%; top:9.57%;" class="c_81_0">
+		look like.
+	</div>
+
+	<div id="t_81_4" style="position: absolute; left: 17.36%; top:5.35%;" class="c_81_1">
+		HOW MUCH IS ALL THIS GOING TO COST?
+	</div>
+
+	<div id="t_81_5" style="position: absolute; left: 9.70%; top: 8.32%;" class="c_81_2">
+		Four million &ldquo;employees.&rdquo; Tanks and armor and uniforms. Thousands of buildings
+	</div>
+
+	<div id="t_81_6" style="position: absolute; left: 8.82%; top: 10.22%;" class="c_81_2">
+		to light and heat. Equipment, office supplies, and computers. Roads to maintain.
+	</div>
+
+	<div id="t_81_7" style="position: absolute; left: 8.82%; top: 12.11%;" class="c_81_2">
+		Bridges to paint. Health initiatives. All that adds up. One of the most difficult tasks
+	</div>
+
+	<div id="t_81_8" style="position: absolute; left: 8.82%; top: 14%;" class="c_81_2">
+		for the executive branch is the preparation of a <span class="c_81_3">budget</span><span class="c_81_4"> for the nation.</span>
+	</div>
+
+	<div id="t_81_9" style="position: absolute; left: 9.71%; top:16.08%;" class="c_81_1">
+		THE MONEY COMING IN &hellip; AND GOING OUT
+	</div>
+
+	<div id="t_81_10" style="position: absolute; left: 10.14%; top: 18.8%;" class="c_81_2">
+		People and businesses all across America pay income taxes
+	</div>
+
+	<div id="t_81_11" style="position: absolute; left: 8.82%; top: 20.7%;" class="c_81_2">
+		each year based on their earnings. People also pay in to
+	</div>
+
+	<div id="t_81_12" style="position: absolute; left: 8.82%; top: 22.59%;" class="c_81_2">
+		Social Security, unemployment insurance, and Medicare
+	</div>
+
+	<div id="t_81_13" style="position: absolute; left: 8.82%; top: 24.48%;" class="c_81_2">
+		(health care for Americans over the age of 65) with
+	</div>
+
+	<div id="t_81_14" style="position: absolute; left: 8.82%; top: 26.38%;" class="c_81_2">
+		deductions taken from each paycheck. Now comes
+	</div>
+
+	<div id="t_81_15" style="position: absolute; left: 8.82%; top: 28.27%;" class="c_81_2">
+		the hard part.
+	</div>
+
+	<div id="t_81_16" style="position: absolute; left: 10.14%; top: 30.08%;" class="c_81_2">
+		Medicare, Medicaid, and Social
+	</div>
+
+	<div id="t_81_17" style="position: absolute; left: 8.82%; top: 31.97%;" class="c_81_2">
+		Security are called <span class="c_81_3">entitlements</span><span class="c_81_4">, or</span>
+	</div>
+
+	<div id="t_81_18" style="position: absolute; left: 8.82%; top: 33.87%;" class="c_81_2">
+		mandatory spending. The government
+	</div>
+
+	<div id="t_81_19" style="position: absolute; left: 8.82%; top:35.36%;" class="c_81_5">
+		must <span class="c_81_6">fund these programs. Everything</span>
+	</div>
+
+	<div id="t_81_20" style="position: absolute; left: 8.82%; top: 37.66%;" class="c_81_2">
+		else, even national defense, must get in
+	</div>
+
+	<div id="t_81_21" style="position: absolute; left: 8.82%; top: 39.55%;" class="c_81_2">
+		line behind these programs, and the
+	</div>
+
+	<div id="t_81_22" style="position: absolute; left: 8.82%; top: 41.45%;" class="c_81_2">
+		remaining costs are often more than
+	</div>
+
+	<div id="t_81_23" style="position: absolute; left: 8.82%; top: 43.34%;" class="c_81_2">
+		the nation&rsquo;s tax revenue. The federal
+	</div>
+
+	<div id="t_81_24" style="position: absolute; left: 8.82%; top: 45.23%;" class="c_81_2">
+		government must borrow billions of
+	</div>
+
+	<div id="t_81_25" style="position: absolute; left: 8.82%; top: 47.13%;" class="c_81_2">
+		dollars a year to cover the difference.
+	</div>
+
+	<div id="t_81_26" style="position: absolute; left: 8.82%; top: 49.02%;" class="c_81_2">
+		Although the president proposes the
+	</div>
+
+	<div id="t_81_27" style="position: absolute; left: 8.82%; top: 50.92%;" class="c_81_2">
+		budget, only Congress can authorize
+	</div>
+
+	<div id="t_81_28" style="position: absolute; left: 8.82%; top: 52.81%;" class="c_81_2">
+		spending, and spirited disagreement&mdash;
+	</div>
+
+	<div id="t_81_29" style="position: absolute; left: 8.82%; top: 54.71%;" class="c_81_2">
+		to put it politely&mdash;is common.
+	</div>
+
+	<div id="t_81_30" style="position: absolute; left: 13.19%; top:59.09%;" class="c_81_7">
+		THE &ldquo;FED&rdquo;
+	</div>
+
+	<div id="t_81_31" style="position: absolute; left: 10.21%; top: 62.38%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Federal Reserve</span>
+	</div>
+
+	<div id="t_81_32" style="position: absolute; left: 10.21%; top: 64.27%;" class="c_81_2">
+		Regulates banking
+	</div>
+
+	<div id="t_81_33" style="position: absolute; left: 10.21%; top: 66.17%;" class="c_81_2">
+		and the supply of
+	</div>
+
+	<div id="t_81_34" style="position: absolute; left: 10.21%; top: 68.06%;" class="c_81_2">
+		money
+	</div>
+
+	<div id="t_81_35" style="position: absolute; left: 36.86%; top:58.96%;" class="c_81_7">
+		EEOC
+	</div>
+
+	<div id="t_81_36" style="position: absolute; left: 34.12%; top: 62.39%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Equal</span>
+	</div>
+
+	<div id="t_81_37" style="position: absolute; left: 35.50%; top:63.60%;" class="c_81_10">
+		Employment
+	</div>
+
+	<div id="t_81_38" style="position: absolute; left: 36.88%; top:65.24%;" class="c_81_10">
+		Opportunity
+	</div>
+
+	<div id="t_81_39" style="position: absolute; left: 38.25%; top:66.89%;" class="c_81_10">
+		Commission
+	</div>
+
+	<div id="t_81_40" style="position: absolute; left: 39.38%; top: 69.21%;" class="c_81_2">
+		Makes sure
+	</div>
+
+	<div id="t_81_41" style="position: absolute; left: 38.42%; top: 71.1%;" class="c_81_2">
+		there is no job
+	</div>
+
+	<div id="t_81_42" style="position: absolute; left: 36.78%; top: 73%;" class="c_81_2">
+		discrimination
+	</div>
+
+	<div id="t_81_43" style="position: absolute; left: 58.34%; top:58.83%;" class="c_81_7">
+		FCC
+	</div>
+
+	<div id="t_81_44" style="position: absolute; left: 51.20%; top: 62.36%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Federal</span>
+	</div>
+
+	<div id="t_81_45" style="position: absolute; left: 51.20%; top:63.57%;" class="c_81_10">
+		Communications
+	</div>
+
+	<div id="t_81_46" style="position: absolute; left: 51.20%; top:65.21%;" class="c_81_10">
+		Commission
+	</div>
+
+	<div id="t_81_47" style="position: absolute; left: 51.20%; top: 67.54%;" class="c_81_2">
+		Regulates
+	</div>
+
+	<div id="t_81_48" style="position: absolute; left: 51.20%; top: 69.43%;" class="c_81_2">
+		radio, TV,
+	</div>
+
+	<div id="t_81_49" style="position: absolute; left: 51.20%; top: 71.33%;" class="c_81_2">
+		satellite,
+	</div>
+
+	<div id="t_81_50" style="position: absolute; left: 51.20%; top: 73.22%;" class="c_81_2">
+		and cable
+	</div>
+
+	<div id="t_81_51" style="position: absolute; left: 76.54%; top:50.48%;" class="c_81_1">
+		PRESIDENT&rsquo;S
+	</div>
+
+	<div id="t_81_52" style="position: absolute; left: 77.60%; top:52.50%;" class="c_81_1">
+		PROPOSED
+	</div>
+
+	<div id="t_81_53" style="position: absolute; left: 79.13%; top:54.52%;" class="c_81_1">
+		BUDGET
+	</div>
+
+	<div id="t_81_54" style="position: absolute; left: 78.71%; top:58.96%;" class="c_81_7">
+		FDIC
+	</div>
+
+	<div id="t_81_55" style="position: absolute; left: 71.92%; top: 62.33%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Federal</span>
+	</div>
+
+	<div id="t_81_56" style="position: absolute; left: 71.92%; top:63.54%;" class="c_81_10">
+		Deposit Insurance
+	</div>
+
+	<div id="t_81_57" style="position: absolute; left: 71.92%; top:65.18%;" class="c_81_10">
+		Corporation
+	</div>
+
+	<div id="t_81_58" style="position: absolute; left: 71.92%; top: 67.76%;" class="c_81_2">
+		Insures the money
+	</div>
+
+	<div id="t_81_59" style="position: absolute; left: 71.92%; top: 69.65%;" class="c_81_2">
+		we keep in U.S. banks
+	</div>
+
+	<div id="t_81_60" style="position: absolute; left: 71.92%; top: 71.55%;" class="c_81_2">
+		against loss
+	</div>
+
+	<div id="t_81_61" style="position: absolute; left: 17.34%; top:77.15%;" class="c_81_7">
+		EPA
+	</div>
+
+	<div id="t_81_62" style="position: absolute; left: 9.98%; top: 80.65%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Environmental</span>
+	</div>
+
+	<div id="t_81_63" style="position: absolute; left: 9.98%; top:81.86%;" class="c_81_10">
+		Protection Agency
+	</div>
+
+	<div id="t_81_64" style="position: absolute; left: 9.98%; top: 83.93%;" class="c_81_2">
+		Oversees clean air,
+	</div>
+
+	<div id="t_81_65" style="position: absolute; left: 9.98%; top: 85.83%;" class="c_81_2">
+		clean water, and the
+	</div>
+
+	<div id="t_81_66" style="position: absolute; left: 17.43%; top: 87.72%;" class="c_81_2">
+		fight against
+	</div>
+
+	<div id="t_81_67" style="position: absolute; left: 18.75%; top: 89.61%;" class="c_81_2">
+		global
+	</div>
+
+	<div id="t_81_68" style="position: absolute; left: 18.75%; top: 91.51%;" class="c_81_2">
+		warming
+	</div>
+
+	<div id="t_81_69" style="position: absolute; left: 37.69%; top:77.11%;" class="c_81_7">
+		NRC
+	</div>
+
+	<div id="t_81_70" style="position: absolute; left: 30.47%; top: 80.65%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Nuclear Regulatory</span>
+	</div>
+
+	<div id="t_81_71" style="position: absolute; left: 30.47%; top:81.86%;" class="c_81_10">
+		Commission
+	</div>
+
+	<div id="t_81_72" style="position: absolute; left: 30.47%; top: 84.06%;" class="c_81_2">
+		Monitors
+	</div>
+
+	<div id="t_81_73" style="position: absolute; left: 30.47%; top: 85.7%;" class="c_81_2">
+		nuclear
+	</div>
+
+	<div id="t_81_74" style="position: absolute; left: 30.47%; top: 87.34%;" class="c_81_2">
+		power
+	</div>
+
+	<div id="t_81_75" style="position: absolute; left: 30.47%; top: 88.98%;" class="c_81_2">
+		plants
+	</div>
+
+	<div id="t_81_76" style="position: absolute; left: 58.51%; top:77.13%;" class="c_81_7">
+		SEC
+	</div>
+
+	<div id="t_81_77" style="position: absolute; left: 52.28%; top: 80.6%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Securities and</span>
+	</div>
+
+	<div id="t_81_78" style="position: absolute; left: 52.28%; top:81.94%;" class="c_81_10">
+		Exchange Commission
+	</div>
+
+	<div id="t_81_79" style="position: absolute; left: 52.28%; top: 83.76%;" class="c_81_2">
+		Oversees the stock
+	</div>
+
+	<div id="t_81_80" style="position: absolute; left: 52.28%; top: 85.65%;" class="c_81_2">
+		and bond markets
+	</div>
+
+	<div id="t_81_81" style="position: absolute; left: 78.06%; top:77.07%;" class="c_81_7">
+		SSA
+	</div>
+
+	<div id="t_81_82" style="position: absolute; left: 72.06%; top: 80.7%;" class="c_81_8">
+		&bull; <span class="c_81_9">The Social</span>
+	</div>
+
+	<div id="t_81_83" style="position: absolute; left: 72.06%; top:81.91%;" class="c_81_10">
+		Security
+	</div>
+
+	<div id="t_81_84" style="position: absolute; left: 72.06%; top:83.56%;" class="c_81_10">
+		Administration
+	</div>
+
+	<div id="t_81_85" style="position: absolute; left: 72.06%; top: 85.75%;" class="c_81_2">
+		Helps our
+	</div>
+
+	<div id="t_81_86" style="position: absolute; left: 72.06%; top: 87.65%;" class="c_81_2">
+		senior citizens
+	</div>
+
+	<div id="t_81_87" style="position: absolute; left: 72.06%; top: 89.54%;" class="c_81_2">
+		and disabled
+	</div>
+
+	<div id="t_81_88" style="position: absolute; left: 72.06%; top: 91.44%;" class="c_81_2">
+		Americans
+	</div>
+
+	<div id="t_81_89" style="position: absolute; left: 94.05%; top: 94.72%;" class="c_81_11">
+		81
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 10%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_81_how_much_is.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 76%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_81_heres_what_a_typical.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 17%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_81_the_money_coming_in.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 45%; top: 30%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_81_presidents_proposed_budget.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_81_federal_agencies_pt2.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_80_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_81_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_80_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="80.html?page=right"; onclick="goto('80.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="82.html"; onclick="goto('82.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="82.html"; onclick="goto('82.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

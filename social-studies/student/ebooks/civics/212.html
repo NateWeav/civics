@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_212.css">
+                <link rel="stylesheet" href="css/civics_213.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="210.html?page=right"; onclick="goto('210.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="212.html"; onclick="goto('212.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="210.html?page=right"; onclick="goto('210.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="212.html?page=right"; onclick="goto('212.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="214.html"; onclick="goto('214.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="214.html"; onclick="goto('214.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="210.html?page=right"; onclick="goto('210.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="212.html"; onclick="goto('212.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="210.html?page=right"; onclick="goto('210.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_212">
+                                                                                                <div class="pageData">
+
+	<div id="t_212_0" style="position: absolute; left: 8.82%; top:4.54%;" class="c_212_0">
+		Virginia
+	</div>
+
+	<div id="t_212_1" style="position: absolute; left: 8.82%; top:9.59%;" class="c_212_0">
+		Declaration of
+	</div>
+
+	<div id="t_212_2" style="position: absolute; left: 8.82%; top:14.64%;" class="c_212_0">
+		Rights
+	</div>
+
+	<div id="t_212_3" style="position: absolute; left: 8.82%; top:21.69%;" class="c_212_1">
+		Written by George Mason
+	</div>
+
+	<div id="t_212_4" style="position: absolute; left: 8.82%; top:23.81%;" class="c_212_1">
+		May 1776.
+	</div>
+
+	<div id="t_212_5" style="position: absolute; left: 8.82%; top:55.44%;" class="c_212_2">
+		There are two parts to this document. The
+	</div>
+
+	<div id="t_212_6" style="position: absolute; left: 8.82%; top:57.08%;" class="c_212_2">
+		first part talks about the relationship
+	</div>
+
+	<div id="t_212_7" style="position: absolute; left: 8.82%; top:58.72%;" class="c_212_2">
+		between the people of Virginia and their
+	</div>
+
+	<div id="t_212_8" style="position: absolute; left: 8.82%; top:60.36%;" class="c_212_2">
+		government.
+	</div>
+
+	<div id="t_212_9" style="position: absolute; left: 8.89%; top:63.23%;" class="c_212_3">
+		SECTIONS 1&ndash;7
+	</div>
+
+	<div id="t_212_10" style="position: absolute; left: 8.89%; top:64.98%;" class="c_212_4">
+		&bull;The people of Virginia have the
+	</div>
+
+	<div id="t_212_11" style="position: absolute; left: 8.89%; top:66.50%;" class="c_212_4">
+		freedom to pursue a safe and
+	</div>
+
+	<div id="t_212_12" style="position: absolute; left: 8.89%; top:68.02%;" class="c_212_4">
+		happy life.
+	</div>
+
+	<div id="t_212_13" style="position: absolute; left: 8.89%; top:69.53%;" class="c_212_4">
+		&bull;The people are the source of
+	</div>
+
+	<div id="t_212_14" style="position: absolute; left: 8.89%; top:71.05%;" class="c_212_4">
+		power for government.
+	</div>
+
+	<div id="t_212_15" style="position: absolute; left: 8.89%; top:72.56%;" class="c_212_4">
+		&bull;The government is responsible
+	</div>
+
+	<div id="t_212_16" style="position: absolute; left: 8.89%; top:74.08%;" class="c_212_4">
+		for protecting the people and,
+	</div>
+
+	<div id="t_212_17" style="position: absolute; left: 8.89%; top:75.59%;" class="c_212_4">
+		while accepting that responsibility,
+	</div>
+
+	<div id="t_212_18" style="position: absolute; left: 8.89%; top:77.11%;" class="c_212_4">
+		the government also has limits on
+	</div>
+
+	<div id="t_212_19" style="position: absolute; left: 8.89%; top:78.62%;" class="c_212_4">
+		its power.
+	</div>
+
+	<div id="t_212_20" style="position: absolute; left: 45.34%; top:4.38%;" class="c_212_5">
+		I <span class="c_212_6">That all men are by nature equally free and independent,</span>
+	</div>
+
+	<div id="t_212_21" style="position: absolute; left: 45.34%; top:6.20%;" class="c_212_7">
+		and have certain inherent rights, of which, when they enter
+	</div>
+
+	<div id="t_212_22" style="position: absolute; left: 45.34%; top:8.02%;" class="c_212_7">
+		into a state of society, they cannot, by any compact, deprive
+	</div>
+
+	<div id="t_212_23" style="position: absolute; left: 45.34%; top:9.83%;" class="c_212_7">
+		or divest their posterity; namely, the enjoyment of life and
+	</div>
+
+	<div id="t_212_24" style="position: absolute; left: 45.34%; top:11.65%;" class="c_212_7">
+		liberty, with the means of acquiring and possessing property,
+	</div>
+
+	<div id="t_212_25" style="position: absolute; left: 45.34%; top:13.47%;" class="c_212_7">
+		and pursuing and obtaining happiness and safety.
+	</div>
+
+	<div id="t_212_26" style="position: absolute; left: 45.34%; top:16.82%;" class="c_212_5">
+		II <span class="c_212_8">That all power is vested in, and consequently derived from,</span>
+	</div>
+
+	<div id="t_212_27" style="position: absolute; left: 45.34%; top:18.34%;" class="c_212_9">
+		the people; that magistrates are their trustees and servants,
+	</div>
+
+	<div id="t_212_28" style="position: absolute; left: 45.34%; top:19.85%;" class="c_212_9">
+		and at all times amenable to them.
+	</div>
+
+	<div id="t_212_29" style="position: absolute; left: 45.34%; top:22.36%;" class="c_212_5">
+		III <span class="c_212_8">That government is, or ought to be, instituted for the</span>
+	</div>
+
+	<div id="t_212_30" style="position: absolute; left: 45.34%; top:23.88%;" class="c_212_9">
+		common benefit, protection, and security of the people,
+	</div>
+
+	<div id="t_212_31" style="position: absolute; left: 45.34%; top:25.39%;" class="c_212_9">
+		nation or community; of all the various modes and forms of
+	</div>
+
+	<div id="t_212_32" style="position: absolute; left: 45.34%; top:26.91%;" class="c_212_9">
+		government that is best, which is capable of producing the
+	</div>
+
+	<div id="t_212_33" style="position: absolute; left: 45.34%; top:28.42%;" class="c_212_9">
+		greatest degree of happiness and safety and is most effectually
+	</div>
+
+	<div id="t_212_34" style="position: absolute; left: 45.34%; top:29.94%;" class="c_212_9">
+		secured against the danger of maladministration; and that,
+	</div>
+
+	<div id="t_212_35" style="position: absolute; left: 45.34%; top:31.45%;" class="c_212_9">
+		whenever any government shall be found inadequate or
+	</div>
+
+	<div id="t_212_36" style="position: absolute; left: 41.28%; top:32.97%;" class="c_212_9">
+		contrary to these purposes, a majority of the community hath an
+	</div>
+
+	<div id="t_212_37" style="position: absolute; left: 41.28%; top:34.48%;" class="c_212_9">
+		indubitable, unalienable, and indefeasible right to reform, alter or
+	</div>
+
+	<div id="t_212_38" style="position: absolute; left: 41.28%; top:36.00%;" class="c_212_9">
+		abolish it, in such manner as shall be judged most conducive to the
+	</div>
+
+	<div id="t_212_39" style="position: absolute; left: 41.28%; top:37.51%;" class="c_212_9">
+		public weal.
+	</div>
+
+	<div id="t_212_40" style="position: absolute; left: 41.28%; top:40.01%;" class="c_212_5">
+		IV <span class="c_212_8">That no man, or set of men, are entitled to exclusive or separate</span>
+	</div>
+
+	<div id="t_212_41" style="position: absolute; left: 41.28%; top:41.53%;" class="c_212_9">
+		emoluments or privileges from the community, but in consideration
+	</div>
+
+	<div id="t_212_42" style="position: absolute; left: 41.28%; top:43.05%;" class="c_212_9">
+		of public services; which, not being descendible, neither ought the
+	</div>
+
+	<div id="t_212_43" style="position: absolute; left: 41.28%; top:44.56%;" class="c_212_9">
+		offices of magistrate, legislator, or judge be hereditary.
+	</div>
+
+	<div id="t_212_44" style="position: absolute; left: 41.28%; top:47.07%;" class="c_212_5">
+		V <span class="c_212_8">That the legislative and executive powers of the state should be</span>
+	</div>
+
+	<div id="t_212_45" style="position: absolute; left: 41.28%; top:48.58%;" class="c_212_9">
+		separate and distinct from the judicative; and, that the members of
+	</div>
+
+	<div id="t_212_46" style="position: absolute; left: 41.28%; top:50.10%;" class="c_212_9">
+		the two first may be restrained from oppression by feeling and
+	</div>
+
+	<div id="t_212_47" style="position: absolute; left: 41.28%; top:51.62%;" class="c_212_9">
+		participating the burthens of the people, they should, at fixed
+	</div>
+
+	<div id="t_212_48" style="position: absolute; left: 41.28%; top:53.13%;" class="c_212_9">
+		periods, be reduced to a private station, return into that body from
+	</div>
+
+	<div id="t_212_49" style="position: absolute; left: 41.28%; top:54.65%;" class="c_212_9">
+		which they were originally taken, and the vacancies be supplied by
+	</div>
+
+	<div id="t_212_50" style="position: absolute; left: 41.28%; top:56.16%;" class="c_212_9">
+		frequent, certain, and regular elections in which all, or any part of
+	</div>
+
+	<div id="t_212_51" style="position: absolute; left: 41.28%; top:57.68%;" class="c_212_9">
+		the former members, to be again eligible, or ineligible, as the laws
+	</div>
+
+	<div id="t_212_52" style="position: absolute; left: 41.28%; top:59.19%;" class="c_212_9">
+		shall direct.
+	</div>
+
+	<div id="t_212_53" style="position: absolute; left: 41.28%; top:61.69%;" class="c_212_5">
+		VI <span class="c_212_8">That elections of members to serve as representatives of the</span>
+	</div>
+
+	<div id="t_212_54" style="position: absolute; left: 41.28%; top:63.21%;" class="c_212_9">
+		people in assembly ought to be free; and that all men, having
+	</div>
+
+	<div id="t_212_55" style="position: absolute; left: 41.28%; top:64.73%;" class="c_212_9">
+		sufficient evidence of permanent common interest with, and
+	</div>
+
+	<div id="t_212_56" style="position: absolute; left: 41.28%; top:66.24%;" class="c_212_9">
+		attachment to, the community have the right of suffrage and
+	</div>
+
+	<div id="t_212_57" style="position: absolute; left: 41.28%; top:67.76%;" class="c_212_9">
+		cannot be taxed or deprived of their property for public uses
+	</div>
+
+	<div id="t_212_58" style="position: absolute; left: 41.28%; top:69.27%;" class="c_212_9">
+		without their own consent or that of their representatives so
+	</div>
+
+	<div id="t_212_59" style="position: absolute; left: 41.28%; top:70.79%;" class="c_212_9">
+		elected, nor bound by any law to which they have not, in like
+	</div>
+
+	<div id="t_212_60" style="position: absolute; left: 41.28%; top:72.30%;" class="c_212_9">
+		manner, assented, for the public good.
+	</div>
+
+	<div id="t_212_61" style="position: absolute; left: 41.28%; top:74.81%;" class="c_212_5">
+		VII <span class="c_212_8">That all power of suspending laws, or the execution of laws, by</span>
+	</div>
+
+	<div id="t_212_62" style="position: absolute; left: 41.28%; top:76.32%;" class="c_212_9">
+		any authority without consent of the representatives of the people is
+	</div>
+
+	<div id="t_212_63" style="position: absolute; left: 41.28%; top:77.84%;" class="c_212_9">
+		injurious to their rights and ought not to be exercised.
+	</div>
+
+	<div id="t_212_64" style="position: absolute; left: 41.28%; top:80.34%;" class="c_212_5">
+		VIII <span class="c_212_8">That in all capital or criminal prosecutions a man hath a right</span>
+	</div>
+
+	<div id="t_212_65" style="position: absolute; left: 41.28%; top:81.86%;" class="c_212_9">
+		to demand the cause and nature of his accusation to be confronted
+	</div>
+
+	<div id="t_212_66" style="position: absolute; left: 41.28%; top:83.38%;" class="c_212_9">
+		with the accusers and witnesses, to call for evidence in his favor,
+	</div>
+
+	<div id="t_212_67" style="position: absolute; left: 41.28%; top:84.89%;" class="c_212_9">
+		and to a speedy trial by an impartial jury of his vicinage, without
+	</div>
+
+	<div id="t_212_68" style="position: absolute; left: 41.28%; top:86.41%;" class="c_212_9">
+		whose unanimous consent he cannot be found guilty, nor can he be
+	</div>
+
+	<div id="t_212_69" style="position: absolute; left: 41.28%; top:87.92%;" class="c_212_9">
+		compelled to give evidence against himself; that no man be
+	</div>
+
+	<div id="t_212_70" style="position: absolute; left: 41.28%; top:89.44%;" class="c_212_9">
+		deprived of his liberty except by the law of the land or the
+	</div>
+
+	<div id="t_212_71" style="position: absolute; left: 41.28%; top:90.95%;" class="c_212_9">
+		judgement of his peers.
+	</div>
+
+	<div id="t_212_72" style="position: absolute; left: 5.03%; top: 95.9%; letter-spacing: -0.15em;" class="c_212_10">
+		212
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_213">
+                                                                                                <div class="pageData">
+
+	<div id="t_213_0" style="position: absolute; left: 9.94%; top:6.30%;" class="c_213_0">
+		IX <span class="c_213_1">That excessive bail ought not to be required, nor excessive fines</span>
+	</div>
+
+	<div id="t_213_1" style="position: absolute; left: 9.94%; top:7.82%;" class="c_213_2">
+		imposed; nor cruel and unusual punishments inflicted.
+	</div>
+
+	<div id="t_213_2" style="position: absolute; left: 9.94%; top:10.32%;" class="c_213_0">
+		X <span class="c_213_1">That general warrants, whereby any officer or messenger may be</span>
+	</div>
+
+	<div id="t_213_3" style="position: absolute; left: 9.94%; top:11.84%;" class="c_213_2">
+		commanded to search suspected places without evidence of a fact
+	</div>
+
+	<div id="t_213_4" style="position: absolute; left: 9.94%; top:13.36%;" class="c_213_2">
+		committed, or to seize any person or persons not named, or whose
+	</div>
+
+	<div id="t_213_5" style="position: absolute; left: 9.94%; top:14.87%;" class="c_213_2">
+		offense is not particularly described and supported by evidence, are
+	</div>
+
+	<div id="t_213_6" style="position: absolute; left: 9.94%; top:16.39%;" class="c_213_2">
+		grievous and oppressive and ought not to be granted.
+	</div>
+
+	<div id="t_213_7" style="position: absolute; left: 9.94%; top:18.89%;" class="c_213_0">
+		XI <span class="c_213_1">That in controversies respecting property and in suits between man</span>
+	</div>
+
+	<div id="t_213_8" style="position: absolute; left: 9.94%; top:20.41%;" class="c_213_2">
+		and man, the ancient trial by jury is preferable to any other and ought
+	</div>
+
+	<div id="t_213_9" style="position: absolute; left: 9.94%; top:21.93%;" class="c_213_2">
+		to be held sacred.
+	</div>
+
+	<div id="t_213_10" style="position: absolute; left: 9.94%; top:24.43%;" class="c_213_0">
+		XII <span class="c_213_1">That the freedom of the press is one of the greatest bulwarks of</span>
+	</div>
+
+	<div id="t_213_11" style="position: absolute; left: 9.94%; top:25.95%;" class="c_213_2">
+		liberty and can never be restrained but by despotic governments.
+	</div>
+
+	<div id="t_213_12" style="position: absolute; left: 9.94%; top:28.45%;" class="c_213_0">
+		XIII <span class="c_213_1">That a well regulated militia, composed of the body of the</span>
+	</div>
+
+	<div id="t_213_13" style="position: absolute; left: 9.94%; top:29.97%;" class="c_213_2">
+		people, trained to arms, is the proper, natural, and safe defense of a
+	</div>
+
+	<div id="t_213_14" style="position: absolute; left: 9.94%; top:31.48%;" class="c_213_2">
+		free state; that standing armies, in time of peace, should be avoided as
+	</div>
+
+	<div id="t_213_15" style="position: absolute; left: 9.94%; top:33.00%;" class="c_213_2">
+		dangerous to liberty; and that, in all cases, the military should be
+	</div>
+
+	<div id="t_213_16" style="position: absolute; left: 9.94%; top:34.51%;" class="c_213_2">
+		under strict subordination to, and be governed by, the civil power.
+	</div>
+
+	<div id="t_213_17" style="position: absolute; left: 9.94%; top:37.02%;" class="c_213_0">
+		XIV <span class="c_213_1">That the people have a right to uniform government; and</span>
+	</div>
+
+	<div id="t_213_18" style="position: absolute; left: 9.94%; top:38.54%;" class="c_213_2">
+		therefore, that no government separate from, or independent of, the
+	</div>
+
+	<div id="t_213_19" style="position: absolute; left: 9.94%; top:40.05%;" class="c_213_2">
+		government of Virginia, ought to be erected or established within the
+	</div>
+
+	<div id="t_213_20" style="position: absolute; left: 9.94%; top:41.57%;" class="c_213_2">
+		limits thereof.
+	</div>
+
+	<div id="t_213_21" style="position: absolute; left: 9.94%; top:44.07%;" class="c_213_0">
+		XV <span class="c_213_1">That no free government, or the blessings of liberty, can be</span>
+	</div>
+
+	<div id="t_213_22" style="position: absolute; left: 9.94%; top:45.59%;" class="c_213_2">
+		preserved to any people but by a firm adherence to justice,
+	</div>
+
+	<div id="t_213_23" style="position: absolute; left: 9.94%; top:47.10%;" class="c_213_2">
+		moderation, temperance, frugality, and virtue and by frequent
+	</div>
+
+	<div id="t_213_24" style="position: absolute; left: 9.94%; top:48.62%;" class="c_213_2">
+		recurrence to fundamental principles.
+	</div>
+
+	<div id="t_213_25" style="position: absolute; left: 9.94%; top:51.12%;" class="c_213_0">
+		XVI <span class="c_213_1">That religion, or the duty which we owe to our Creator and the</span>
+	</div>
+
+	<div id="t_213_26" style="position: absolute; left: 9.94%; top:52.64%;" class="c_213_2">
+		manner of discharging it, can be directed by reason and conviction,
+	</div>
+
+	<div id="t_213_27" style="position: absolute; left: 9.94%; top:54.15%;" class="c_213_2">
+		not by force or violence; and therefore, all men are equally entitled to
+	</div>
+
+	<div id="t_213_28" style="position: absolute; left: 9.94%; top:55.67%;" class="c_213_2">
+		the free exercise of religion, according to the dictates of conscience;
+	</div>
+
+	<div id="t_213_29" style="position: absolute; left: 9.94%; top:57.18%;" class="c_213_2">
+		and that it is the mutual duty of all to practice Christian forbearance,
+	</div>
+
+	<div id="t_213_30" style="position: absolute; left: 9.94%; top:58.70%;" class="c_213_2">
+		love, and charity towards each other.
+	</div>
+
+	<div id="t_213_31" style="position: absolute; left: 9.94%; top:61.73%;" class="c_213_3">
+		Adopted unanimously June 12, 1776 Virginia Convention of Delegates,
+	</div>
+
+	<div id="t_213_32" style="position: absolute; left: 9.94%; top:63.24%;" class="c_213_3">
+		drafted by Mr. George Mason.
+	</div>
+
+	<div id="t_213_33" style="position: absolute; left: 71.81%; top:12.95%;" class="c_213_4">
+		The second part talks about the
+	</div>
+
+	<div id="t_213_34" style="position: absolute; left: 71.37%; top:14.59%;" class="c_213_4">
+		rights of the people of Virginia.
+	</div>
+
+	<div id="t_213_35" style="position: absolute; left: 72.30%; top:19.77%;" class="c_213_5">
+		SECTIONS 8&ndash;16
+	</div>
+
+	<div id="t_213_36" style="position: absolute; left: 72.30%; top:21.53%;" class="c_213_6">
+		Virginians have certain
+	</div>
+
+	<div id="t_213_37" style="position: absolute; left: 72.30%; top:23.04%;" class="c_213_6">
+		fundamental rights. They
+	</div>
+
+	<div id="t_213_38" style="position: absolute; left: 72.30%; top:24.56%;" class="c_213_6">
+		include:
+	</div>
+
+	<div id="t_213_39" style="position: absolute; left: 72.30%; top:26.07%;" class="c_213_6">
+		&bull;The right to a fair and
+	</div>
+
+	<div id="t_213_40" style="position: absolute; left: 72.30%; top:27.59%;" class="c_213_6">
+		speedy trial.
+	</div>
+
+	<div id="t_213_41" style="position: absolute; left: 72.30%; top:29.10%;" class="c_213_6">
+		&bull;The right to be safe from
+	</div>
+
+	<div id="t_213_42" style="position: absolute; left: 72.30%; top:30.62%;" class="c_213_6">
+		unreasonable government
+	</div>
+
+	<div id="t_213_43" style="position: absolute; left: 72.30%; top:32.13%;" class="c_213_6">
+		searches.
+	</div>
+
+	<div id="t_213_44" style="position: absolute; left: 72.30%; top:33.65%;" class="c_213_6">
+		&bull;The right to fair
+	</div>
+
+	<div id="t_213_45" style="position: absolute; left: 72.30%; top:35.16%;" class="c_213_6">
+		punishments.
+	</div>
+
+	<div id="t_213_46" style="position: absolute; left: 72.30%; top:36.68%;" class="c_213_6">
+		&bull;The right to maintain a
+	</div>
+
+	<div id="t_213_47" style="position: absolute; left: 72.30%; top:38.19%;" class="c_213_6">
+		military.
+	</div>
+
+	<div id="t_213_48" style="position: absolute; left: 72.30%; top:39.71%;" class="c_213_6">
+		&bull;The right to choose
+	</div>
+
+	<div id="t_213_49" style="position: absolute; left: 72.30%; top:41.22%;" class="c_213_6">
+		which religion, if any, they
+	</div>
+
+	<div id="t_213_50" style="position: absolute; left: 72.30%; top:42.74%;" class="c_213_6">
+		will practice.
+	</div>
+
+	<div id="t_213_51" style="position: absolute; left: 72.30%; top:44.25%;" class="c_213_6">
+		In exchange for these
+	</div>
+
+	<div id="t_213_52" style="position: absolute; left: 72.30%; top:45.77%;" class="c_213_6">
+		rights, Virginians must
+	</div>
+
+	<div id="t_213_53" style="position: absolute; left: 72.30%; top:47.28%;" class="c_213_6">
+		abide by the rules of law.
+	</div>
+
+	<div id="t_213_54" style="position: absolute; left: 77.01%; top: 76.11%; letter-spacing: 0.01em;" class="c_213_7">
+		George
+	</div>
+
+	<div id="t_213_55" style="position: absolute; left: 77.01%; top: 77.75%; letter-spacing: 0.01em;" class="c_213_7">
+		Mason
+	</div>
+
+	<div id="t_213_56" style="position: absolute; left: 93.16%; top: 95.9%; letter-spacing: -0.15em;" class="c_213_8">
+		213
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="212.html?page=right"; onclick="goto('212.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="214.html"; onclick="goto('214.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="214.html"; onclick="goto('214.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

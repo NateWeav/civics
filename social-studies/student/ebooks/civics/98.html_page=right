@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_98.css">
+                <link rel="stylesheet" href="css/civics_99.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="96.html?page=right"; onclick="goto('96.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="98.html"; onclick="goto('98.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="96.html?page=right"; onclick="goto('96.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_98_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_99_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_98_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="98.html?page=right"; onclick="goto('98.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="100.html"; onclick="goto('100.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="100.html"; onclick="goto('100.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="96.html?page=right"; onclick="goto('96.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="98.html"; onclick="goto('98.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="96.html?page=right"; onclick="goto('96.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_98">
+                                                                                                <div class="pageData">
+
+	<div id="t_98_0" style="position: absolute; left: 5.87%; top:4.67%;" class="c_98_0">
+		The expansion of the national
+	</div>
+
+	<div id="t_98_1" style="position: absolute; left: 5.87%; top:6.44%;" class="c_98_0">
+		government&rsquo;s powers into areas
+	</div>
+
+	<div id="t_98_2" style="position: absolute; left: 5.87%; top:8.21%;" class="c_98_0">
+		traditionally reserved to the states
+	</div>
+
+	<div id="t_98_3" style="position: absolute; left: 5.87%; top:9.98%;" class="c_98_0">
+		has altered the relationship of
+	</div>
+
+	<div id="t_98_4" style="position: absolute; left: 5.87%; top:11.74%;" class="c_98_0">
+		states to the national government.
+	</div>
+
+	<div id="t_98_5" style="position: absolute; left: 33.60%; top: 4.36%; letter-spacing: -0.02em;" class="c_98_1">
+		Federalism in Action
+	</div>
+
+	<div id="t_98_6" style="position: absolute; left: 33.82%; top: 11.24%; letter-spacing: 0.01em;" class="c_98_2">
+		Sharing power between nation and states is a balancing act.
+	</div>
+
+	<div id="t_98_7" style="position: absolute; left: 17.78%; top:14.28%;" class="c_98_3">
+		DIVIDING THE POWER
+	</div>
+
+	<div id="t_98_8" style="position: absolute; left: 10.14%; top: 17%;" class="c_98_4">
+		Think about America at the time the Constitution was
+	</div>
+
+	<div id="t_98_9" style="position: absolute; left: 8.82%; top: 18.89%;" class="c_98_4">
+		written. Back then, most Americans lived and died
+	</div>
+
+	<div id="t_98_10" style="position: absolute; left: 8.82%; top: 20.79%;" class="c_98_4">
+		within a 30-mile radius. Local or state government was
+	</div>
+
+	<div id="t_98_11" style="position: absolute; left: 8.82%; top: 22.68%;" class="c_98_4">
+		the <span class="c_98_5">only</span> <span class="c_98_6">government people really knew. Most had little</span>
+	</div>
+
+	<div id="t_98_12" style="position: absolute; left: 8.82%; top: 24.58%;" class="c_98_4">
+		or no dealings with the federal government.
+	</div>
+
+	<div id="t_98_13" style="position: absolute; left: 10.14%; top: 26.47%;" class="c_98_4">
+		All that has changed. The U.S. Supreme Court can
+	</div>
+
+	<div id="t_98_14" style="position: absolute; left: 19.27%; top: 28.37%;" class="c_98_4">
+		intervene by using the U.S. Constitution
+	</div>
+
+	<div id="t_98_15" style="position: absolute; left: 19.72%; top: 30.26%;" class="c_98_4">
+		to overturn discriminatory state laws.
+	</div>
+
+	<div id="t_98_16" style="position: absolute; left: 20.98%; top: 32.16%;" class="c_98_4">
+		Marriage is one example. States grant
+	</div>
+
+	<div id="t_98_17" style="position: absolute; left: 20.74%; top: 34.05%;" class="c_98_4">
+		marriage licenses, but, in 1967, citing
+	</div>
+
+	<div id="t_98_18" style="position: absolute; left: 20.27%; top: 35.94%;" class="c_98_4">
+		the Equal Protection Clause of the 14th
+	</div>
+
+	<div id="t_98_19" style="position: absolute; left: 19.80%; top: 37.84%;" class="c_98_4">
+		Amendment, the court ruled that states
+	</div>
+
+	<div id="t_98_20" style="position: absolute; left: 19.47%; top: 39.73%;" class="c_98_4">
+		could not outlaw marriage between a
+	</div>
+
+	<div id="t_98_21" style="position: absolute; left: 19.22%; top: 41.63%;" class="c_98_4">
+		white person and an African American. In
+	</div>
+
+	<div id="t_98_22" style="position: absolute; left: 18.97%; top: 43.52%;" class="c_98_4">
+		2015, the court ruled that states could not
+	</div>
+
+	<div id="t_98_23" style="position: absolute; left: 16.62%; top: 45.42%;" class="c_98_4">
+		prevent same-sex couples from being wed.
+	</div>
+
+	<div id="t_98_24" style="position: absolute; left: 18.64%; top:47.11%;" class="c_98_3">
+		ACROSS STATE LINES
+	</div>
+
+	<div id="t_98_25" style="position: absolute; left: 10.14%; top: 49.83%;" class="c_98_4">
+		From educational mandates to highway safety to
+	</div>
+
+	<div id="t_98_26" style="position: absolute; left: 8.82%; top: 51.72%;" class="c_98_4">
+		political elections &mdash; there are <span class="c_98_5">many</span> <span class="c_98_6">places where</span>
+	</div>
+
+	<div id="t_98_27" style="position: absolute; left: 8.82%; top: 53.62%;" class="c_98_4">
+		national and state governments overlap and
+	</div>
+
+	<div id="t_98_28" style="position: absolute; left: 8.82%; top: 55.51%;" class="c_98_4">
+		sometimes clash. Trade is one of the biggest.
+	</div>
+
+	<div id="t_98_29" style="position: absolute; left: 10.14%; top: 57.41%;" class="c_98_4">
+		The Constitution gave Congress the power to
+	</div>
+
+	<div id="t_98_30" style="position: absolute; left: 8.82%; top: 59.3%;" class="c_98_4">
+		regulate interstate and international commerce. Trade
+	</div>
+
+	<div id="t_98_31" style="position: absolute; left: 8.82%; top: 61.2%;" class="c_98_4">
+		within a state was outside of the federal government&rsquo;s
+	</div>
+
+	<div id="t_98_32" style="position: absolute; left: 8.82%; top: 63.09%;" class="c_98_4">
+		power. But what exactly is <span class="c_98_5">commerce</span><span class="c_98_6">? Who owns a</span>
+	</div>
+
+	<div id="t_98_33" style="position: absolute; left: 8.82%; top: 64.98%;" class="c_98_4">
+		river or a bay? Where do you draw the line between
+	</div>
+
+	<div id="t_98_34" style="position: absolute; left: 8.82%; top: 66.88%;" class="c_98_4">
+		trade inside a state and trade that crosses state lines?
+	</div>
+
+	<div id="t_98_35" style="position: absolute; left: 10.14%; top: 68.77%;" class="c_98_4">
+		Suppose you owned a factory in Virginia in the 1930s
+	</div>
+
+	<div id="t_98_36" style="position: absolute; left: 8.82%; top: 70.67%;" class="c_98_4">
+		that sold its product only within the state borders.
+	</div>
+
+	<div id="t_98_37" style="position: absolute; left: 8.82%; top: 72.56%;" class="c_98_4">
+		How could Congress tell you what to do? Here&rsquo;s how.
+	</div>
+
+	<div id="t_98_38" style="position: absolute; left: 8.82%; top: 74.36%;" class="c_98_4">
+		Citing the <span class="c_98_7">Commerce Clause</span><span class="c_98_6">, Congress wrote a law</span>
+	</div>
+
+	<div id="t_98_39" style="position: absolute; left: 8.82%; top: 76.35%;" class="c_98_4">
+		that said workers had the right to form labor unions.
+	</div>
+
+	<div id="t_98_40" style="position: absolute; left: 8.82%; top: 78.25%;" class="c_98_4">
+		In 1938 they passed a law forbidding child labor.
+	</div>
+
+	<div id="t_98_41" style="position: absolute; left: 8.82%; top: 80.14%;" class="c_98_4">
+		Congress also set maximum work hours and minimum
+	</div>
+
+	<div id="t_98_42" style="position: absolute; left: 8.82%; top: 82.03%;" class="c_98_4">
+		wage standards.
+	</div>
+
+	<div id="t_98_43" style="position: absolute; left: 10.14%; top: 83.93%;" class="c_98_4">
+		Even civil rights violations fell under the Commerce
+	</div>
+
+	<div id="t_98_44" style="position: absolute; left: 8.82%; top: 85.82%;" class="c_98_4">
+		Clause. When Congress passed the Civil Rights Act in
+	</div>
+
+	<div id="t_98_45" style="position: absolute; left: 8.82%; top: 87.72%;" class="c_98_4">
+		1964, a lawsuit swiftly challenged it. The case went to
+	</div>
+
+	<div id="t_98_46" style="position: absolute; left: 8.82%; top: 89.61%;" class="c_98_4">
+		the Supreme Court, which cited the Commerce Clause
+	</div>
+
+	<div id="t_98_47" style="position: absolute; left: 8.82%; top: 91.51%;" class="c_98_4">
+		as a way to forbid racial discrimination in motels and
+	</div>
+
+	<div id="t_98_48" style="position: absolute; left: 8.82%; top: 93.4%;" class="c_98_4">
+		restaurants used by travelers from other states.
+	</div>
+
+	<div id="t_98_49" style="position: absolute; left: 56.62%; top:15.21%;" class="c_98_8">
+		&ldquo;Some men look at constitutions
+	</div>
+
+	<div id="t_98_50" style="position: absolute; left: 56.62%; top:18.12%; letter-spacing:-0.02em;" class="c_98_8">
+		with sanctimonious reverence, and
+	</div>
+
+	<div id="t_98_51" style="position: absolute; left: 56.62%; top:21.03%;" class="c_98_8">
+		deem them&hellip;too sacred to be
+	</div>
+
+	<div id="t_98_52" style="position: absolute; left: 56.62%; top:23.93%;" class="c_98_8">
+		touched. They ascribe to the
+	</div>
+
+	<div id="t_98_53" style="position: absolute; left: 56.62%; top:26.84%; letter-spacing:-0.02em;" class="c_98_8">
+		preceding age a wisdom more than
+	</div>
+
+	<div id="t_98_54" style="position: absolute; left: 56.62%; top:29.74%; letter-spacing:-0.02em;" class="c_98_8">
+		human, and suppose what they did
+	</div>
+
+	<div id="t_98_55" style="position: absolute; left: 56.62%; top:32.65%;" class="c_98_8">
+		to be beyond amendment. I know
+	</div>
+
+	<div id="t_98_56" style="position: absolute; left: 56.62%; top:35.55%;" class="c_98_8">
+		that age well; I belonged to it and
+	</div>
+
+	<div id="t_98_57" style="position: absolute; left: 56.62%; top:38.46%;" class="c_98_8">
+		labored with it.
+	</div>
+
+	<div id="t_98_58" style="position: absolute; left: 59.03%; top:41.36%;" class="c_98_8">
+		But I know also, that laws and
+	</div>
+
+	<div id="t_98_59" style="position: absolute; left: 56.62%; top:44.27%;" class="c_98_8">
+		institutions must go hand in hand
+	</div>
+
+	<div id="t_98_60" style="position: absolute; left: 56.62%; top:47.17%;" class="c_98_8">
+		with the progress of the human
+	</div>
+
+	<div id="t_98_61" style="position: absolute; left: 56.62%; top:50.08%;" class="c_98_8">
+		mind.&rdquo;
+	</div>
+
+	<div id="t_98_62" style="position: absolute; left: 67.42%; top:50.08%;" class="c_98_8">
+		&ndash;<span class="c_98_9">Thomas Jefferson</span>
+	</div>
+
+	<div id="t_98_63" style="position: absolute; left: 57.60%; top:55.20%;" class="c_98_3">
+		THE POWER OF THE PURSE
+	</div>
+
+	<div id="t_98_64" style="position: absolute; left: 56.71%; top: 57.93%;" class="c_98_4">
+		Critics say an elastic interpretation of the
+	</div>
+
+	<div id="t_98_65" style="position: absolute; left: 55.39%; top: 59.82%;" class="c_98_4">
+		Commerce Clause allows Congress to exert
+	</div>
+
+	<div id="t_98_66" style="position: absolute; left: 55.39%; top: 61.72%;" class="c_98_4">
+		undue control over a state.
+	</div>
+
+	<div id="t_98_67" style="position: absolute; left: 56.71%; top: 63.61%;" class="c_98_4">
+		The &ldquo;power of the purse&rdquo; is a way to make
+	</div>
+
+	<div id="t_98_68" style="position: absolute; left: 55.39%; top: 65.5%;" class="c_98_4">
+		a state do something it might not want to.
+	</div>
+
+	<div id="t_98_69" style="position: absolute; left: 55.39%; top: 67.4%;" class="c_98_4">
+		For example, when Congress wanted to raise
+	</div>
+
+	<div id="t_98_70" style="position: absolute; left: 55.39%; top: 69.29%;" class="c_98_4">
+		the drinking age to 21 from 18 to reduce auto
+	</div>
+
+	<div id="t_98_71" style="position: absolute; left: 55.39%; top: 71.19%;" class="c_98_4">
+		accidents caused by young drivers, they
+	</div>
+
+	<div id="t_98_72" style="position: absolute; left: 55.39%; top: 73.08%;" class="c_98_4">
+		threatened to withhold federal highway
+	</div>
+
+	<div id="t_98_73" style="position: absolute; left: 55.39%; top: 74.98%;" class="c_98_4">
+		funds from states that did not change their
+	</div>
+
+	<div id="t_98_74" style="position: absolute; left: 55.39%; top: 76.87%;" class="c_98_4">
+		state laws.
+	</div>
+
+	<div id="t_98_75" style="position: absolute; left: 56.71%; top:78.67%;" class="c_98_10">
+		Title IX<span class="c_98_6">, a law that gave girls as many</span>
+	</div>
+
+	<div id="t_98_76" style="position: absolute; left: 55.39%; top: 80.66%;" class="c_98_4">
+		opportunities to play a sport as boys had,
+	</div>
+
+	<div id="t_98_77" style="position: absolute; left: 55.39%; top: 82.55%;" class="c_98_4">
+		used the threat of cuts to schools that
+	</div>
+
+	<div id="t_98_78" style="position: absolute; left: 55.39%; top: 84.45%;" class="c_98_4">
+		received federal funds if they did not comply.
+	</div>
+
+	<div id="t_98_79" style="position: absolute; left: 56.71%; top: 86.34%;" class="c_98_4">
+		Quality-of-life and equal opportunities in
+	</div>
+
+	<div id="t_98_80" style="position: absolute; left: 55.39%; top: 88.24%;" class="c_98_4">
+		school, on the job, and in the voting booth&mdash;
+	</div>
+
+	<div id="t_98_81" style="position: absolute; left: 55.39%; top: 90.13%;" class="c_98_4">
+		all have been required by the federal
+	</div>
+
+	<div id="t_98_82" style="position: absolute; left: 55.39%; top: 92.03%;" class="c_98_4">
+		government and then enacted by the states.
+	</div>
+
+	<div id="t_98_83" style="position: absolute; left: 5.08%; top: 94.63%;" class="c_98_11">
+		98
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_98_the_expansion.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 33%; top: 1.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_98_dividing_the_power.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51.5%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_98_some_men_look_at.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 46%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_98_across_state_lines.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51.5%; top: 54.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_98_the_power_of_the_purse.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_99">
+                                                                                                <div class="pageData">
+
+	<div id="t_99_0" style="position: absolute; left: 47.79%; top:3.98%;" class="c_99_0">
+		Yosemite&mdash;the beginning of the park system
+	</div>
+
+	<div id="t_99_1" style="position: absolute; left: 11.35%; top:6.88%;" class="c_99_1">
+		THE NATIONAL PARKS
+	</div>
+
+	<div id="t_99_2" style="position: absolute; left: 12.35%; top: 9.65%;" class="c_99_2">
+		John Muir was a remarkable man. He
+	</div>
+
+	<div id="t_99_3" style="position: absolute; left: 11.03%; top: 11.54%;" class="c_99_2">
+		gloried in nature and shared his passion
+	</div>
+
+	<div id="t_99_4" style="position: absolute; left: 11.03%; top: 13.43%;" class="c_99_2">
+		for the outdoors through his writings. One
+	</div>
+
+	<div id="t_99_5" style="position: absolute; left: 11.03%; top: 15.33%;" class="c_99_2">
+		of his readers was President Lincoln. In the
+	</div>
+
+	<div id="t_99_6" style="position: absolute; left: 11.03%; top: 17.22%;" class="c_99_2">
+		midst of the Civil War, Congress took time
+	</div>
+
+	<div id="t_99_7" style="position: absolute; left: 11.03%; top: 19.12%;" class="c_99_2">
+		to pass the Yosemite Grant Act to create
+	</div>
+
+	<div id="t_99_8" style="position: absolute; left: 11.03%; top: 21.01%;" class="c_99_2">
+		the very first protected park in America.
+	</div>
+
+	<div id="t_99_9" style="position: absolute; left: 11.03%; top: 22.91%;" class="c_99_2">
+		Eight years later, a new type of park was
+	</div>
+
+	<div id="t_99_10" style="position: absolute; left: 11.03%; top: 24.8%;" class="c_99_2">
+		created&mdash;a national park.
+	</div>
+
+	<div id="t_99_11" style="position: absolute; left: 12.35%; top: 26.7%;" class="c_99_2">
+		Thanks to an act of Congress,
+	</div>
+
+	<div id="t_99_12" style="position: absolute; left: 11.03%; top: 28.59%;" class="c_99_2">
+		spectacular Yellowstone became
+	</div>
+
+	<div id="t_99_13" style="position: absolute; left: 11.03%; top: 30.48%;" class="c_99_2">
+		America&rsquo;s first official national
+	</div>
+
+	<div id="t_99_14" style="position: absolute; left: 11.03%; top: 32.38%;" class="c_99_2">
+		park. In 1890 Yosemite, too,
+	</div>
+
+	<div id="t_99_15" style="position: absolute; left: 11.03%; top: 34.27%;" class="c_99_2">
+		became a national park, and in
+	</div>
+
+	<div id="t_99_16" style="position: absolute; left: 11.03%; top: 36.17%;" class="c_99_2">
+		1916 Congress established the
+	</div>
+
+	<div id="t_99_17" style="position: absolute; left: 11.03%; top: 38.06%;" class="c_99_2">
+		National Park Service. Today 59
+	</div>
+
+	<div id="t_99_18" style="position: absolute; left: 11.03%; top: 39.96%;" class="c_99_2">
+		national parks, as well as
+	</div>
+
+	<div id="t_99_19" style="position: absolute; left: 11.03%; top: 41.85%;" class="c_99_2">
+		hundreds of national monuments
+	</div>
+
+	<div id="t_99_20" style="position: absolute; left: 11.03%; top: 43.75%;" class="c_99_2">
+		and national historical parks,
+	</div>
+
+	<div id="t_99_21" style="position: absolute; left: 11.03%; top: 45.64%;" class="c_99_2">
+		celebrate America&rsquo;s most special
+	</div>
+
+	<div id="t_99_22" style="position: absolute; left: 11.03%; top: 47.53%;" class="c_99_2">
+		places.
+	</div>
+
+	<div id="t_99_23" style="position: absolute; left: 14.73%; top:49.17%;" class="c_99_3">
+		For Body
+	</div>
+
+	<div id="t_99_24" style="position: absolute; left: 17.07%; top:54.60%;" class="c_99_3">
+        &amp; Mind
+	</div>
+
+	<div id="t_99_25" style="position: absolute; left: 12.57%; top:62.15%;" class="c_99_4">
+		STATE AND NATION TOGETHER
+	</div>
+
+	<div id="t_99_26" style="position: absolute; left: 41.69%; top:26.40%;" class="c_99_5">
+		Natural Bridge&mdash;
+	</div>
+
+	<div id="t_99_27" style="position: absolute; left: 41.69%; top:28.04%;" class="c_99_5">
+		Virginia&rsquo;s newest
+	</div>
+
+	<div id="t_99_28" style="position: absolute; left: 41.69%; top:29.68%;" class="c_99_5">
+		state park
+	</div>
+
+	<div id="t_99_29" style="position: absolute; left: 61.57%; top:28.64%;" class="c_99_1">
+		VIRGINIA&rsquo;S STATE PARKS
+	</div>
+
+	<div id="t_99_30" style="position: absolute; left: 62.78%; top: 31.31%;" class="c_99_2">
+		In 1936 Virginia opened six state
+	</div>
+
+	<div id="t_99_31" style="position: absolute; left: 61.46%; top: 33.2%;" class="c_99_2">
+		parks in some of our state&rsquo;s most
+	</div>
+
+	<div id="t_99_32" style="position: absolute; left: 61.46%; top: 35.09%;" class="c_99_2">
+		splendid areas. Today there are 36
+	</div>
+
+	<div id="t_99_33" style="position: absolute; left: 61.46%; top: 36.99%;" class="c_99_2">
+		state parks in Virginia, and no
+	</div>
+
+	<div id="t_99_34" style="position: absolute; left: 61.46%; top: 38.88%;" class="c_99_2">
+		Virginian lives more than an hour's
+	</div>
+
+	<div id="t_99_35" style="position: absolute; left: 61.46%; top: 40.78%;" class="c_99_2">
+		drive from the nearest one. There are
+	</div>
+
+	<div id="t_99_36" style="position: absolute; left: 61.46%; top: 42.67%;" class="c_99_2">
+		lush river valleys, sacred battlefields,
+	</div>
+
+	<div id="t_99_37" style="position: absolute; left: 61.46%; top: 44.57%;" class="c_99_2">
+		historic farms, eerie land formations,
+	</div>
+
+	<div id="t_99_38" style="position: absolute; left: 48.36%; top: 46.46%;" class="c_99_2">
+		and pristine seashores. Each park allows Virginians
+	</div>
+
+	<div id="t_99_39" style="position: absolute; left: 48.36%; top: 48.36%;" class="c_99_2">
+		to see the state in a way that would make John Muir
+	</div>
+
+	<div id="t_99_40" style="position: absolute; left: 48.36%; top: 50.25%;" class="c_99_2">
+		happy. Find your nearest park and visit it often!
+	</div>
+
+	<div id="t_99_41" style="position: absolute; left: 46.90%; top:53.09%;" class="c_99_1">
+		STATES AND THE SCHOOLS
+	</div>
+
+	<div id="t_99_42" style="position: absolute; left: 48.22%; top: 55.69%;" class="c_99_2">
+		When it came to education, state and local
+	</div>
+
+	<div id="t_99_43" style="position: absolute; left: 46.90%; top: 57.58%;" class="c_99_2">
+		governments looked after the schools. Until well after
+	</div>
+
+	<div id="t_99_44" style="position: absolute; left: 46.90%; top: 59.48%;" class="c_99_2">
+		the Civil War, most students ended their schooling by
+	</div>
+
+	<div id="t_99_45" style="position: absolute; left: 46.90%; top: 61.37%;" class="c_99_2">
+		8th grade, but all that began to change when the federal
+	</div>
+
+	<div id="t_99_46" style="position: absolute; left: 46.90%; top: 63.27%;" class="c_99_2">
+		government stepped in. By the early 1900s, Congress
+	</div>
+
+	<div id="t_99_47" style="position: absolute; left: 46.90%; top: 65.16%;" class="c_99_2">
+		was urging the teaching of home economics and
+	</div>
+
+	<div id="t_99_48" style="position: absolute; left: 33.66%; top: 67.05%;" class="c_99_2">
+		agriculture in a new kind of school&mdash;high school! In the 1960s the federal
+	</div>
+
+	<div id="t_99_49" style="position: absolute; left: 33.66%; top: 68.95%;" class="c_99_2">
+		government passed laws requiring equal opportunities for all students.
+	</div>
+
+	<div id="t_99_50" style="position: absolute; left: 45.40%; top:70.94%;" class="c_99_1">
+		A NEW IDEA FOR EDUCATION
+	</div>
+
+	<div id="t_99_51" style="position: absolute; left: 34.92%; top: 73.66%;" class="c_99_2">
+		Until 1862, colleges in America were mostly for white males. That year,
+	</div>
+
+	<div id="t_99_52" style="position: absolute; left: 34.04%; top: 75.56%;" class="c_99_2">
+		Congress approved legislation to create another level of schooling.
+	</div>
+
+	<div id="t_99_53" style="position: absolute; left: 34.04%; top: 77.45%;" class="c_99_2">
+		Federal land grants of thousands of acres were offered free to each state
+	</div>
+
+	<div id="t_99_54" style="position: absolute; left: 34.04%; top: 79.34%;" class="c_99_2">
+		if that state would build a college. There were three goals. Higher
+	</div>
+
+	<div id="t_99_55" style="position: absolute; left: 34.04%; top: 81.24%;" class="c_99_2">
+		education should be available to the working class, not just the wealthy.
+	</div>
+
+	<div id="t_99_56" style="position: absolute; left: 34.04%; top: 83.13%;" class="c_99_2">
+		Eventually, these colleges would be open to all people&mdash;black and
+	</div>
+
+	<div id="t_99_57" style="position: absolute; left: 34.04%; top: 85.03%;" class="c_99_2">
+		white, male and female. Useful subjects, such as engineering and
+	</div>
+
+	<div id="t_99_58" style="position: absolute; left: 34.04%; top: 86.92%;" class="c_99_2">
+		farming skills, would be taught, not just traditional subjects like ancient
+	</div>
+
+	<div id="t_99_59" style="position: absolute; left: 34.04%; top: 88.82%;" class="c_99_2">
+		Greek or Latin. Later on, research and public outreach became key
+	</div>
+
+	<div id="t_99_60" style="position: absolute; left: 34.04%; top: 90.71%;" class="c_99_2">
+		parts of what the land-grant colleges did, sharing their discoveries with
+	</div>
+
+	<div id="t_99_61" style="position: absolute; left: 34.04%; top: 92.61%;" class="c_99_2">
+		people across the state so that everyone could benefit.
+	</div>
+
+	<div id="t_99_62" style="position: absolute; left: 93.18%; top: 94.34%;" class="c_99_6">
+		99
+	</div>
+
+	<div id="t_99_63" style="position: absolute; left: 11.44%; top:80.83%;" class="c_99_0">
+		Beginning in 1872, Virginia
+	</div>
+
+	<div id="t_99_64" style="position: absolute; left: 11.44%; top:82.47%;" class="c_99_0">
+		had two land-grant colleges,
+	</div>
+
+	<div id="t_99_65" style="position: absolute; left: 11.44%; top:84.11%;" class="c_99_0">
+		one for white men, and the
+	</div>
+
+	<div id="t_99_66" style="position: absolute; left: 11.44%; top:85.75%;" class="c_99_0">
+		other for black men and black
+	</div>
+
+	<div id="t_99_67" style="position: absolute; left: 11.44%; top:87.40%;" class="c_99_0">
+		women. Today the state&rsquo;s two
+	</div>
+
+	<div id="t_99_68" style="position: absolute; left: 11.44%; top:89.04%;" class="c_99_0">
+		land-grant schools are
+	</div>
+
+	<div id="t_99_69" style="position: absolute; left: 11.44%; top:90.68%;" class="c_99_0">
+		Virginia Tech and Virginia
+	</div>
+
+	<div id="t_99_70" style="position: absolute; left: 11.44%; top:92.32%;" class="c_99_0">
+		State University.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 42%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_99_yosemite.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 6%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_99_the_national_parks.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 36%; top: 24.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_99_natural_bridge.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 59%; top: 23%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_99_virginias_state_parks.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 7%; top: 49.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_99_for_body_and_mind.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 81%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_99_beginning_in_1872.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_98_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_99_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_98_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="98.html?page=right"; onclick="goto('98.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="100.html"; onclick="goto('100.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="100.html"; onclick="goto('100.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

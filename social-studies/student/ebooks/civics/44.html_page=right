@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_44.css">
+                <link rel="stylesheet" href="css/civics_45.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="42.html?page=right"; onclick="goto('42.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="44.html"; onclick="goto('44.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="42.html?page=right"; onclick="goto('42.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_44_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_45_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_44_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="44.html?page=right"; onclick="goto('44.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="46.html"; onclick="goto('46.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="46.html"; onclick="goto('46.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="42.html?page=right"; onclick="goto('42.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="44.html"; onclick="goto('44.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="42.html?page=right"; onclick="goto('42.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_44">
+                                                                                                <div class="pageData">
+
+	<div id="t_44_0" style="position: absolute; left: 59.16%; top:9.23%;" class="c_44_0">
+		&ldquo;AM I NOT A MAN
+	</div>
+
+	<div id="t_44_1" style="position: absolute; left: 59.01%; top:11.26%;" class="c_44_0">
+		AND A BROTHER?&rdquo;
+	</div>
+
+	<div id="t_44_2" style="position: absolute; left: 56.26%; top:14.54%;" class="c_44_0">
+		THE 13TH, 14TH, 15TH,
+	</div>
+
+	<div id="t_44_3" style="position: absolute; left: 54.53%; top:16.56%;" class="c_44_0">
+		AND 24TH AMENDMENTS
+	</div>
+
+	<div id="t_44_4" style="position: absolute; left: 48.21%; top:19.41%;" class="c_44_1">
+		After the Civil War, new amendments to the
+	</div>
+
+	<div id="t_44_5" style="position: absolute; left: 39.71%; top:21.43%;" class="c_44_1">
+		Constitution brought slavery to an end, established
+	</div>
+
+	<div id="t_44_6" style="position: absolute; left: 39.71%; top:23.45%;" class="c_44_1">
+		citizenship for African Americans, and told states they
+	</div>
+
+	<div id="t_44_7" style="position: absolute; left: 39.71%; top:25.48%;" class="c_44_1">
+		could not use race to keep black men from voting.
+	</div>
+
+	<div id="t_44_8" style="position: absolute; left: 41.13%; top:27.50%;" class="c_44_1">
+		The Thirteenth Amendment ended slavery. The
+	</div>
+
+	<div id="t_44_9" style="position: absolute; left: 39.71%; top:29.52%;" class="c_44_1">
+		Fourteenth declared that anyone born in the United States
+	</div>
+
+	<div id="t_44_10" style="position: absolute; left: 39.71%; top:31.54%;" class="c_44_1">
+		was a citizen, and it spoke of the rights that former slaves
+	</div>
+
+	<div id="t_44_11" style="position: absolute; left: 39.71%; top:33.53%;" class="c_44_2">
+		must <span class="c_44_3">have. When the states found ways to subvert the</span>
+	</div>
+
+	<div id="t_44_12" style="position: absolute; left: 39.71%; top:35.58%;" class="c_44_1">
+		Fourteenth Amendment, Congress tried again.
+	</div>
+
+	<div id="t_44_13" style="position: absolute; left: 41.13%; top:37.60%;" class="c_44_1">
+		The Fifteenth Amendment promised the right to vote to
+	</div>
+
+	<div id="t_44_14" style="position: absolute; left: 39.71%; top:39.59%;" class="c_44_2">
+		all <span class="c_44_3">men, regardless of race. African Americans could now</span>
+	</div>
+
+	<div id="t_44_15" style="position: absolute; left: 39.71%; top:41.64%;" class="c_44_1">
+		vote in huge numbers. They ran for political office and
+	</div>
+
+	<div id="t_44_16" style="position: absolute; left: 39.71%; top:43.66%;" class="c_44_1">
+		built schools and universities, but by the end of the 1870s,
+	</div>
+
+	<div id="t_44_17" style="position: absolute; left: 39.71%; top:45.68%;" class="c_44_1">
+		some states passed laws denying black men the right to
+	</div>
+
+	<div id="t_44_18" style="position: absolute; left: 39.71%; top:47.68%;" class="c_44_1">
+		vote. Not until 1965, and the passage of the <span class="c_44_4">Voting Rights</span>
+	</div>
+
+	<div id="t_44_19" style="position: absolute; left: 39.71%; top:49.70%;" class="c_44_2">
+		Act<span class="c_44_3">, did African Americans in southern states reacquire</span>
+	</div>
+
+	<div id="t_44_20" style="position: absolute; left: 39.71%; top:51.75%;" class="c_44_1">
+		the right to vote, as unfair poll taxes (large sums of money
+	</div>
+
+	<div id="t_44_21" style="position: absolute; left: 39.71%; top:53.77%;" class="c_44_1">
+		that had to be paid in order to cast a ballot) were
+	</div>
+
+	<div id="t_44_22" style="position: absolute; left: 39.71%; top:55.79%;" class="c_44_1">
+		abolished by the Twenty-fourth Amendment.
+	</div>
+
+	<div id="t_44_23" style="position: absolute; left: 8.82%; top: 46.26%; letter-spacing: 0.01em;" class="c_44_5">
+		Silenced voices
+	</div>
+
+	<div id="t_44_24" style="position: absolute; left: 8.82%; top: 48.03%; letter-spacing: 0.01em;" class="c_44_5">
+		struggled to be heard.
+	</div>
+
+	<div id="t_44_25" style="position: absolute; left: 24.76%; top: 53.27%; letter-spacing: 0.01em;" class="c_44_5">
+		Native
+	</div>
+
+	<div id="t_44_26" style="position: absolute; left: 24.76%; top: 55.03%; letter-spacing: 0.01em;" class="c_44_5">
+		Americans
+	</div>
+
+	<div id="t_44_27" style="position: absolute; left: 24.76%; top: 56.80%; letter-spacing: 0.01em;" class="c_44_5">
+		were not
+	</div>
+
+	<div id="t_44_28" style="position: absolute; left: 24.76%; top: 58.57%; letter-spacing: 0.01em;" class="c_44_5">
+		considered
+	</div>
+
+	<div id="t_44_29" style="position: absolute; left: 24.76%; top: 60.34%; letter-spacing: 0.01em;" class="c_44_5">
+		citizens until
+	</div>
+
+	<div id="t_44_30" style="position: absolute; left: 24.76%; top: 62.11%; letter-spacing: 0.01em;" class="c_44_5">
+		1924 and,
+	</div>
+
+	<div id="t_44_31" style="position: absolute; left: 24.76%; top: 63.88%; letter-spacing: 0.01em;" class="c_44_5">
+		even then,
+	</div>
+
+	<div id="t_44_32" style="position: absolute; left: 24.76%; top: 65.64%; letter-spacing: 0.01em;" class="c_44_5">
+		were unable
+	</div>
+
+	<div id="t_44_33" style="position: absolute; left: 24.76%; top: 67.41%; letter-spacing: 0.01em;" class="c_44_5">
+		to vote in
+	</div>
+
+	<div id="t_44_34" style="position: absolute; left: 24.76%; top: 69.18%; letter-spacing: 0.01em;" class="c_44_5">
+		many states.
+	</div>
+
+	<div id="t_44_35" style="position: absolute; left: 8.82%; top: 89.75%; letter-spacing: 0.01em;" class="c_44_5">
+		Women in many states had to
+	</div>
+
+	<div id="t_44_36" style="position: absolute; left: 8.82%; top: 91.52%; letter-spacing: 0.01em;" class="c_44_5">
+		wait until 1920 to vote in
+	</div>
+
+	<div id="t_44_37" style="position: absolute; left: 9.29%; top: 93.28%; letter-spacing: 0.01em;" class="c_44_5">
+		national elections.
+	</div>
+
+	<div id="t_44_38" style="position: absolute; left: 5.31%; top: 94.26%;" class="c_44_6">
+		44
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 10%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_44_democracy_in_action.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 44%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_44_silenced_voices.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_45">
+                                                                                                <div class="pageData">
+
+	<div id="t_45_0" style="position: absolute; left: 15.25%; top:10.83%;" class="c_45_0">
+		DID WE MAKE A MISTAKE?
+	</div>
+
+	<div id="t_45_1" style="position: absolute; left: 19.08%; top:13.61%;" class="c_45_0">
+		THE 18TH AND 21ST
+	</div>
+
+	<div id="t_45_2" style="position: absolute; left: 22.55%; top:15.63%;" class="c_45_0">
+		AMENDMENTS
+	</div>
+
+	<div id="t_45_3" style="position: absolute; left: 12.35%; top:18.25%;" class="c_45_1">
+		The subject of alcohol consumption might not
+	</div>
+
+	<div id="t_45_4" style="position: absolute; left: 11.87%; top:20.27%;" class="c_45_1">
+		seem all that important, compared to human
+	</div>
+
+	<div id="t_45_5" style="position: absolute; left: 11.87%; top:22.29%;" class="c_45_1">
+		injustices, but in America in the late 1800s,
+	</div>
+
+	<div id="t_45_6" style="position: absolute; left: 11.87%; top:24.31%;" class="c_45_1">
+		public drunkenness was being called &ldquo;a
+	</div>
+
+	<div id="t_45_7" style="position: absolute; left: 11.87%; top:26.33%;" class="c_45_1">
+		national curse&rdquo; by many religious groups that
+	</div>
+
+	<div id="t_45_8" style="position: absolute; left: 11.87%; top:28.36%;" class="c_45_1">
+		demanded a solution.
+	</div>
+
+	<div id="t_45_9" style="position: absolute; left: 13.29%; top:30.38%;" class="c_45_1">
+		In 1919 Congress proposed the Eighteenth
+	</div>
+
+	<div id="t_45_10" style="position: absolute; left: 11.87%; top:32.40%;" class="c_45_1">
+		Amendment, which prohibited the making,
+	</div>
+
+	<div id="t_45_11" style="position: absolute; left: 11.87%; top:34.42%;" class="c_45_1">
+		transportation, and sale of intoxicating drinks.
+	</div>
+
+	<div id="t_45_12" style="position: absolute; left: 11.87%; top:36.44%;" class="c_45_1">
+		Instead of solving the problem, crime increased
+	</div>
+
+	<div id="t_45_13" style="position: absolute; left: 11.87%; top:38.46%;" class="c_45_1">
+		and the law was widely ignored. The Twenty-first
+	</div>
+
+	<div id="t_45_14" style="position: absolute; left: 11.87%; top:40.48%;" class="c_45_1">
+		Amendment, proposed by Congress in 1933 and
+	</div>
+
+	<div id="t_45_15" style="position: absolute; left: 11.87%; top:42.50%;" class="c_45_1">
+		quickly ratified, ended Prohibition and returned
+	</div>
+
+	<div id="t_45_16" style="position: absolute; left: 11.87%; top:44.52%;" class="c_45_1">
+		the regulation of alcohol to the states&mdash;the only time
+	</div>
+
+	<div id="t_45_17" style="position: absolute; left: 11.87%; top:46.54%;" class="c_45_1">
+		an amendment has ever been undone.
+	</div>
+
+	<div id="t_45_18" style="position: absolute; left: 39.18%; top:53.94%;" class="c_45_0">
+		ARE MEN AND WOMEN EQUAL?
+	</div>
+
+	<div id="t_45_19" style="position: absolute; left: 28.58%; top:56.72%;" class="c_45_0">
+		THE 19TH AMENDMENT AND A FAILURE FOR THE ERA
+	</div>
+
+	<div id="t_45_20" style="position: absolute; left: 28.81%; top:59.70%;" class="c_45_1">
+		Earning the right to vote in 1920 was a huge achievement for America&rsquo;s women.
+	</div>
+
+	<div id="t_45_21" style="position: absolute; left: 32.84%; top:61.72%;" class="c_45_1">
+		Fifty years later there were still many inequalities, so the movement for an
+	</div>
+
+	<div id="t_45_22" style="position: absolute; left: 34.99%; top:63.74%;" class="c_45_1">
+		Equal Rights Amendment (ERA) began. The amendment passed in both
+	</div>
+
+	<div id="t_45_23" style="position: absolute; left: 35.63%; top:65.76%;" class="c_45_1">
+		the U.S. Senate and House of Representatives, and in March 1972 it
+	</div>
+
+	<div id="t_45_24" style="position: absolute; left: 35.59%; top:67.79%;" class="c_45_1">
+		was sent to the states for ratification. But soon scare tactics ran
+	</div>
+
+	<div id="t_45_25" style="position: absolute; left: 34.76%; top:69.81%;" class="c_45_1">
+		rampant. Ads said that women would have to use men&rsquo;s bathrooms and
+	</div>
+
+	<div id="t_45_26" style="position: absolute; left: 48.92%; top:71.83%;" class="c_45_1">
+		that they would be sent to the front lines in combat. It
+	</div>
+
+	<div id="t_45_27" style="position: absolute; left: 48.92%; top:73.85%;" class="c_45_1">
+		was alleged that the ERA would end a woman&rsquo;s right to
+	</div>
+
+	<div id="t_45_28" style="position: absolute; left: 48.92%; top:75.87%;" class="c_45_1">
+		be supported by her husband.
+	</div>
+
+	<div id="t_45_29" style="position: absolute; left: 48.92%; top:77.89%;" class="c_45_1">
+		Some groups were very much against the ERA, arguing
+	</div>
+
+	<div id="t_45_30" style="position: absolute; left: 23.76%; top:84.21%;" class="c_45_2">
+		Ratified
+	</div>
+
+	<div id="t_45_31" style="position: absolute; left: 23.69%; top:86.38%;" class="c_45_2">
+		Did not ratify
+	</div>
+
+	<div id="t_45_32" style="position: absolute; left: 46.15%; top:79.91%;" class="c_45_1">
+		that states would not be able to grant women any special
+	</div>
+
+	<div id="t_45_33" style="position: absolute; left: 46.15%; top:81.90%;" class="c_45_1">
+		protection. ERA supporters argued that only a
+	</div>
+
+	<div id="t_45_34" style="position: absolute; left: 46.15%; top:83.95%;" class="c_45_1">
+		constitutional amendment would ensure true and
+	</div>
+
+	<div id="t_45_35" style="position: absolute; left: 46.15%; top:85.97%;" class="c_45_1">
+		permanent equality for women all across America. While
+	</div>
+
+	<div id="t_45_36" style="position: absolute; left: 46.15%; top:87.99%;" class="c_45_1">
+		the debate raged on, the time limit for state ratification
+	</div>
+
+	<div id="t_45_37" style="position: absolute; left: 46.15%; top:90.01%;" class="c_45_1">
+		passed, and the amendment simply ran out of time.
+	</div>
+
+	<div id="t_45_38" style="position: absolute; left: 93.90%; top: 94.25%;" class="c_45_5">
+		45
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 7%; top: 9%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_45_did_we_make_a_mistake.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 30%; top: 52%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_45_are_men_and_women.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_44_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_45_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_44_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="44.html?page=right"; onclick="goto('44.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="46.html"; onclick="goto('46.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="46.html"; onclick="goto('46.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

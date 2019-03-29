@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_222.css">
+                <link rel="stylesheet" href="css/civics_223.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="222.html"; onclick="goto('222.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="222.html?page=right"; onclick="goto('222.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="224.html"; onclick="goto('224.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="224.html"; onclick="goto('224.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="222.html"; onclick="goto('222.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_222">
+                                                                                                <div class="pageData">
+
+	<div id="t_222_0" style="position: absolute; left: 8.82%; top:6.58%;" class="c_222_0">
+		Franklin, Benjamin, 16, 33, 50
+	</div>
+
+	<div id="t_222_1" style="position: absolute; left: 8.82%; top:7.97%;" class="c_222_0">
+		free market economy, 155
+	</div>
+
+	<div id="t_222_2" style="position: absolute; left: 8.82%; top:9.36%;" class="c_222_0">
+		freedom of assembly, 15, 40
+	</div>
+
+	<div id="t_222_3" style="position: absolute; left: 8.82%; top:10.75%;" class="c_222_0">
+		freedom of petition, 15, 20, 40
+	</div>
+
+	<div id="t_222_4" style="position: absolute; left: 8.82%; top:12.14%;" class="c_222_0">
+		freedom of religion, 14, 31, 40
+	</div>
+
+	<div id="t_222_5" style="position: absolute; left: 8.82%; top:13.52%;" class="c_222_0">
+		freedom of speech, 14, 40, 56, 59
+	</div>
+
+	<div id="t_222_6" style="position: absolute; left: 8.82%; top:14.91%;" class="c_222_0">
+		freedom of the press, 15
+	</div>
+
+	<div id="t_222_7" style="position: absolute; left: 8.82%; top:16.30%;" class="c_222_0">
+		fundamental principles of American
+	</div>
+
+	<div id="t_222_8" style="position: absolute; left: 10.14%; top:17.69%;" class="c_222_0">
+		democracy, 29<span class="c_222_1">G</span>
+	</div>
+
+	<div id="t_222_9" style="position: absolute; left: 8.82%; top:21.23%;" class="c_222_0">
+		Gandhi, Mahatma, 122
+	</div>
+
+	<div id="t_222_10" style="position: absolute; left: 8.82%; top:22.62%;" class="c_222_0">
+		gerrymandering, 72, 214
+	</div>
+
+	<div id="t_222_11" style="position: absolute; left: 8.82%; top:24.01%;" class="c_222_2">
+		Gideon v. Wainwright, <span class="c_222_3">139</span>
+	</div>
+
+	<div id="t_222_12" style="position: absolute; left: 8.82%; top:25.39%;" class="c_222_0">
+		Ginsburg, Ruth Bader, 83
+	</div>
+
+	<div id="t_222_13" style="position: absolute; left: 8.82%; top:26.78%;" class="c_222_0">
+		global economy, 129, 154, 166&ndash;167
+	</div>
+
+	<div id="t_222_14" style="position: absolute; left: 8.82%; top:28.17%;" class="c_222_0">
+		globalization, 190
+	</div>
+
+	<div id="t_222_15" style="position: absolute; left: 8.82%; top:29.56%;" class="c_222_0">
+		Gore, Al, 61
+	</div>
+
+	<div id="t_222_16" style="position: absolute; left: 8.82%; top:30.95%;" class="c_222_0">
+		government agencies, 80&ndash;81
+	</div>
+
+	<div id="t_222_17" style="position: absolute; left: 8.82%; top:32.34%;" class="c_222_0">
+		government bonds, 177
+	</div>
+
+	<div id="t_222_18" style="position: absolute; left: 8.82%; top:33.73%;" class="c_222_0">
+		government bureaucracy, 80
+	</div>
+
+	<div id="t_222_19" style="position: absolute; left: 8.82%; top:35.11%;" class="c_222_0">
+		government debt, 175&ndash;177
+	</div>
+
+	<div id="t_222_20" style="position: absolute; left: 8.82%; top:36.50%;" class="c_222_0">
+		government regulation in marketplace,
+	</div>
+
+	<div id="t_222_21" style="position: absolute; left: 10.14%; top:37.89%;" class="c_222_0">
+		172&ndash;173
+	</div>
+
+	<div id="t_222_22" style="position: absolute; left: 8.82%; top:39.28%;" class="c_222_0">
+		government-provided goods and
+	</div>
+
+	<div id="t_222_23" style="position: absolute; left: 10.14%; top:40.67%;" class="c_222_0">
+		services, 174&ndash;175
+	</div>
+
+	<div id="t_222_24" style="position: absolute; left: 8.82%; top:42.06%;" class="c_222_0">
+		governor&rsquo;s roles and responsibilities, 102
+	</div>
+
+	<div id="t_222_25" style="position: absolute; left: 8.82%; top:43.45%;" class="c_222_0">
+		gun violence, young people, 122, 127
+	</div>
+
+	<div id="t_222_26" style="position: absolute; left: 21.08%; top:45.28%;" class="c_222_4">
+		H
+	</div>
+
+	<div id="t_222_27" style="position: absolute; left: 8.82%; top:48.37%;" class="c_222_0">
+		Hamilton, Alexander, 35, 75, 96, 164,
+	</div>
+
+	<div id="t_222_28" style="position: absolute; left: 9.70%; top:49.76%;" class="c_222_0">
+		178
+	</div>
+
+	<div id="t_222_29" style="position: absolute; left: 8.82%; top:51.15%;" class="c_222_0">
+		Health &amp;Human Resources (Virginia),
+	</div>
+
+	<div id="t_222_30" style="position: absolute; left: 9.70%; top:52.54%;" class="c_222_0">
+		103
+	</div>
+
+	<div id="t_222_31" style="position: absolute; left: 8.82%; top:53.93%;" class="c_222_0">
+		Health &amp;Human Services (U.S.), 77
+	</div>
+
+	<div id="t_222_32" style="position: absolute; left: 8.82%; top:55.32%;" class="c_222_0">
+		history of banking in America, 164
+	</div>
+
+	<div id="t_222_33" style="position: absolute; left: 8.82%; top:56.71%;" class="c_222_0">
+		Homeland Security (U.S.), 77, 129
+	</div>
+
+	<div id="t_222_34" style="position: absolute; left: 8.82%; top:58.10%;" class="c_222_0">
+		House majority leader and whip, 72
+	</div>
+
+	<div id="t_222_35" style="position: absolute; left: 8.82%; top:59.48%;" class="c_222_0">
+		Housing &amp;Urban Development, 77
+	</div>
+
+	<div id="t_222_36" style="position: absolute; left: 8.82%; top:60.87%;" class="c_222_0">
+		Hughes, Charles Evans, 82
+	</div>
+
+	<div id="t_222_37" style="position: absolute; left: 8.82%; top:62.26%;" class="c_222_0">
+		human resources, 152
+	</div>
+
+	<div id="t_222_38" style="position: absolute; left: 21.50%; top:64.09%;" class="c_222_4">
+		I
+	</div>
+
+	<div id="t_222_39" style="position: absolute; left: 8.82%; top:67.19%;" class="c_222_0">
+		immigrants, 10&ndash;13, 124, 126
+	</div>
+
+	<div id="t_222_40" style="position: absolute; left: 8.82%; top:68.58%;" class="c_222_0">
+		impact of technology on trade, 167
+	</div>
+
+	<div id="t_222_41" style="position: absolute; left: 8.82%; top:69.97%;" class="c_222_0">
+		impeachment, 85
+	</div>
+
+	<div id="t_222_42" style="position: absolute; left: 8.82%; top:71.35%;" class="c_222_0">
+		implied congressional powers, 86&ndash;87
+	</div>
+
+	<div id="t_222_43" style="position: absolute; left: 8.82%; top:72.74%;" class="c_222_0">
+		implied federal powers, 138
+	</div>
+
+	<div id="t_222_44" style="position: absolute; left: 8.82%; top:74.13%;" class="c_222_0">
+		imports, 166&ndash;167
+	</div>
+
+	<div id="t_222_45" style="position: absolute; left: 8.82%; top:75.52%;" class="c_222_0">
+		inalienable rights, 33
+	</div>
+
+	<div id="t_222_46" style="position: absolute; left: 8.82%; top:76.91%;" class="c_222_0">
+		incentives to purchase, 153
+	</div>
+
+	<div id="t_222_47" style="position: absolute; left: 8.82%; top:78.30%;" class="c_222_0">
+		independent cities, 108&ndash;109, 215
+	</div>
+
+	<div id="t_222_48" style="position: absolute; left: 8.82%; top:79.69%;" class="c_222_0">
+		Independents, 52
+	</div>
+
+	<div id="t_222_49" style="position: absolute; left: 8.82%; top:81.07%;" class="c_222_0">
+		individual rights, 41
+	</div>
+
+	<div id="t_222_50" style="position: absolute; left: 8.82%; top:82.46%;" class="c_222_0">
+		inflation, 180&ndash;181
+	</div>
+
+	<div id="t_222_51" style="position: absolute; left: 8.82%; top:83.85%;" class="c_222_0">
+		insure domestic tranquility, 37
+	</div>
+
+	<div id="t_222_52" style="position: absolute; left: 8.82%; top:85.24%;" class="c_222_0">
+		interest rates, control of, 181
+	</div>
+
+	<div id="t_222_53" style="position: absolute; left: 8.82%; top:86.63%;" class="c_222_0">
+		international trade, 166&ndash;167
+	</div>
+
+	<div id="t_222_54" style="position: absolute; left: 8.82%; top:88.02%;" class="c_222_0">
+		interstate commerce, 98
+	</div>
+
+	<div id="t_222_55" style="position: absolute; left: 8.82%; top:89.41%;" class="c_222_0">
+		interstate highways, 174
+	</div>
+
+	<div id="t_222_56" style="position: absolute; left: 8.82%; top:90.79%;" class="c_222_0">
+		investigative journalism, 122&ndash;123
+	</div>
+
+	<div id="t_222_57" style="position: absolute; left: 49.50%; top:6.20%;" class="c_222_4">
+		J
+	</div>
+
+	<div id="t_222_58" style="position: absolute; left: 36.93%; top:9.29%;" class="c_222_0">
+		Jackson, Andrew, 54
+	</div>
+
+	<div id="t_222_59" style="position: absolute; left: 36.93%; top:10.68%;" class="c_222_0">
+		Jamestown colony, 30, 92, 102
+	</div>
+
+	<div id="t_222_60" style="position: absolute; left: 36.93%; top:12.07%;" class="c_222_0">
+		Jay, John, 96
+	</div>
+
+	<div id="t_222_61" style="position: absolute; left: 36.93%; top:13.46%;" class="c_222_0">
+		Jefferson, Thomas, 31&ndash;33, 75, 90,
+	</div>
+
+	<div id="t_222_62" style="position: absolute; left: 38.24%; top:14.85%;" class="c_222_0">
+		92&ndash;94, 98, 136, 164
+	</div>
+
+	<div id="t_222_63" style="position: absolute; left: 36.93%; top:16.24%;" class="c_222_0">
+		judicial branch (federal), 39, 69, 82&ndash;83,
+	</div>
+
+	<div id="t_222_64" style="position: absolute; left: 38.24%; top:17.62%;" class="c_222_0">
+		134
+	</div>
+
+	<div id="t_222_65" style="position: absolute; left: 36.93%; top:19.01%;" class="c_222_0">
+		judicial branch (state), 95, 112&ndash;113, 135
+	</div>
+
+	<div id="t_222_66" style="position: absolute; left: 36.93%; top:20.40%;" class="c_222_0">
+		judicial review, 83, 136
+	</div>
+
+	<div id="t_222_67" style="position: absolute; left: 36.93%; top:21.79%;" class="c_222_0">
+		juries, 135
+	</div>
+
+	<div id="t_222_68" style="position: absolute; left: 36.93%; top:23.18%;" class="c_222_0">
+		jury duty, 17
+	</div>
+
+	<div id="t_222_69" style="position: absolute; left: 36.93%; top:24.57%;" class="c_222_0">
+		Justice Department (U.S.), 76
+	</div>
+
+	<div id="t_222_70" style="position: absolute; left: 36.93%; top:25.96%;" class="c_222_0">
+		justice&rsquo;s power of dissent, 83
+	</div>
+
+	<div id="t_222_71" style="position: absolute; left: 36.93%; top:27.35%;" class="c_222_0">
+		juvenile crimes, 95, 113
+	</div>
+
+	<div id="t_222_72" style="position: absolute; left: 49.18%; top:29.18%;" class="c_222_4">
+		K
+	</div>
+
+	<div id="t_222_73" style="position: absolute; left: 36.93%; top:32.27%;" class="c_222_0">
+		Kagan, Elena, 85
+	</div>
+
+	<div id="t_222_74" style="position: absolute; left: 36.93%; top:33.66%;" class="c_222_0">
+		King, Martin Luther, Jr., 15, 124
+	</div>
+
+	<div id="t_222_75" style="position: absolute; left: 36.93%; top:35.05%;" class="c_222_0">
+		Knox, Henry, 75
+	</div>
+
+	<div id="t_222_76" style="position: absolute; left: 49.32%; top:36.88%;" class="c_222_4">
+		L
+	</div>
+
+	<div id="t_222_77" style="position: absolute; left: 36.93%; top:39.97%;" class="c_222_0">
+		Labor Department (U.S.), 77
+	</div>
+
+	<div id="t_222_78" style="position: absolute; left: 36.93%; top:41.36%;" class="c_222_0">
+		land-grant colleges, 99
+	</div>
+
+	<div id="t_222_79" style="position: absolute; left: 36.93%; top:42.75%;" class="c_222_0">
+		lawmaking process (federal), 70&ndash;71
+	</div>
+
+	<div id="t_222_80" style="position: absolute; left: 36.93%; top:44.14%;" class="c_222_0">
+		lawmaking process (local), 110&ndash;111
+	</div>
+
+	<div id="t_222_81" style="position: absolute; left: 36.93%; top:45.53%;" class="c_222_0">
+		lawmaking process (state), 100
+	</div>
+
+	<div id="t_222_82" style="position: absolute; left: 36.93%; top:46.92%;" class="c_222_0">
+		legal jurisdiction, 134&ndash;135
+	</div>
+
+	<div id="t_222_83" style="position: absolute; left: 36.93%; top:48.31%;" class="c_222_0">
+		legislative branch (federal), 39, 68,
+	</div>
+
+	<div id="t_222_84" style="position: absolute; left: 38.24%; top:49.70%;" class="c_222_0">
+		70&ndash;73
+	</div>
+
+	<div id="t_222_85" style="position: absolute; left: 36.93%; top:51.08%;" class="c_222_0">
+		legislative branch (state), 94, 104&ndash;105
+	</div>
+
+	<div id="t_222_86" style="position: absolute; left: 36.93%; top:52.47%;" class="c_222_0">
+		lemon laws, 182
+	</div>
+
+	<div id="t_222_87" style="position: absolute; left: 36.93%; top:53.86%;" class="c_222_0">
+		liberals, 54
+	</div>
+
+	<div id="t_222_88" style="position: absolute; left: 36.93%; top:55.25%;" class="c_222_0">
+		limited government, 29
+	</div>
+
+	<div id="t_222_89" style="position: absolute; left: 36.93%; top:56.64%;" class="c_222_0">
+		Lincoln, Abraham, 53
+	</div>
+
+	<div id="t_222_90" style="position: absolute; left: 36.93%; top:58.03%;" class="c_222_0">
+		literacy tests, 21
+	</div>
+
+	<div id="t_222_91" style="position: absolute; left: 36.93%; top:59.42%;" class="c_222_0">
+		litigation, 142
+	</div>
+
+	<div id="t_222_92" style="position: absolute; left: 36.93%; top:60.80%;" class="c_222_0">
+		lobbying, 73, 101, 124&ndash;125, 127, 131,
+	</div>
+
+	<div id="t_222_93" style="position: absolute; left: 38.24%; top:62.19%;" class="c_222_0">
+		173
+	</div>
+
+	<div id="t_222_94" style="position: absolute; left: 36.93%; top:63.58%;" class="c_222_0">
+		local government, 108&ndash;111
+	</div>
+
+	<div id="t_222_95" style="position: absolute; left: 36.93%; top:64.97%;" class="c_222_0">
+		local officials, 110&ndash;111
+	</div>
+
+	<div id="t_222_96" style="position: absolute; left: 36.93%; top:66.36%;" class="c_222_0">
+		local ordinances, 110&ndash;111, 117
+	</div>
+
+	<div id="t_222_97" style="position: absolute; left: 36.93%; top:67.75%;" class="c_222_2">
+		Loving v. Virginia<span class="c_222_3">, 139</span>
+	</div>
+
+	<div id="t_222_98" style="position: absolute; left: 36.93%; top:69.14%;" class="c_222_0">
+		low interest rates, economic impact of,
+	</div>
+
+	<div id="t_222_99" style="position: absolute; left: 38.24%; top:70.52%;" class="c_222_0">
+		181
+	</div>
+
+	<div id="t_222_100" style="position: absolute; left: 48.97%; top:70.97%;" class="c_222_4">
+		M
+	</div>
+
+	<div id="t_222_101" style="position: absolute; left: 36.93%; top:74.07%;" class="c_222_0">
+		Madison, James, 35&ndash;36, 38, 93, 96, 136
+	</div>
+
+	<div id="t_222_102" style="position: absolute; left: 36.93%; top:75.45%;" class="c_222_0">
+		Magna Carta, 29, 144
+	</div>
+
+	<div id="t_222_103" style="position: absolute; left: 36.93%; top:76.84%;" class="c_222_0">
+		Mandela, Nelson, 128
+	</div>
+
+	<div id="t_222_104" style="position: absolute; left: 36.93%; top:78.23%;" class="c_222_2">
+		Mapp v. Ohio<span class="c_222_3">, 138</span>
+	</div>
+
+	<div id="t_222_105" style="position: absolute; left: 36.93%; top:79.62%;" class="c_222_2">
+		Marbury v. Madison<span class="c_222_3">, 83, 136&ndash;137</span>
+	</div>
+
+	<div id="t_222_106" style="position: absolute; left: 36.93%; top:81.01%;" class="c_222_0">
+		Marbury, William, 136&ndash;137
+	</div>
+
+	<div id="t_222_107" style="position: absolute; left: 36.93%; top:82.40%;" class="c_222_0">
+		Marshall, John, 136&ndash;137
+	</div>
+
+	<div id="t_222_108" style="position: absolute; left: 36.93%; top:83.79%;" class="c_222_0">
+		Marshall, Thurgood, 83
+	</div>
+
+	<div id="t_222_109" style="position: absolute; left: 36.93%; top:85.17%;" class="c_222_0">
+		Mason, George, 31, 40, 93
+	</div>
+
+	<div id="t_222_110" style="position: absolute; left: 36.93%; top:86.56%;" class="c_222_2">
+		McCulloch v. Maryland<span class="c_222_3">, 138</span>
+	</div>
+
+	<div id="t_222_111" style="position: absolute; left: 36.93%; top:87.95%;" class="c_222_0">
+		Mead, Margaret, 48
+	</div>
+
+	<div id="t_222_112" style="position: absolute; left: 36.93%; top:89.34%;" class="c_222_0">
+		media, impact on public opinion and
+	</div>
+
+	<div id="t_222_113" style="position: absolute; left: 37.81%; top:90.73%;" class="c_222_0">
+		policy, 56&ndash;57, 121&ndash;123
+	</div>
+
+	<div id="t_222_114" style="position: absolute; left: 36.93%; top:92.12%;" class="c_222_0">
+		military service, 6, 18&ndash;19
+	</div>
+
+	<div id="t_222_115" style="position: absolute; left: 36.93%; top:93.51%;" class="c_222_0">
+		Miranda warning, 144
+	</div>
+
+	<div id="t_222_116" style="position: absolute; left: 65.04%; top:6.58%;" class="c_222_0">
+		misdemeanors, 112, 135
+	</div>
+
+	<div id="t_222_117" style="position: absolute; left: 65.04%; top:7.97%;" class="c_222_0">
+		mixed economy, 155&ndash;157, 162&ndash;163
+	</div>
+
+	<div id="t_222_118" style="position: absolute; left: 65.04%; top:9.36%;" class="c_222_0">
+		monetary damages, 134&ndash;135
+	</div>
+
+	<div id="t_222_119" style="position: absolute; left: 65.04%; top:10.74%;" class="c_222_0">
+		money, forms of, 178-179
+	</div>
+
+	<div id="t_222_120" style="position: absolute; left: 65.04%; top:12.13%;" class="c_222_0">
+		monopolies, 172&ndash;173
+	</div>
+
+	<div id="t_222_121" style="position: absolute; left: 77.29%; top:14.09%;" class="c_222_4">
+		N
+	</div>
+
+	<div id="t_222_122" style="position: absolute; left: 65.03%; top:17.19%;" class="c_222_0">
+		NASA (National Aeronautics and Space
+	</div>
+
+	<div id="t_222_123" style="position: absolute; left: 65.91%; top:18.58%;" class="c_222_0">
+		Administration), 74, 80
+	</div>
+
+	<div id="t_222_124" style="position: absolute; left: 65.03%; top:19.97%;" class="c_222_0">
+		Nast, Thomas, 54
+	</div>
+
+	<div id="t_222_125" style="position: absolute; left: 65.03%; top:21.35%;" class="c_222_0">
+		national debt, 175&ndash;177
+	</div>
+
+	<div id="t_222_126" style="position: absolute; left: 65.03%; top:22.74%;" class="c_222_0">
+		national government, structure and
+	</div>
+
+	<div id="t_222_127" style="position: absolute; left: 65.91%; top:24.13%;" class="c_222_0">
+		powers, 68&ndash;87
+	</div>
+
+	<div id="t_222_128" style="position: absolute; left: 65.03%; top:25.52%;" class="c_222_0">
+		national parks, 99
+	</div>
+
+	<div id="t_222_129" style="position: absolute; left: 65.03%; top:26.91%;" class="c_222_0">
+		natural resources, 152
+	</div>
+
+	<div id="t_222_130" style="position: absolute; left: 65.03%; top:28.30%;" class="c_222_0">
+		natural resources (Virginia), 103
+	</div>
+
+	<div id="t_222_131" style="position: absolute; left: 65.03%; top:29.69%;" class="c_222_0">
+		naturalization process, 10&ndash;13
+	</div>
+
+	<div id="t_222_132" style="position: absolute; left: 65.03%; top:31.07%;" class="c_222_0">
+		Nixon, Richard, 85, 122&ndash;123
+	</div>
+
+	<div id="t_222_133" style="position: absolute; left: 65.03%; top:32.46%;" class="c_222_0">
+		non-citizen soldiers, 12
+	</div>
+
+	<div id="t_222_134" style="position: absolute; left: 65.03%; top:33.85%;" class="c_222_0">
+		Nuclear Regulatory Commission
+	</div>
+
+	<div id="t_222_135" style="position: absolute; left: 66.35%; top:35.24%;" class="c_222_0">
+		(NRC), 81
+	</div>
+
+	<div id="t_222_136" style="position: absolute; left: 77.29%; top:36.31%;" class="c_222_4">
+		O
+	</div>
+
+	<div id="t_222_137" style="position: absolute; left: 65.03%; top:39.41%;" class="c_222_0">
+		Obama, Barack, 53, 71, 171
+	</div>
+
+	<div id="t_222_138" style="position: absolute; left: 65.03%; top:40.80%;" class="c_222_0">
+		Occupational Safety &amp;Health
+	</div>
+
+	<div id="t_222_139" style="position: absolute; left: 65.91%; top:42.19%;" class="c_222_0">
+		Administration (OSHA), 183
+	</div>
+
+	<div id="t_222_140" style="position: absolute; left: 65.03%; top:43.58%;" class="c_222_0">
+		O&rsquo;Connor, Sandra Day, 83
+	</div>
+
+	<div id="t_222_141" style="position: absolute; left: 65.03%; top:44.96%;" class="c_222_0">
+		OPEC cartel, 172
+	</div>
+
+	<div id="t_222_142" style="position: absolute; left: 65.03%; top:46.35%;" class="c_222_0">
+		op-ed pieces, 56
+	</div>
+
+	<div id="t_222_143" style="position: absolute; left: 65.03%; top:47.74%;" class="c_222_0">
+		opportunity cost, 153
+	</div>
+
+	<div id="t_222_144" style="position: absolute; left: 65.03%; top:49.13%;" class="c_222_0">
+		original jurisdiction, 134&ndash;135, 137
+	</div>
+
+	<div id="t_222_145" style="position: absolute; left: 77.36%; top:52.35%;" class="c_222_4">
+		P
+	</div>
+
+	<div id="t_222_146" style="position: absolute; left: 65.03%; top:55.45%;" class="c_222_0">
+		PACs (political action committees),
+	</div>
+
+	<div id="t_222_147" style="position: absolute; left: 66.35%; top:56.83%;" class="c_222_0">
+		58&ndash;59
+	</div>
+
+	<div id="t_222_148" style="position: absolute; left: 65.03%; top:58.22%;" class="c_222_0">
+		pandemics, 128
+	</div>
+
+	<div id="t_222_149" style="position: absolute; left: 65.03%; top:59.61%;" class="c_222_0">
+		Parks, Rosa, 124
+	</div>
+
+	<div id="t_222_150" style="position: absolute; left: 65.03%; top:61.00%;" class="c_222_0">
+		partnerships, 158
+	</div>
+
+	<div id="t_222_151" style="position: absolute; left: 65.03%; top:62.39%;" class="c_222_0">
+		patents, 173
+	</div>
+
+	<div id="t_222_152" style="position: absolute; left: 65.03%; top:63.78%;" class="c_222_0">
+		payment options in the economy, 165,
+	</div>
+
+	<div id="t_222_153" style="position: absolute; left: 65.91%; top:65.17%;" class="c_222_0">
+		178&ndash;179
+	</div>
+
+	<div id="t_222_154" style="position: absolute; left: 65.03%; top:66.55%;" class="c_222_0">
+		Peale, Norman Vincent, 150
+	</div>
+
+	<div id="t_222_155" style="position: absolute; left: 65.03%; top:67.94%;" class="c_222_0">
+		Pentagon, 175
+	</div>
+
+	<div id="t_222_156" style="position: absolute; left: 65.03%; top:69.33%;" class="c_222_0">
+		Perot, Ross, 55
+	</div>
+
+	<div id="t_222_157" style="position: absolute; left: 65.03%; top:70.72%;" class="c_222_0">
+		plaintiff, 142
+	</div>
+
+	<div id="t_222_158" style="position: absolute; left: 65.03%; top:72.11%;" class="c_222_2">
+		Plessy v. Ferguson<span class="c_222_3">, 83</span>
+	</div>
+
+	<div id="t_222_159" style="position: absolute; left: 65.03%; top:73.50%;" class="c_222_0">
+		political advertising, 57
+	</div>
+
+	<div id="t_222_160" style="position: absolute; left: 65.03%; top:74.89%;" class="c_222_0">
+		political campaign spending, 59
+	</div>
+
+	<div id="t_222_161" style="position: absolute; left: 65.03%; top:76.27%;" class="c_222_0">
+		political campaigns, 56&ndash;59
+	</div>
+
+	<div id="t_222_162" style="position: absolute; left: 65.03%; top:77.66%;" class="c_222_0">
+		political cartoons, 10, 16, 53, 54, 56,
+	</div>
+
+	<div id="t_222_163" style="position: absolute; left: 66.35%; top:79.05%;" class="c_222_0">
+		57, 185
+	</div>
+
+	<div id="t_222_164" style="position: absolute; left: 65.03%; top:80.44%;" class="c_222_0">
+		political fund-raising, 58, 73
+	</div>
+
+	<div id="t_222_165" style="position: absolute; left: 65.03%; top:81.83%;" class="c_222_0">
+		political parties, 52&ndash;55
+	</div>
+
+	<div id="t_222_166" style="position: absolute; left: 65.03%; top:83.22%;" class="c_222_0">
+		political subdivisions in Virginia (counties,
+	</div>
+
+	<div id="t_222_167" style="position: absolute; left: 66.35%; top:84.61%;" class="c_222_0">
+		cities, towns), 108&ndash;111, 214
+	</div>
+
+	<div id="t_222_168" style="position: absolute; left: 65.03%; top:86.00%;" class="c_222_0">
+		poll taxes, 21, 62
+	</div>
+
+	<div id="t_222_169" style="position: absolute; left: 65.03%; top:87.38%;" class="c_222_0">
+		power to declare war, 71
+	</div>
+
+	<div id="t_222_170" style="position: absolute; left: 65.03%; top:88.77%;" class="c_222_0">
+		Preamble to the U.S. Constitution, 36&ndash;37
+	</div>
+
+	<div id="t_222_171" style="position: absolute; left: 65.03%; top:90.16%;" class="c_222_0">
+		president of the U.S., 39, 69, 74&ndash;75,
+	</div>
+
+	<div id="t_222_172" style="position: absolute; left: 66.79%; top:91.55%;" class="c_222_0">
+		78&ndash;79
+	</div>
+
+	<div id="t_222_173" style="position: absolute; left: 65.03%; top:92.94%;" class="c_222_0">
+		president pro tempore of the U.S.
+	</div>
+
+	<div id="t_222_174" style="position: absolute; left: 66.35%; top:94.33%;" class="c_222_0">
+		Senate, 73
+	</div>
+
+	<div id="t_222_175" style="position: absolute; left: 5.48%; top: 95.33%; letter-spacing: -0.15em;" class="c_222_5">
+		222
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_223">
+                                                                                                <div class="pageData">
+
+	<div id="t_223_0" style="position: absolute; left: 8.82%; top:6.57%;" class="c_223_0">
+		presidential duties, 69, 79
+	</div>
+
+	<div id="t_223_1" style="position: absolute; left: 8.82%; top:7.96%;" class="c_223_0">
+		presidential elections, 60&ndash;61
+	</div>
+
+	<div id="t_223_2" style="position: absolute; left: 8.82%; top:9.35%;" class="c_223_0">
+		presidential powers, 78&ndash;79
+	</div>
+
+	<div id="t_223_3" style="position: absolute; left: 8.82%; top:10.74%;" class="c_223_0">
+		presidential veto, 71, 78
+	</div>
+
+	<div id="t_223_4" style="position: absolute; left: 8.82%; top:12.13%;" class="c_223_0">
+		probable cause, 140
+	</div>
+
+	<div id="t_223_5" style="position: absolute; left: 8.82%; top:13.52%;" class="c_223_0">
+		production in the marketplace, 153
+	</div>
+
+	<div id="t_223_6" style="position: absolute; left: 8.82%; top:14.91%;" class="c_223_0">
+		profit, 156
+	</div>
+
+	<div id="t_223_7" style="position: absolute; left: 8.82%; top:16.30%;" class="c_223_0">
+		Progressive Party, 55
+	</div>
+
+	<div id="t_223_8" style="position: absolute; left: 8.82%; top:17.68%;" class="c_223_0">
+		Prohibition, 45
+	</div>
+
+	<div id="t_223_9" style="position: absolute; left: 8.82%; top:19.07%;" class="c_223_0">
+		propaganda, 56, 123
+	</div>
+
+	<div id="t_223_10" style="position: absolute; left: 8.82%; top:20.46%;" class="c_223_0">
+		prosecutors, 140&ndash;141
+	</div>
+
+	<div id="t_223_11" style="position: absolute; left: 8.82%; top:21.85%;" class="c_223_0">
+		protecting the environment, 81, 101,
+	</div>
+
+	<div id="t_223_12" style="position: absolute; left: 10.14%; top:23.24%;" class="c_223_0">
+		129
+	</div>
+
+	<div id="t_223_13" style="position: absolute; left: 8.82%; top:24.63%;" class="c_223_0">
+		protection against self-incrimination, 41,
+	</div>
+
+	<div id="t_223_14" style="position: absolute; left: 10.14%; top:26.02%;" class="c_223_0">
+		141
+	</div>
+
+	<div id="t_223_15" style="position: absolute; left: 8.82%; top:27.40%;" class="c_223_0">
+		provide for the common defense, 37
+	</div>
+
+	<div id="t_223_16" style="position: absolute; left: 8.82%; top:28.79%;" class="c_223_0">
+		Public Safety &amp;Homeland Security
+	</div>
+
+	<div id="t_223_17" style="position: absolute; left: 10.14%; top:30.18%;" class="c_223_0">
+		(Virginia), 103
+	</div>
+
+	<div id="t_223_18" style="position: absolute; left: 8.82%; top:31.57%;" class="c_223_0">
+		purposes of the U.S. Constitution stated
+	</div>
+
+	<div id="t_223_19" style="position: absolute; left: 9.70%; top:32.96%;" class="c_223_0">
+		in the Preamble, 37
+	</div>
+
+	<div id="t_223_20" style="position: absolute; left: 21.11%; top:34.80%;" class="c_223_1">
+		R
+	</div>
+
+	<div id="t_223_21" style="position: absolute; left: 8.82%; top:37.89%;" class="c_223_0">
+		Randolph, Edmund, 75
+	</div>
+
+	<div id="t_223_22" style="position: absolute; left: 8.82%; top:39.28%;" class="c_223_0">
+		Reagan, Ronald, 53
+	</div>
+
+	<div id="t_223_23" style="position: absolute; left: 8.82%; top:40.67%;" class="c_223_0">
+		recession, 181
+	</div>
+
+	<div id="t_223_24" style="position: absolute; left: 8.82%; top:42.06%;" class="c_223_0">
+		representative government, 28&ndash;29
+	</div>
+
+	<div id="t_223_25" style="position: absolute; left: 8.82%; top:43.45%;" class="c_223_0">
+		republic, ancient Rome, 28
+	</div>
+
+	<div id="t_223_26" style="position: absolute; left: 8.82%; top:44.84%;" class="c_223_0">
+		Republicans, 52, 54
+	</div>
+
+	<div id="t_223_27" style="position: absolute; left: 8.82%; top:46.23%;" class="c_223_0">
+		resources in the marketplace, 152&ndash;153,
+	</div>
+
+	<div id="t_223_28" style="position: absolute; left: 10.14%; top:47.62%;" class="c_223_0">
+		162&ndash;163
+	</div>
+
+	<div id="t_223_29" style="position: absolute; left: 8.82%; top:49.00%;" class="c_223_0">
+		responsibilities of the Federal Reserve,
+	</div>
+
+	<div id="t_223_30" style="position: absolute; left: 10.14%; top:50.39%;" class="c_223_0">
+		180
+	</div>
+
+	<div id="t_223_31" style="position: absolute; left: 8.82%; top:51.78%;" class="c_223_0">
+		right to bear arms, 40, 127
+	</div>
+
+	<div id="t_223_32" style="position: absolute; left: 8.82%; top:53.17%;" class="c_223_0">
+		right to fair and speedy trial, 15, 17, 29,
+	</div>
+
+	<div id="t_223_33" style="position: absolute; left: 10.58%; top:54.56%;" class="c_223_0">
+		41, 135, 141
+	</div>
+
+	<div id="t_223_34" style="position: absolute; left: 8.82%; top:55.95%;" class="c_223_0">
+		right to free speech in schools, 146&ndash;147
+	</div>
+
+	<div id="t_223_35" style="position: absolute; left: 8.82%; top:57.34%;" class="c_223_0">
+		right to marital privacy, 139
+	</div>
+
+	<div id="t_223_36" style="position: absolute; left: 8.82%; top:58.72%;" class="c_223_0">
+		right to trial by jury, 29, 41
+	</div>
+
+	<div id="t_223_37" style="position: absolute; left: 8.82%; top:60.11%;" class="c_223_0">
+		rights of an accused person, 41, 141
+	</div>
+
+	<div id="t_223_38" style="position: absolute; left: 8.82%; top:61.50%;" class="c_223_0">
+		Robinson, Jackie, 9
+	</div>
+
+	<div id="t_223_39" style="position: absolute; left: 8.82%; top:62.89%;" class="c_223_0">
+		Rogers, Will, 16, 121
+	</div>
+
+	<div id="t_223_40" style="position: absolute; left: 8.82%; top:64.28%;" class="c_223_0">
+		Roosevelt, Franklin D., 53, 71, 78
+	</div>
+
+	<div id="t_223_41" style="position: absolute; left: 8.82%; top:65.67%;" class="c_223_0">
+		Roosevelt, Theodore, 55
+	</div>
+
+	<div id="t_223_42" style="position: absolute; left: 8.82%; top:67.06%;" class="c_223_0">
+		rule of law, 29
+	</div>
+
+	<div id="t_223_43" style="position: absolute; left: 21.18%; top:68.13%;" class="c_223_1">
+		S
+	</div>
+
+	<div id="t_223_44" style="position: absolute; left: 8.82%; top:71.99%;" class="c_223_0">
+		savings and loans, 165
+	</div>
+
+	<div id="t_223_45" style="position: absolute; left: 8.82%; top:73.37%;" class="c_223_0">
+		scarcity in the marketplace, 153
+	</div>
+
+	<div id="t_223_46" style="position: absolute; left: 8.82%; top:74.76%;" class="c_223_0">
+		search warrants, 138, 141, 146
+	</div>
+
+	<div id="t_223_47" style="position: absolute; left: 8.82%; top:76.15%;" class="c_223_0">
+		secure the blessings of liberty, 37
+	</div>
+
+	<div id="t_223_48" style="position: absolute; left: 8.82%; top:77.54%;" class="c_223_0">
+		Securities and Exchange Commission
+	</div>
+
+	<div id="t_223_49" style="position: absolute; left: 10.14%; top:78.93%;" class="c_223_0">
+		(SEC), 81
+	</div>
+
+	<div id="t_223_50" style="position: absolute; left: 8.82%; top:80.32%;" class="c_223_0">
+		segregated schools, 83
+	</div>
+
+	<div id="t_223_51" style="position: absolute; left: 8.82%; top:81.71%;" class="c_223_0">
+		self-assessment and career choice,
+	</div>
+
+	<div id="t_223_52" style="position: absolute; left: 10.14%; top:83.09%;" class="c_223_0">
+		188&ndash;189
+	</div>
+
+	<div id="t_223_53" style="position: absolute; left: 8.82%; top:84.48%;" class="c_223_0">
+		self-incrimination, 141
+	</div>
+
+	<div id="t_223_54" style="position: absolute; left: 8.82%; top:85.87%;" class="c_223_0">
+		Senate majority leader and whip, 73
+	</div>
+
+	<div id="t_223_55" style="position: absolute; left: 8.82%; top:87.26%;" class="c_223_0">
+		separation of powers, 84&ndash;85
+	</div>
+
+	<div id="t_223_56" style="position: absolute; left: 8.82%; top:88.65%;" class="c_223_0">
+		small claims court, 113
+	</div>
+
+	<div id="t_223_57" style="position: absolute; left: 8.82%; top:90.04%;" class="c_223_0">
+		social media, importance of, 123,
+	</div>
+
+	<div id="t_223_58" style="position: absolute; left: 10.14%; top:91.43%;" class="c_223_0">
+		189&ndash;191
+	</div>
+
+	<div id="t_223_59" style="position: absolute; left: 65.03%; top:6.58%;" class="c_223_0">
+		Virginia General Assembly, 43, 92, 94,
+	</div>
+
+	<div id="t_223_60" style="position: absolute; left: 66.35%; top:7.97%;" class="c_223_0">
+		100&ndash;101
+	</div>
+
+	<div id="t_223_61" style="position: absolute; left: 65.03%; top:9.36%;" class="c_223_0">
+		Virginia House of Delegates, 94
+	</div>
+
+	<div id="t_223_62" style="position: absolute; left: 65.03%; top:10.75%;" class="c_223_0">
+		Virginia Plan, 75
+	</div>
+
+	<div id="t_223_63" style="position: absolute; left: 65.03%; top:12.13%;" class="c_223_0">
+		Virginia Senate, 94
+	</div>
+
+	<div id="t_223_64" style="position: absolute; left: 65.03%; top:13.52%;" class="c_223_0">
+		Virginia state parks, 99
+	</div>
+
+	<div id="t_223_65" style="position: absolute; left: 65.03%; top:14.91%;" class="c_223_0">
+		Virginia State University, 99
+	</div>
+
+	<div id="t_223_66" style="position: absolute; left: 65.03%; top:16.30%;" class="c_223_0">
+		Virginia Statute for Religious Freedom,
+	</div>
+
+	<div id="t_223_67" style="position: absolute; left: 66.79%; top:17.69%;" class="c_223_0">
+		31, 211
+	</div>
+
+	<div id="t_223_68" style="position: absolute; left: 65.03%; top:19.08%;" class="c_223_0">
+		Virginia Tech, 99
+	</div>
+
+	<div id="t_223_69" style="position: absolute; left: 65.03%; top:20.47%;" class="c_223_0">
+		voter participation, 20, 63
+	</div>
+
+	<div id="t_223_70" style="position: absolute; left: 65.03%; top:21.85%;" class="c_223_0">
+		voter registration process in Virginia, 62
+	</div>
+
+	<div id="t_223_71" style="position: absolute; left: 65.03%; top:23.24%;" class="c_223_0">
+		Voting Rights Act (1965), 21
+	</div>
+
+	<div id="t_223_72" style="position: absolute; left: 77.04%; top:25.08%;" class="c_223_1">
+		W
+	</div>
+
+	<div id="t_223_73" style="position: absolute; left: 65.03%; top:28.17%;" class="c_223_0">
+		warranties, 192
+	</div>
+
+	<div id="t_223_74" style="position: absolute; left: 65.03%; top:29.56%;" class="c_223_0">
+		Warren, Elizabeth, 186
+	</div>
+
+	<div id="t_223_75" style="position: absolute; left: 65.03%; top:30.95%;" class="c_223_0">
+		Washington, George, 35, 50, 60, 75,
+	</div>
+
+	<div id="t_223_76" style="position: absolute; left: 66.35%; top:32.34%;" class="c_223_0">
+		80, 93
+	</div>
+
+	<div id="t_223_77" style="position: absolute; left: 65.03%; top:33.73%;" class="c_223_0">
+		White House, 69
+	</div>
+
+	<div id="t_223_78" style="position: absolute; left: 65.03%; top:35.12%;" class="c_223_0">
+		Wilder, L. Douglas, 102
+	</div>
+
+	<div id="t_223_79" style="position: absolute; left: 65.03%; top:36.50%;" class="c_223_0">
+		Wilson, Woodrow, 55, 66
+	</div>
+
+	<div id="t_223_80" style="position: absolute; left: 65.03%; top:37.89%;" class="c_223_0">
+		women&rsquo;s right to vote, 21, 43&ndash;44
+	</div>
+
+	<div id="t_223_81" style="position: absolute; left: 65.03%; top:39.28%;" class="c_223_0">
+		work ethic and career success, 188&ndash;189
+	</div>
+
+	<div id="t_223_82" style="position: absolute; left: 36.93%; top:6.58%;" class="c_223_0">
+		Social Security Administration, 81
+	</div>
+
+	<div id="t_223_83" style="position: absolute; left: 36.93%; top:7.97%;" class="c_223_0">
+		sole proprietorship, 158
+	</div>
+
+	<div id="t_223_84" style="position: absolute; left: 36.93%; top:9.36%;" class="c_223_0">
+		Sotomayor, Sonia, 83
+	</div>
+
+	<div id="t_223_85" style="position: absolute; left: 36.93%; top:10.74%;" class="c_223_0">
+		sources of government funds, 175&ndash;177
+	</div>
+
+	<div id="t_223_86" style="position: absolute; left: 36.93%; top:12.13%;" class="c_223_0">
+		Speaker of the House, 70, 72
+	</div>
+
+	<div id="t_223_87" style="position: absolute; left: 36.93%; top:13.52%;" class="c_223_0">
+		special-interest groups, 59, 73, 87,
+	</div>
+
+	<div id="t_223_88" style="position: absolute; left: 38.24%; top:14.91%;" class="c_223_0">
+		124&ndash;125, 127
+	</div>
+
+	<div id="t_223_89" style="position: absolute; left: 36.93%; top:16.30%;" class="c_223_0">
+		stable economy, 177
+	</div>
+
+	<div id="t_223_90" style="position: absolute; left: 36.93%; top:17.69%;" class="c_223_0">
+		State Department, 76
+	</div>
+
+	<div id="t_223_91" style="position: absolute; left: 36.93%; top:19.08%;" class="c_223_0">
+		state government, structure and powers,
+	</div>
+
+	<div id="t_223_92" style="position: absolute; left: 38.24%; top:20.46%;" class="c_223_0">
+		94&ndash;98, 101&ndash;103
+	</div>
+
+	<div id="t_223_93" style="position: absolute; left: 36.93%; top:21.85%;" class="c_223_0">
+		State of the Union address, 78
+	</div>
+
+	<div id="t_223_94" style="position: absolute; left: 36.93%; top:23.24%;" class="c_223_0">
+		state seal and motto of Virginia, 93
+	</div>
+
+	<div id="t_223_95" style="position: absolute; left: 36.93%; top:24.63%;" class="c_223_0">
+		states&rsquo; rights, 34&ndash;35, 41, 96, 206
+	</div>
+
+	<div id="t_223_96" style="position: absolute; left: 36.93%; top:26.02%;" class="c_223_0">
+		Stevenson, Adlai, 56&ndash;57
+	</div>
+
+	<div id="t_223_97" style="position: absolute; left: 36.93%; top:27.41%;" class="c_223_0">
+		student government, 51&ndash;52
+	</div>
+
+	<div id="t_223_98" style="position: absolute; left: 36.93%; top:28.80%;" class="c_223_0">
+		students and the law, 146&ndash;147
+	</div>
+
+	<div id="t_223_99" style="position: absolute; left: 36.93%; top:30.18%;" class="c_223_0">
+		Super PACs, 58&ndash;59, 125
+	</div>
+
+	<div id="t_223_100" style="position: absolute; left: 36.93%; top:31.57%;" class="c_223_0">
+		supply and demand in the marketplace,
+	</div>
+
+	<div id="t_223_101" style="position: absolute; left: 38.68%; top:32.96%;" class="c_223_0">
+		153, 156
+	</div>
+
+	<div id="t_223_102" style="position: absolute; left: 36.93%; top:34.35%;" class="c_223_0">
+		Swift Boat Veterans TV ad, 57
+	</div>
+
+	<div id="t_223_103" style="position: absolute; left: 36.93%; top:35.74%;" class="c_223_0">
+		swing states, 61<span class="c_223_2">T</span>
+	</div>
+
+	<div id="t_223_104" style="position: absolute; left: 36.93%; top:39.41%;" class="c_223_0">
+		taxes, taxation, 16, 71, 81, 176&ndash;177
+	</div>
+
+	<div id="t_223_105" style="position: absolute; left: 36.93%; top:40.80%;" class="c_223_0">
+		Technology Department (Virginia), 103
+	</div>
+
+	<div id="t_223_106" style="position: absolute; left: 36.93%; top:42.19%;" class="c_223_0">
+		technology, importance of, 189&ndash;191
+	</div>
+
+	<div id="t_223_107" style="position: absolute; left: 36.93%; top:43.58%;" class="c_223_0">
+		telecommunications industry, 172
+	</div>
+
+	<div id="t_223_108" style="position: absolute; left: 36.93%; top:44.96%;" class="c_223_0">
+		term limits, 73, 94, 103
+	</div>
+
+	<div id="t_223_109" style="position: absolute; left: 36.93%; top:46.35%;" class="c_223_0">
+		third-party candidates, 55, 61
+	</div>
+
+	<div id="t_223_110" style="position: absolute; left: 36.93%; top:47.74%;" class="c_223_0">
+		three-part system of government, 38&ndash;39,
+	</div>
+
+	<div id="t_223_111" style="position: absolute; left: 38.24%; top:49.13%;" class="c_223_0">
+		68, 84&ndash;85, 94&ndash;95
+	</div>
+
+	<div id="t_223_112" style="position: absolute; left: 36.93%; top:50.52%;" class="c_223_0">
+		trade regulations, 71
+	</div>
+
+	<div id="t_223_113" style="position: absolute; left: 36.93%; top:51.91%;" class="c_223_0">
+		traditional economy, 154
+	</div>
+
+	<div id="t_223_114" style="position: absolute; left: 36.93%; top:53.30%;" class="c_223_0">
+		Transportation Department (U.S.), 77
+	</div>
+
+	<div id="t_223_115" style="position: absolute; left: 36.93%; top:54.68%;" class="c_223_0">
+		Transportation Department (Virginia),
+	</div>
+
+	<div id="t_223_116" style="position: absolute; left: 38.24%; top:56.07%;" class="c_223_0">
+		103
+	</div>
+
+	<div id="t_223_117" style="position: absolute; left: 36.93%; top:57.46%;" class="c_223_0">
+		Treasury Department, 76, 178
+	</div>
+
+	<div id="t_223_118" style="position: absolute; left: 36.93%; top:58.85%;" class="c_223_0">
+		Truman, Harry, 78
+	</div>
+
+	<div id="t_223_119" style="position: absolute; left: 36.93%; top:60.24%;" class="c_223_0">
+		two-party system, 54, 56, 61
+	</div>
+
+	<div id="t_223_120" style="position: absolute; left: 36.93%; top:61.63%;" class="c_223_0">
+		types of banks, 165
+	</div>
+
+	<div id="t_223_121" style="position: absolute; left: 49.22%; top:62.83%;" class="c_223_1">
+		U
+	</div>
+
+	<div id="t_223_122" style="position: absolute; left: 36.93%; top:65.93%;" class="c_223_0">
+		U.S. Congress, 68, 70&ndash;73
+	</div>
+
+	<div id="t_223_123" style="position: absolute; left: 36.93%; top:67.31%;" class="c_223_0">
+		U.S. court system, 17, 39, 69, 82&ndash;83,
+	</div>
+
+	<div id="t_223_124" style="position: absolute; left: 38.24%; top:68.70%;" class="c_223_0">
+		134&ndash;143
+	</div>
+
+	<div id="t_223_125" style="position: absolute; left: 36.93%; top:70.09%;" class="c_223_0">
+		U.S. dollar, 178&ndash;179
+	</div>
+
+	<div id="t_223_126" style="position: absolute; left: 36.93%; top:71.48%;" class="c_223_0">
+		U.S. House of Representatives, 68, 70&ndash;72
+	</div>
+
+	<div id="t_223_127" style="position: absolute; left: 36.93%; top:72.87%;" class="c_223_0">
+		U.S. Senate, 68, 70&ndash;73
+	</div>
+
+	<div id="t_223_128" style="position: absolute; left: 49.29%; top:75.33%;" class="c_223_1">
+		V
+	</div>
+
+	<div id="t_223_129" style="position: absolute; left: 36.93%; top:78.43%;" class="c_223_0">
+		vaccinations, 128, 174
+	</div>
+
+	<div id="t_223_130" style="position: absolute; left: 36.93%; top:79.81%;" class="c_223_0">
+		verdicts, 17, 95, 115, 135, 141
+	</div>
+
+	<div id="t_223_131" style="position: absolute; left: 36.93%; top:81.20%;" class="c_223_0">
+		Veterans Affairs (U.S.), 77
+	</div>
+
+	<div id="t_223_132" style="position: absolute; left: 36.93%; top:82.59%;" class="c_223_0">
+		Veterans &amp;Defense Affairs (Virginia), 103
+	</div>
+
+	<div id="t_223_133" style="position: absolute; left: 36.93%; top:83.98%;" class="c_223_0">
+		veto override, 71
+	</div>
+
+	<div id="t_223_134" style="position: absolute; left: 36.93%; top:85.37%;" class="c_223_0">
+		Virginia Company of London charters, 30
+	</div>
+
+	<div id="t_223_135" style="position: absolute; left: 36.93%; top:86.76%;" class="c_223_0">
+		Virginia congressional districts, 72, 214
+	</div>
+
+	<div id="t_223_136" style="position: absolute; left: 36.93%; top:88.15%;" class="c_223_0">
+		Virginia court system, 95, 112&ndash;113, 135
+	</div>
+
+	<div id="t_223_137" style="position: absolute; left: 36.93%; top:89.53%;" class="c_223_0">
+		Virginia Declaration of Rights, 31, 33, 93,
+	</div>
+
+	<div id="t_223_138" style="position: absolute; left: 38.24%; top:90.92%;" class="c_223_0">
+		212&ndash;213
+	</div>
+
+	<div id="t_223_139" style="position: absolute; left: 93.62%; top: 95.33%; letter-spacing: -0.15em;" class="c_223_3">
+		223
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="222.html?page=right"; onclick="goto('222.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="224.html"; onclick="goto('224.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="224.html"; onclick="goto('224.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

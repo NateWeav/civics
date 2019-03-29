@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_140.css">
+                <link rel="stylesheet" href="css/civics_141.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="138.html?page=right"; onclick="goto('138.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="140.html"; onclick="goto('140.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="138.html?page=right"; onclick="goto('138.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_140_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_141_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_140_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="140.html?page=right"; onclick="goto('140.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="142.html"; onclick="goto('142.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="142.html"; onclick="goto('142.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="138.html?page=right"; onclick="goto('138.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="140.html"; onclick="goto('140.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="138.html?page=right"; onclick="goto('138.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_140">
+                                                                                                <div class="pageData">
+
+	<div id="t_140_0" style="position: absolute; left: 5.78%; top:3.94%;" class="c_140_0">
+		Courts resolve two kinds of legal
+	</div>
+
+	<div id="t_140_1" style="position: absolute; left: 5.78%; top:5.71%;" class="c_140_0">
+		conflicts&mdash;civil and criminal.
+	</div>
+
+	<div id="t_140_2" style="position: absolute; left: 11.01%; top: 9.74%; letter-spacing: 0.01em;" class="c_140_1">
+		Who did it? How did it happen? What
+	</div>
+
+	<div id="t_140_3" style="position: absolute; left: 11.01%; top: 11.63%; letter-spacing: 0.01em;" class="c_140_1">
+		evidence can be found? Can the person
+	</div>
+
+	<div id="t_140_4" style="position: absolute; left: 11.01%; top: 13.53%; letter-spacing: 0.01em;" class="c_140_1">
+		responsible be brought to justice and punished?
+	</div>
+
+	<div id="t_140_5" style="position: absolute; left: 11.21%; top: 15.21%; letter-spacing: -0.02em;" class="c_140_2">
+		Criminal Cases
+	</div>
+
+	<div id="t_140_6" style="position: absolute; left: 10.85%; top:22.74%;" class="c_140_3">
+		On a hot, summer evening, a man walking his
+	</div>
+
+	<div id="t_140_7" style="position: absolute; left: 10.85%; top:24.63%;" class="c_140_3">
+		dog in a city park discovers an unsettling sight.
+	</div>
+
+	<div id="t_140_8" style="position: absolute; left: 10.85%; top:26.53%;" class="c_140_3">
+		With hands shaking, he dials 911 to report a body
+	</div>
+
+	<div id="t_140_9" style="position: absolute; left: 10.85%; top:28.42%;" class="c_140_3">
+		lying motionless in the shadows. That call sets in
+	</div>
+
+	<div id="t_140_10" style="position: absolute; left: 10.85%; top:30.31%;" class="c_140_3">
+		motion a chain of events&mdash;long, strong legal links
+	</div>
+
+	<div id="t_140_11" style="position: absolute; left: 10.85%; top:32.21%;" class="c_140_3">
+		that will end with justice being done.
+	</div>
+
+	<div id="t_140_12" style="position: absolute; left: 29.67%; top:50.06%;" class="c_140_4">
+		CALL 911!
+	</div>
+
+	<div id="t_140_13" style="position: absolute; left: 24.51%; top: 52.53%;" class="c_140_5">
+		When a crime has been
+	</div>
+
+	<div id="t_140_14" style="position: absolute; left: 22.44%; top: 54.42%;" class="c_140_5">
+		committed, the first link in the
+	</div>
+
+	<div id="t_140_15" style="position: absolute; left: 20.19%; top: 56.32%;" class="c_140_5">
+		chain is the police, who will arrive
+	</div>
+
+	<div id="t_140_16" style="position: absolute; left: 17.94%; top: 58.21%;" class="c_140_5">
+		to gather evidence. A <span class="c_140_6">forensics</span>
+	</div>
+
+	<div id="t_140_17" style="position: absolute; left: 7.76%; top: 60.11%;" class="c_140_5">
+		team &mdash; people responsible for tests used to help
+	</div>
+
+	<div id="t_140_18" style="position: absolute; left: 7.76%; top: 62%;" class="c_140_5">
+		solve a crime &mdash; will arrive to carefully explore the
+	</div>
+
+	<div id="t_140_19" style="position: absolute; left: 7.76%; top: 63.9%;" class="c_140_5">
+		crime scene and document everything they find.
+	</div>
+
+	<div id="t_140_20" style="position: absolute; left: 7.76%; top: 65.79%;" class="c_140_5">
+		They will look for evidence&mdash;a button, a scrap of
+	</div>
+
+	<div id="t_140_21" style="position: absolute; left: 7.76%; top: 67.68%;" class="c_140_5">
+		paper, signs of a struggle from the victim. Even a
+	</div>
+
+	<div id="t_140_22" style="position: absolute; left: 7.76%; top: 69.58%;" class="c_140_5">
+		corpse can &ldquo;talk.&rdquo; Perhaps hairs from the criminal
+	</div>
+
+	<div id="t_140_23" style="position: absolute; left: 7.76%; top: 71.47%;" class="c_140_5">
+		ended up on the victim, or skin cells lodged under
+	</div>
+
+	<div id="t_140_24" style="position: absolute; left: 7.76%; top: 73.37%;" class="c_140_5">
+		the victim&rsquo;s fingernails in the struggle.
+	</div>
+
+	<div id="t_140_25" style="position: absolute; left: 9.07%; top: 75.26%;" class="c_140_5">
+		Eyewitnesses&mdash;people who heard a scuffle or
+	</div>
+
+	<div id="t_140_26" style="position: absolute; left: 7.76%; top: 77.16%;" class="c_140_5">
+		saw someone running from the park&mdash;will be
+	</div>
+
+	<div id="t_140_27" style="position: absolute; left: 7.76%; top: 79.05%;" class="c_140_5">
+		sought. Slowly, and very carefully, a case will be
+	</div>
+
+	<div id="t_140_28" style="position: absolute; left: 7.76%; top: 80.95%;" class="c_140_5">
+		built and a suspect identified. When the police
+	</div>
+
+	<div id="t_140_29" style="position: absolute; left: 7.76%; top: 82.84%;" class="c_140_5">
+		have <span class="c_140_6">probable cause</span> <span class="c_140_7">&mdash; enough evidence to get</span>
+	</div>
+
+	<div id="t_140_30" style="position: absolute; left: 7.76%; top: 84.73%;" class="c_140_5">
+		a <span class="c_140_6">search warrant</span> <span class="c_140_7">from a judge &mdash; they can</span>
+	</div>
+
+	<div id="t_140_31" style="position: absolute; left: 7.76%; top: 86.63%;" class="c_140_5">
+		search the person&rsquo;s home or belongings.
+	</div>
+
+	<div id="t_140_32" style="position: absolute; left: 9.07%; top: 88.52%;" class="c_140_5">
+		At the suspect&rsquo;s house, a discovery is made.
+	</div>
+
+	<div id="t_140_33" style="position: absolute; left: 7.76%; top: 90.42%;" class="c_140_5">
+		The victim&rsquo;s wallet is in a kitchen drawer.
+	</div>
+
+	<div id="t_140_34" style="position: absolute; left: 7.76%; top: 92.31%;" class="c_140_5">
+		It&rsquo;s time to make an arrest.
+	</div>
+
+	<div id="t_140_35" style="position: absolute; left: 4.59%; top: 94.24%;" class="c_140_8">
+		140
+	</div>
+
+	<div id="t_140_36" style="position: absolute; left: 53.26%; top:50.19%;" class="c_140_4">
+		THE RIGHT TO REMAIN SILENT
+	</div>
+
+	<div id="t_140_37" style="position: absolute; left: 53.26%; top: 52.66%;" class="c_140_5">
+		The suspect will be taken into police custody
+	</div>
+
+	<div id="t_140_38" style="position: absolute; left: 52.00%; top: 54.55%;" class="c_140_5">
+		and charged with a felony. In cases of serious
+	</div>
+
+	<div id="t_140_39" style="position: absolute; left: 52.00%; top: 56.45%;" class="c_140_5">
+		crimes, the accused will be put in jail unless
+	</div>
+
+	<div id="t_140_40" style="position: absolute; left: 52.00%; top:57.94%;" class="c_140_9">
+		bail <span class="c_140_7">is posted. A lawyer will be brought in to</span>
+	</div>
+
+	<div id="t_140_41" style="position: absolute; left: 52.00%; top: 60.24%;" class="c_140_5">
+		advise the accused of his or her rights.
+	</div>
+
+	<div id="t_140_42" style="position: absolute; left: 52.00%; top: 62.13%;" class="c_140_5">
+		Everyone moves very carefully. One botched
+	</div>
+
+	<div id="t_140_43" style="position: absolute; left: 52.00%; top: 64.03%;" class="c_140_5">
+		step by the police or the lawyer can end with
+	</div>
+
+	<div id="t_140_44" style="position: absolute; left: 52.00%; top: 65.92%;" class="c_140_5">
+		the suspect being set free.
+	</div>
+
+	<div id="t_140_45" style="position: absolute; left: 59.23%; top:73.84%;" class="c_140_10">
+		Legal-Speak Made Simple
+	</div>
+
+	<div id="t_140_46" style="position: absolute; left: 57.46%; top:77.42%;" class="c_140_11">
+		PROBABLE CAUSE<span class="c_140_12">: Enough evidence to make</span>
+	</div>
+
+	<div id="t_140_47" style="position: absolute; left: 57.46%; top:78.89%;" class="c_140_13">
+		a search or press charges
+	</div>
+
+	<div id="t_140_48" style="position: absolute; left: 57.47%; top:81.08%;" class="c_140_11">
+		BAIL<span class="c_140_12">: Money paid or property pledged for the</span>
+	</div>
+
+	<div id="t_140_49" style="position: absolute; left: 57.47%; top:82.55%;" class="c_140_13">
+		temporary release of a person awaiting trial as
+	</div>
+
+	<div id="t_140_50" style="position: absolute; left: 57.47%; top:83.95%;" class="c_140_13">
+		a guarantee that he or she will appear in court
+	</div>
+
+	<div id="t_140_51" style="position: absolute; left: 57.55%; top:86.31%;" class="c_140_11">
+		ARRAIGNMENT<span class="c_140_12">: A criminal proceeding at</span>
+	</div>
+
+	<div id="t_140_52" style="position: absolute; left: 57.55%; top:87.78%;" class="c_140_13">
+		which the defendant is called before a court,
+	</div>
+
+	<div id="t_140_53" style="position: absolute; left: 57.55%; top:89.18%;" class="c_140_13">
+		told of the charges, and asked to enter a plea of
+	</div>
+
+	<div id="t_140_54" style="position: absolute; left: 57.55%; top:90.58%;" class="c_140_13">
+		guilty or not guilty
+	</div>
+
+	<div id="t_140_55" style="position: absolute; left: 57.55%; top:92.56%;" class="c_140_11">
+		PROSECUTORS<span class="c_140_12">: The lawyers who try to prove</span>
+	</div>
+
+	<div id="t_140_56" style="position: absolute; left: 57.55%; top:94.03%;" class="c_140_13">
+		someone is guilty of a crime
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_140_courts_resolve.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 10%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_140_criminal_cases.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 23%; top: 47%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_140_call_911.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 47%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_140_the_right_to_remain.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 52%; top: 73%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_140_legal-speak.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_141">
+                                                                                                <div class="pageData">
+
+	<div id="t_141_0" style="position: absolute; left: 14.79%; top:2.04%;" class="c_141_0">
+		Criminal
+	</div>
+
+	<div id="t_141_1" style="position: absolute; left: 12.32%; top:7.47%;" class="c_141_0">
+		Procedure
+	</div>
+
+	<div id="t_141_2" style="position: absolute; left: 18.10%; top:15.07%;" class="c_141_1">
+		THE STEPS TO JUSTICE
+	</div>
+
+	<div id="t_141_3" style="position: absolute; left: 47.50%; top: 5.91%;" class="c_141_2">
+		Our suspect is in police custody and the police hand the
+	</div>
+
+	<div id="t_141_4" style="position: absolute; left: 46.62%; top: 7.8%;" class="c_141_2">
+		case over to the courts. What&rsquo;s next? Because this was a
+	</div>
+
+	<div id="t_141_5" style="position: absolute; left: 46.62%; top: 9.7%;" class="c_141_2">
+		felony&mdash;a serious crime&mdash;in many states the case goes to
+	</div>
+
+	<div id="t_141_6" style="position: absolute; left: 46.62%; top: 11.59%;" class="c_141_2">
+		a grand jury, to decide if there is probable cause. Is there
+	</div>
+
+	<div id="t_141_7" style="position: absolute; left: 46.62%; top: 13.48%;" class="c_141_2">
+		enough evidence to try the accused? If this had been a
+	</div>
+
+	<div id="t_141_8" style="position: absolute; left: 46.62%; top: 15.38%;" class="c_141_2">
+		misdemeanor there would be no preliminary hearing or
+	</div>
+
+	<div id="t_141_9" style="position: absolute; left: 46.62%; top: 17.27%;" class="c_141_2">
+		grand jury, and a trial date would have been set.
+	</div>
+
+	<div id="t_141_10" style="position: absolute; left: 16.59%; top:20.24%;" class="c_141_3">
+		ARRAIGNMENT
+	</div>
+
+	<div id="t_141_11" style="position: absolute; left: 13.09%; top:22.53%;" class="c_141_4">
+		&bull; <span class="c_141_5">The defendant appears in court.</span>
+	</div>
+
+	<div id="t_141_12" style="position: absolute; left: 13.09%; top:24.30%;" class="c_141_4">
+		An attorney will be provided if the
+	</div>
+
+	<div id="t_141_13" style="position: absolute; left: 13.09%; top:26.07%;" class="c_141_4">
+		accused cannot afford to hire one.
+	</div>
+
+	<div id="t_141_14" style="position: absolute; left: 13.09%; top:27.84%;" class="c_141_4">
+		Probable cause is reviewed, a plea
+	</div>
+
+	<div id="t_141_15" style="position: absolute; left: 13.09%; top:29.61%;" class="c_141_4">
+		is entered, and a trial date set.
+	</div>
+
+	<div id="t_141_16" style="position: absolute; left: 43.94%; top:20.22%;" class="c_141_3">
+		THE LAWYERS
+	</div>
+
+	<div id="t_141_17" style="position: absolute; left: 45.00%; top: 22.40%; letter-spacing: 0.01em;" class="c_141_6">
+		Two opposing sides:
+	</div>
+
+	<div id="t_141_18" style="position: absolute; left: 44.30%; top:25.40%;" class="c_141_3">
+		THE DEFENSE:
+	</div>
+
+	<div id="t_141_19" style="position: absolute; left: 41.97%; top:27.29%;" class="c_141_3">
+		&ldquo;HE&rsquo;S INNOCENT&rdquo;
+	</div>
+
+	<div id="t_141_20" style="position: absolute; left: 41.89%; top: 29.47%; letter-spacing: 0.01em;" class="c_141_6">
+		&bull; <span class="c_141_7">Defense lawyers try to prove</span>
+	</div>
+
+	<div id="t_141_21" style="position: absolute; left: 41.89%; top:31.35%;" class="c_141_4">
+		their client is innocent. They
+	</div>
+
+	<div id="t_141_22" style="position: absolute; left: 41.89%; top:33.12%;" class="c_141_4">
+		try to break down eyewitness
+	</div>
+
+	<div id="t_141_23" style="position: absolute; left: 41.89%; top:34.89%;" class="c_141_4">
+		testimony or find missteps in
+	</div>
+
+	<div id="t_141_24" style="position: absolute; left: 41.89%; top:36.65%;" class="c_141_4">
+		the way the case was handled.
+	</div>
+
+	<div id="t_141_25" style="position: absolute; left: 70.28%; top:19.99%;" class="c_141_3">
+		THE VERDICT
+	</div>
+
+	<div id="t_141_26" style="position: absolute; left: 66.78%; top: 22.17%; letter-spacing: 0.01em;" class="c_141_6">
+		&bull; <span class="c_141_7">After presenting all the</span>
+	</div>
+
+	<div id="t_141_27" style="position: absolute; left: 66.77%; top:24.05%;" class="c_141_4">
+		evidence and calling witnessess,
+	</div>
+
+	<div id="t_141_28" style="position: absolute; left: 66.77%; top:25.82%;" class="c_141_4">
+		each side will present closing
+	</div>
+
+	<div id="t_141_29" style="position: absolute; left: 66.77%; top:27.59%;" class="c_141_4">
+		arguments. It is up to the judge,
+	</div>
+
+	<div id="t_141_30" style="position: absolute; left: 66.77%; top:29.35%;" class="c_141_4">
+		or jury if one has been selected,
+	</div>
+
+	<div id="t_141_31" style="position: absolute; left: 66.77%; top:31.12%;" class="c_141_4">
+		to deliver a verdict.
+	</div>
+
+	<div id="t_141_32" style="position: absolute; left: 49.99%; top:39.54%;" class="c_141_3">
+		THE
+	</div>
+
+	<div id="t_141_33" style="position: absolute; left: 43.95%; top:41.43%;" class="c_141_3">
+		PROSECUTION
+	</div>
+
+	<div id="t_141_34" style="position: absolute; left: 43.81%; top:43.32%;" class="c_141_3">
+		&ldquo;HE&rsquo;S GUILTY&rdquo;
+	</div>
+
+	<div id="t_141_35" style="position: absolute; left: 41.89%; top: 45.50%; letter-spacing: 0.01em;" class="c_141_6">
+		&bull; <span class="c_141_7">Evidence is presented by</span>
+	</div>
+
+	<div id="t_141_36" style="position: absolute; left: 41.89%; top:47.39%;" class="c_141_8">
+		prosecutors <span class="c_141_5">to try to prove</span>
+	</div>
+
+	<div id="t_141_37" style="position: absolute; left: 41.89%; top:49.15%;" class="c_141_4">
+		guilt. Witnesses are called,
+	</div>
+
+	<div id="t_141_38" style="position: absolute; left: 41.89%; top:50.92%;" class="c_141_4">
+		and a case against the accused
+	</div>
+
+	<div id="t_141_39" style="position: absolute; left: 41.89%; top:52.69%;" class="c_141_4">
+		is carefully built.
+	</div>
+
+	<div id="t_141_40" style="position: absolute; left: 73.17%; top: 50.44%; letter-spacing: 0.01em;" class="c_141_6">
+		Evidence of guilt is
+	</div>
+
+	<div id="t_141_41" style="position: absolute; left: 73.17%; top: 52.33%; letter-spacing: 0.01em;" class="c_141_6">
+		presented to a jury.
+	</div>
+
+	<div id="t_141_42" style="position: absolute; left: 13.94%; top: 47.42%; letter-spacing: 0.01em;" class="c_141_6">
+		The suspect
+	</div>
+
+	<div id="t_141_43" style="position: absolute; left: 13.94%; top: 49.31%; letter-spacing: 0.01em;" class="c_141_6">
+		is charged
+	</div>
+
+	<div id="t_141_44" style="position: absolute; left: 13.94%; top: 51.20%; letter-spacing: 0.01em;" class="c_141_6">
+		with armed
+	</div>
+
+	<div id="t_141_45" style="position: absolute; left: 13.94%; top: 53.10%; letter-spacing: 0.01em;" class="c_141_6">
+		robbery.
+	</div>
+
+	<div id="t_141_46" style="position: absolute; left: 33.16%; top:56.89%;" class="c_141_9">
+		THE BILL OF RIGHTS IN ACTION
+	</div>
+
+	<div id="t_141_47" style="position: absolute; left: 13.36%; top: 59.20%; letter-spacing: 0.01em;" class="c_141_10">
+		Throughout the arrest and trial, there are certain laws that must be obeyed.
+	</div>
+
+	<div id="t_141_48" style="position: absolute; left: 13.36%; top:60.86%;" class="c_141_11">
+		1<span class="c_141_12">. </span><span class="c_141_13">There can be no unreasonable searches of a person&rsquo;s home or property. Permission to search</span>
+	</div>
+
+	<div id="t_141_49" style="position: absolute; left: 13.36%; top: 63.15%;" class="c_141_2">
+		must be granted by the court in a document called a search warrant.
+	</div>
+
+	<div id="t_141_50" style="position: absolute; left: 13.36%; top:64.65%;" class="c_141_14">
+		2<span class="c_141_15">. </span><span class="c_141_13">People cannot be forced to be witnesses against themselves, nor can they be tried for the</span>
+	</div>
+
+	<div id="t_141_51" style="position: absolute; left: 13.36%; top: 66.94%;" class="c_141_2">
+		same crime twice (known as double jeopardy).
+	</div>
+
+	<div id="t_141_52" style="position: absolute; left: 13.36%; top:68.43%;" class="c_141_14">
+		3<span class="c_141_15">. </span><span class="c_141_13">All accused deserve a speedy and public trial with an impartial jury. They also must have a</span>
+	</div>
+
+	<div id="t_141_53" style="position: absolute; left: 13.36%; top: 70.73%;" class="c_141_2">
+		lawyer to represent them, even if they cannot afford it.
+	</div>
+
+	<div id="t_141_54" style="position: absolute; left: 22.25%; top: 75.15%; letter-spacing: 0.01em;" class="c_141_6">
+		If the accused is found
+	</div>
+
+	<div id="t_141_55" style="position: absolute; left: 22.25%; top: 76.92%; letter-spacing: 0.01em;" class="c_141_6">
+		guilty, a punishment is
+	</div>
+
+	<div id="t_141_56" style="position: absolute; left: 22.25%; top: 78.69%; letter-spacing: 0.01em;" class="c_141_6">
+		set. Some crimes can
+	</div>
+
+	<div id="t_141_57" style="position: absolute; left: 22.25%; top: 80.45%; letter-spacing: 0.01em;" class="c_141_6">
+		result in life in prison.
+	</div>
+
+	<div id="t_141_58" style="position: absolute; left: 22.25%; top: 82.22%; letter-spacing: 0.01em;" class="c_141_6">
+		Juries often decide on
+	</div>
+
+	<div id="t_141_59" style="position: absolute; left: 22.25%; top: 83.99%; letter-spacing: 0.01em;" class="c_141_6">
+		punishment in death
+	</div>
+
+	<div id="t_141_60" style="position: absolute; left: 22.25%; top: 85.76%; letter-spacing: 0.01em;" class="c_141_6">
+		penalty cases.
+	</div>
+
+	<div id="t_141_61" style="position: absolute; left: 54.60%; top:74.37%;" class="c_141_9">
+		WAS JUSTICE SERVED?
+	</div>
+
+	<div id="t_141_62" style="position: absolute; left: 45.11%; top: 76.84%;" class="c_141_2">
+		Let&rsquo;s suppose our suspect has been found guilty of armed
+	</div>
+
+	<div id="t_141_63" style="position: absolute; left: 44.27%; top: 78.73%;" class="c_141_2">
+		robbery and sentenced to 35 years in prison for the crime.
+	</div>
+
+	<div id="t_141_64" style="position: absolute; left: 44.27%; top: 80.63%;" class="c_141_2">
+		Is that the end of it? Our prisoner keeps proclaiming, &ldquo;I&rsquo;m
+	</div>
+
+	<div id="t_141_65" style="position: absolute; left: 44.27%; top: 82.52%;" class="c_141_2">
+		innocent! I was framed for the crime by a jealous friend!&rdquo;
+	</div>
+
+	<div id="t_141_66" style="position: absolute; left: 44.27%; top: 84.42%;" class="c_141_2">
+		When that happens, the first court decision can go to a
+	</div>
+
+	<div id="t_141_67" style="position: absolute; left: 44.27%; top: 86.31%;" class="c_141_2">
+		court of appeals to be retried. Less than eight percent of
+	</div>
+
+	<div id="t_141_68" style="position: absolute; left: 44.27%; top: 88.2%;" class="c_141_2">
+		cases are reversed and the person set free. Still, many
+	</div>
+
+	<div id="t_141_69" style="position: absolute; left: 44.27%; top: 90.1%;" class="c_141_2">
+		innocent men and women have eventually gained their
+	</div>
+
+	<div id="t_141_70" style="position: absolute; left: 44.27%; top: 91.99%;" class="c_141_2">
+		freedom.
+	</div>
+
+	<div id="t_141_71" style="position: absolute; left: 92.88%; top: 93.59%;" class="c_141_16">
+		141
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 8.75%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_criminal_procedure.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 18%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_arraignment.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 39%; top: 18%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_the_lawyers.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 63.75%; top: 18.75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_the_verdict.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 9%; top: 44%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_the_suspect_is_charged.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 68%; top: 48%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_evidence_of_guilt.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 27%; top: 55%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_the_bill_of_rights.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 17.5%; top: 72.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_if_the_accused.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 73%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_141_was_justice_served.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_140_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_141_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_140_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="140.html?page=right"; onclick="goto('140.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="142.html"; onclick="goto('142.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="142.html"; onclick="goto('142.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

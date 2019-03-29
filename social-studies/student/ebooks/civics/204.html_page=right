@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_204.css">
+                <link rel="stylesheet" href="css/civics_205.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="202.html?page=right"; onclick="goto('202.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="204.html"; onclick="goto('204.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="202.html?page=right"; onclick="goto('202.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="204.html?page=right"; onclick="goto('204.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="206.html"; onclick="goto('206.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="206.html"; onclick="goto('206.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="202.html?page=right"; onclick="goto('202.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="204.html"; onclick="goto('204.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="202.html?page=right"; onclick="goto('202.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_204">
+                                                                                                <div class="pageData">
+
+	<div id="t_204_0" style="position: absolute; left: 5.31%; top:5.46%;" class="c_204_0">
+		ARTICLE III. THE COURTS
+	</div>
+
+	<div id="t_204_1" style="position: absolute; left: 5.31%; top:7.21%;" class="c_204_1">
+		The government will have a
+	</div>
+
+	<div id="t_204_2" style="position: absolute; left: 5.31%; top:8.73%;" class="c_204_1">
+		judicial branch that
+	</div>
+
+	<div id="t_204_3" style="position: absolute; left: 5.31%; top:10.24%;" class="c_204_1">
+		includes a Supreme Court.
+	</div>
+
+	<div id="t_204_4" style="position: absolute; left: 5.31%; top:11.76%;" class="c_204_1">
+		Congress can also establish
+	</div>
+
+	<div id="t_204_5" style="position: absolute; left: 5.31%; top:13.27%;" class="c_204_1">
+		lower courts, and it quickly
+	</div>
+
+	<div id="t_204_6" style="position: absolute; left: 5.31%; top:14.79%;" class="c_204_1">
+		created a system of federal
+	</div>
+
+	<div id="t_204_7" style="position: absolute; left: 5.31%; top:16.31%;" class="c_204_1">
+		courts with three levels:
+	</div>
+
+	<div id="t_204_8" style="position: absolute; left: 5.31%; top:17.82%;" class="c_204_1">
+		district courts; courts of
+	</div>
+
+	<div id="t_204_9" style="position: absolute; left: 5.31%; top:19.34%;" class="c_204_1">
+		appeal; and, at the top, the
+	</div>
+
+	<div id="t_204_10" style="position: absolute; left: 5.31%; top:20.85%;" class="c_204_1">
+		Supreme Court.
+	</div>
+
+	<div id="t_204_11" style="position: absolute; left: 4.58%; top:26.22%;" class="c_204_0">
+		THE SUPREME COURT
+	</div>
+
+	<div id="t_204_12" style="position: absolute; left: 4.58%; top:27.97%;" class="c_204_1">
+		Supreme Court can rule on
+	</div>
+
+	<div id="t_204_13" style="position: absolute; left: 4.58%; top:29.49%;" class="c_204_1">
+		all cases involving:
+	</div>
+
+	<div id="t_204_14" style="position: absolute; left: 4.58%; top:32.00%;" class="c_204_1">
+		&bull;Ambassadors from other
+	</div>
+
+	<div id="t_204_15" style="position: absolute; left: 4.58%; top:33.51%;" class="c_204_1">
+		countries
+	</div>
+
+	<div id="t_204_16" style="position: absolute; left: 4.58%; top:36.02%;" class="c_204_1">
+		&bull;Two different states
+	</div>
+
+	<div id="t_204_17" style="position: absolute; left: 4.58%; top:38.52%;" class="c_204_1">
+		&bull;Citizens from different
+	</div>
+
+	<div id="t_204_18" style="position: absolute; left: 4.58%; top:40.04%;" class="c_204_1">
+		states
+	</div>
+
+	<div id="t_204_19" style="position: absolute; left: 4.58%; top:42.54%;" class="c_204_1">
+		&bull;Cases from lower courts
+	</div>
+
+	<div id="t_204_20" style="position: absolute; left: 4.58%; top:44.06%;" class="c_204_1">
+		that are still being argued
+	</div>
+
+	<div id="t_204_21" style="position: absolute; left: 4.61%; top:50.04%;" class="c_204_0">
+		TREASON
+	</div>
+
+	<div id="t_204_22" style="position: absolute; left: 4.61%; top:51.79%;" class="c_204_1">
+		No person is allowed to do
+	</div>
+
+	<div id="t_204_23" style="position: absolute; left: 4.61%; top:53.31%;" class="c_204_1">
+		anything that would
+	</div>
+
+	<div id="t_204_24" style="position: absolute; left: 4.61%; top:54.82%;" class="c_204_1">
+		seriously hurt the United
+	</div>
+
+	<div id="t_204_25" style="position: absolute; left: 4.61%; top:56.34%;" class="c_204_1">
+		States. This is treason and
+	</div>
+
+	<div id="t_204_26" style="position: absolute; left: 4.61%; top:57.85%;" class="c_204_1">
+		will be punished severely.
+	</div>
+
+	<div id="t_204_27" style="position: absolute; left: 4.80%; top:65.80%;" class="c_204_0">
+		ARTICLE IV. SOME
+	</div>
+
+	<div id="t_204_28" style="position: absolute; left: 4.80%; top:67.32%;" class="c_204_0">
+		ADDITIONAL RULES
+	</div>
+
+	<div id="t_204_29" style="position: absolute; left: 4.80%; top:69.07%;" class="c_204_1">
+		Each state&rsquo;s laws must be
+	</div>
+
+	<div id="t_204_30" style="position: absolute; left: 4.80%; top:70.59%;" class="c_204_1">
+		respected. The government
+	</div>
+
+	<div id="t_204_31" style="position: absolute; left: 4.80%; top:72.10%;" class="c_204_1">
+		has the power to add more
+	</div>
+
+	<div id="t_204_32" style="position: absolute; left: 4.80%; top:73.62%;" class="c_204_1">
+		states. Escaped slaves must
+	</div>
+
+	<div id="t_204_33" style="position: absolute; left: 4.80%; top:75.13%;" class="c_204_1">
+		be returned.
+	</div>
+
+	<div id="t_204_34" style="position: absolute; left: 5.05%; top:84.89%;" class="c_204_0">
+		NEW STATES
+	</div>
+
+	<div id="t_204_35" style="position: absolute; left: 5.05%; top:86.64%;" class="c_204_1">
+		Congress has the power to
+	</div>
+
+	<div id="t_204_36" style="position: absolute; left: 5.05%; top:88.15%;" class="c_204_1">
+		set the rules to create new
+	</div>
+
+	<div id="t_204_37" style="position: absolute; left: 5.05%; top:89.67%;" class="c_204_1">
+		states. More states can be
+	</div>
+
+	<div id="t_204_38" style="position: absolute; left: 5.05%; top:91.18%;" class="c_204_1">
+		established.
+	</div>
+
+	<div id="t_204_39" style="position: absolute; left: 4.34%; top: 96.75%; letter-spacing: -0.15em;" class="c_204_2">
+		204
+	</div>
+
+	<div id="t_204_40" style="position: absolute; left: 30.55%; top:4.92%;" class="c_204_3">
+		ARTICLE III. - THE JUDICIAL BRANCH
+	</div>
+
+	<div id="t_204_41" style="position: absolute; left: 30.55%; top:6.44%;" class="c_204_4">
+		Section 1 - Judicial powers
+	</div>
+
+	<div id="t_204_42" style="position: absolute; left: 32.02%; top:7.96%;" class="c_204_5">
+		The judicial Power of the United States, shall be vested in one supreme Court, and in
+	</div>
+
+	<div id="t_204_43" style="position: absolute; left: 30.55%; top:9.47%;" class="c_204_5">
+		such inferior Courts as the Congress may from time to time ordain and establish. The
+	</div>
+
+	<div id="t_204_44" style="position: absolute; left: 30.55%; top:10.99%;" class="c_204_5">
+		Judges, both of the supreme and inferior Courts, shall hold their Offices during good
+	</div>
+
+	<div id="t_204_45" style="position: absolute; left: 30.55%; top:12.50%;" class="c_204_5">
+		Behavior, and shall, at stated Times, receive for their Services a Compensation which
+	</div>
+
+	<div id="t_204_46" style="position: absolute; left: 30.55%; top:14.02%;" class="c_204_5">
+		shall not be diminished during their Continuance in Office.
+	</div>
+
+	<div id="t_204_47" style="position: absolute; left: 30.55%; top:16.52%;" class="c_204_4">
+		Section 2 - Trial by Jury, Original Jurisdiction, Jury Trials
+	</div>
+
+	<div id="t_204_48" style="position: absolute; left: 32.02%; top:18.04%;" class="c_204_5">
+		(The judicial Power shall extend to all Cases, in Law and Equity, arising under this
+	</div>
+
+	<div id="t_204_49" style="position: absolute; left: 30.55%; top:19.55%;" class="c_204_5">
+		Constitution, the Laws of the United States, and Treaties made, or which shall be
+	</div>
+
+	<div id="t_204_50" style="position: absolute; left: 30.55%; top:21.07%;" class="c_204_5">
+		made, under their Authority; to all Cases affecting Ambassadors, other public Ministers
+	</div>
+
+	<div id="t_204_51" style="position: absolute; left: 30.55%; top:22.58%;" class="c_204_5">
+		and Consuls; to all Cases of admiralty and maritime Jurisdiction; to Controversies to
+	</div>
+
+	<div id="t_204_52" style="position: absolute; left: 30.55%; top:24.10%;" class="c_204_5">
+		which the United States shall be a Party; to Controversies between two or more States;
+	</div>
+
+	<div id="t_204_53" style="position: absolute; left: 30.55%; top:25.61%;" class="c_204_5">
+		between a State and Citizens of another State; between Citizens of different States;
+	</div>
+
+	<div id="t_204_54" style="position: absolute; left: 30.55%; top:27.13%;" class="c_204_5">
+		between Citizens of the same State claiming Lands under Grants of different States,
+	</div>
+
+	<div id="t_204_55" style="position: absolute; left: 30.55%; top:28.64%;" class="c_204_5">
+		and between a State, or the Citizens thereof, and foreign States, Citizens or Subjects.)
+	</div>
+
+	<div id="t_204_56" style="position: absolute; left: 30.55%; top:30.16%;" class="c_204_6">
+		(This section in parentheses is modified by the 11th Amendment.)
+	</div>
+
+	<div id="t_204_57" style="position: absolute; left: 32.02%; top:31.67%;" class="c_204_5">
+		In all Cases affecting Ambassadors, other public Ministers and Consuls, and those in
+	</div>
+
+	<div id="t_204_58" style="position: absolute; left: 30.55%; top:33.19%;" class="c_204_5">
+		which a State shall be Party, the supreme Court shall have original Jurisdiction. In all
+	</div>
+
+	<div id="t_204_59" style="position: absolute; left: 30.55%; top:34.70%;" class="c_204_5">
+		the other Cases before mentioned, the supreme Court shall have appellate Jurisdiction,
+	</div>
+
+	<div id="t_204_60" style="position: absolute; left: 30.55%; top:36.22%;" class="c_204_5">
+		both as to Law and Fact, with such Exceptions, and under such Regulations as the
+	</div>
+
+	<div id="t_204_61" style="position: absolute; left: 30.55%; top:37.74%;" class="c_204_5">
+		Congress shall make.
+	</div>
+
+	<div id="t_204_62" style="position: absolute; left: 32.02%; top:39.25%;" class="c_204_5">
+		The Trial of all Crimes, except in Cases of Impeachment, shall be by Jury; and such
+	</div>
+
+	<div id="t_204_63" style="position: absolute; left: 30.55%; top:40.77%;" class="c_204_5">
+		Trial shall be held in the State where the said Crimes shall have been committed; but
+	</div>
+
+	<div id="t_204_64" style="position: absolute; left: 30.55%; top:42.28%;" class="c_204_5">
+		when not committed within any State, the Trial shall be at such Place or Places as the
+	</div>
+
+	<div id="t_204_65" style="position: absolute; left: 30.55%; top:43.80%;" class="c_204_5">
+		Congress may by Law have directed.
+	</div>
+
+	<div id="t_204_66" style="position: absolute; left: 30.55%; top:46.30%;" class="c_204_4">
+		Section 3 - Treason
+	</div>
+
+	<div id="t_204_67" style="position: absolute; left: 32.02%; top:47.82%;" class="c_204_5">
+		Treason against the United States, shall consist only in levying War against them, or
+	</div>
+
+	<div id="t_204_68" style="position: absolute; left: 30.55%; top:49.33%;" class="c_204_5">
+		in adhering to their Enemies, giving them Aid and Comfort. No Person shall be
+	</div>
+
+	<div id="t_204_69" style="position: absolute; left: 30.55%; top:50.85%;" class="c_204_5">
+		convicted of Treason unless on the Testimony of two Witnesses to the same overt Act,
+	</div>
+
+	<div id="t_204_70" style="position: absolute; left: 30.55%; top:52.36%;" class="c_204_5">
+		or on Confession in open Court.
+	</div>
+
+	<div id="t_204_71" style="position: absolute; left: 32.02%; top:53.88%;" class="c_204_5">
+		The Congress shall have power to declare the Punishment of Treason, but no
+	</div>
+
+	<div id="t_204_72" style="position: absolute; left: 30.55%; top:55.39%;" class="c_204_5">
+		Attainder of Treason shall work Corruption of Blood, or Forfeiture except during the
+	</div>
+
+	<div id="t_204_73" style="position: absolute; left: 30.55%; top:56.91%;" class="c_204_5">
+		Life of the Person attainted.
+	</div>
+
+	<div id="t_204_74" style="position: absolute; left: 30.55%; top:59.41%;" class="c_204_3">
+		ARTICLE. IV. - THE STATES
+	</div>
+
+	<div id="t_204_75" style="position: absolute; left: 30.55%; top:60.93%;" class="c_204_4">
+		Section 1 - Each State to Honor all others
+	</div>
+
+	<div id="t_204_76" style="position: absolute; left: 32.02%; top:62.44%;" class="c_204_5">
+		Full Faith and Credit shall be given in each State to the public Acts, Records, and
+	</div>
+
+	<div id="t_204_77" style="position: absolute; left: 30.55%; top:63.96%;" class="c_204_5">
+		judicial Proceedings of every other State. And the Congress may by general Laws
+	</div>
+
+	<div id="t_204_78" style="position: absolute; left: 30.55%; top:65.48%;" class="c_204_5">
+		prescribe the Manner in which such Acts, Records and Proceedings shall be proved,
+	</div>
+
+	<div id="t_204_79" style="position: absolute; left: 30.55%; top:66.99%;" class="c_204_5">
+		and the Effect thereof.
+	</div>
+
+	<div id="t_204_80" style="position: absolute; left: 30.55%; top:68.50%;" class="c_204_4">
+		Section 2 - State citizens, Extradition
+	</div>
+
+	<div id="t_204_81" style="position: absolute; left: 32.02%; top:70.02%;" class="c_204_5">
+		The Citizens of each State shall be entitled to all Privileges and Immunities of Citizens
+	</div>
+
+	<div id="t_204_82" style="position: absolute; left: 30.56%; top:71.54%;" class="c_204_5">
+		in the several States.
+	</div>
+
+	<div id="t_204_83" style="position: absolute; left: 32.03%; top:73.05%;" class="c_204_5">
+		A Person charged in any State with Treason, Felony, or other Crime, who shall flee
+	</div>
+
+	<div id="t_204_84" style="position: absolute; left: 30.56%; top:74.57%;" class="c_204_5">
+		from Justice, and be found in another State, shall on demand of the executive
+	</div>
+
+	<div id="t_204_85" style="position: absolute; left: 30.56%; top:76.08%;" class="c_204_5">
+		Authority of the State from which he fled, be delivered up, to be removed to the State
+	</div>
+
+	<div id="t_204_86" style="position: absolute; left: 30.56%; top:77.60%;" class="c_204_5">
+		having Jurisdiction of the Crime.
+	</div>
+
+	<div id="t_204_87" style="position: absolute; left: 32.03%; top:79.11%;" class="c_204_5">
+		(No Person held to Service or Labour in one State, under the Laws thereof, escaping
+	</div>
+
+	<div id="t_204_88" style="position: absolute; left: 30.56%; top:80.63%;" class="c_204_5">
+		into another, shall, in Consequence of any Law or Regulation therein, be discharged
+	</div>
+
+	<div id="t_204_89" style="position: absolute; left: 30.56%; top:82.14%;" class="c_204_5">
+		from such Service or Labour, But shall be delivered up on Claim of the Party to whom
+	</div>
+
+	<div id="t_204_90" style="position: absolute; left: 30.56%; top:83.66%;" class="c_204_5">
+		such Service or Labour may be due.)<span class="c_204_7"> (The clause in parentheses is changed by the 13th</span>
+	</div>
+
+	<div id="t_204_91" style="position: absolute; left: 30.56%; top:85.17%;" class="c_204_6">
+		Amendment.)
+	</div>
+
+	<div id="t_204_92" style="position: absolute; left: 30.56%; top:87.67%;" class="c_204_4">
+		Section 3 - New States
+	</div>
+
+	<div id="t_204_93" style="position: absolute; left: 31.95%; top:89.19%;" class="c_204_5">
+		New States may be admitted by the Congress into this Union; but no new States shall
+	</div>
+
+	<div id="t_204_94" style="position: absolute; left: 30.56%; top:90.71%;" class="c_204_5">
+		be formed or erected within the Jurisdiction of any other State; nor any State be formed
+	</div>
+
+	<div id="t_204_95" style="position: absolute; left: 30.56%; top:92.22%;" class="c_204_5">
+		by the Junction of two or more States, or parts of States, without the Consent of the
+	</div>
+
+	<div id="t_204_96" style="position: absolute; left: 30.56%; top:93.74%;" class="c_204_5">
+		Legislatures of the States concerned as well as of the Congress.
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_205">
+                                                                                                <div class="pageData">
+
+	<div id="t_205_0" style="position: absolute; left: 10.21%; top:4.18%;" class="c_205_0">
+		The Congress shall have Power to dispose of and make all needful Rules and
+	</div>
+
+	<div id="t_205_1" style="position: absolute; left: 8.83%; top:5.69%;" class="c_205_0">
+		Regulations respecting the Territory or other Property belonging to the United States;
+	</div>
+
+	<div id="t_205_2" style="position: absolute; left: 8.83%; top:7.21%;" class="c_205_0">
+		and nothing in this Constitution shall be so construed as to Prejudice any Claims of the
+	</div>
+
+	<div id="t_205_3" style="position: absolute; left: 8.83%; top:8.72%;" class="c_205_0">
+		United States, or of any particular State.
+	</div>
+
+	<div id="t_205_4" style="position: absolute; left: 8.83%; top:11.23%;" class="c_205_1">
+		Section 4 - Republican government
+	</div>
+
+	<div id="t_205_5" style="position: absolute; left: 10.21%; top:12.75%;" class="c_205_0">
+		The United States shall guarantee to every State in this Union a Republican Form of
+	</div>
+
+	<div id="t_205_6" style="position: absolute; left: 8.83%; top:14.26%;" class="c_205_0">
+		Government, and shall protect each of them against Invasion; and on Application of the
+	</div>
+
+	<div id="t_205_7" style="position: absolute; left: 8.83%; top:15.78%;" class="c_205_0">
+		Legislature, or of the Executive (when the Legislature cannot be convened) against
+	</div>
+
+	<div id="t_205_8" style="position: absolute; left: 8.83%; top:17.29%;" class="c_205_0">
+		domestic Violence.
+	</div>
+
+	<div id="t_205_9" style="position: absolute; left: 8.83%; top:19.67%;" class="c_205_2">
+		ARTICLE. V. - AMENDMENT
+	</div>
+
+	<div id="t_205_10" style="position: absolute; left: 10.21%; top:21.19%;" class="c_205_0">
+		The Congress, whenever two thirds of both Houses shall deem it necessary, shall
+	</div>
+
+	<div id="t_205_11" style="position: absolute; left: 8.83%; top:22.70%;" class="c_205_0">
+		propose Amendments to this Constitution, or, on the Application of the Legislatures of
+	</div>
+
+	<div id="t_205_12" style="position: absolute; left: 8.83%; top:24.22%;" class="c_205_0">
+		two thirds of the several States, shall call a Convention for proposing Amendments,
+	</div>
+
+	<div id="t_205_13" style="position: absolute; left: 8.83%; top:25.73%;" class="c_205_0">
+		which, in either Case, shall be valid to all Intents and Purposes, as part of this
+	</div>
+
+	<div id="t_205_14" style="position: absolute; left: 8.83%; top:27.25%;" class="c_205_0">
+		Constitution, when ratified by the Legislatures of three fourths of the several States, or by
+	</div>
+
+	<div id="t_205_15" style="position: absolute; left: 8.83%; top:28.76%;" class="c_205_0">
+		Conventions in three fourths thereof, as the one or the other Mode of Ratification may
+	</div>
+
+	<div id="t_205_16" style="position: absolute; left: 8.83%; top:30.28%;" class="c_205_0">
+		be proposed by the Congress; Provided that no Amendment which may be made prior
+	</div>
+
+	<div id="t_205_17" style="position: absolute; left: 8.83%; top:31.79%;" class="c_205_0">
+		to the Year One thousand eight hundred and eight shall in any Manner affect the first
+	</div>
+
+	<div id="t_205_18" style="position: absolute; left: 8.83%; top:33.31%;" class="c_205_0">
+		and fourth Clauses in the Ninth Section of the first Article; and that no State, without its
+	</div>
+
+	<div id="t_205_19" style="position: absolute; left: 8.83%; top:34.82%;" class="c_205_0">
+		Consent, shall be deprived of its equal Suffrage in the Senate.
+	</div>
+
+	<div id="t_205_20" style="position: absolute; left: 8.83%; top:37.20%;" class="c_205_2">
+		ARTICLE. VI. - DEBTS, SUPREMACY, OATHS
+	</div>
+
+	<div id="t_205_21" style="position: absolute; left: 10.21%; top:38.72%;" class="c_205_0">
+		All Debts contracted and Engagements entered into, before the Adoption of this
+	</div>
+
+	<div id="t_205_22" style="position: absolute; left: 8.83%; top:40.23%;" class="c_205_0">
+		Constitution, shall be as valid against the United States under this Constitution, as under
+	</div>
+
+	<div id="t_205_23" style="position: absolute; left: 8.83%; top:41.75%;" class="c_205_0">
+		the Confederation.
+	</div>
+
+	<div id="t_205_24" style="position: absolute; left: 10.21%; top:43.26%;" class="c_205_0">
+		This Constitution, and the Laws of the United States which shall be made in Pursuance
+	</div>
+
+	<div id="t_205_25" style="position: absolute; left: 8.83%; top:44.78%;" class="c_205_0">
+		thereof; and all Treaties made, or which shall be made, under the Authority of the United
+	</div>
+
+	<div id="t_205_26" style="position: absolute; left: 8.83%; top:46.29%;" class="c_205_0">
+		States, shall be the supreme Law of the Land; and the Judges in every State shall be
+	</div>
+
+	<div id="t_205_27" style="position: absolute; left: 8.83%; top:47.81%;" class="c_205_0">
+		bound thereby, any Thing in the Constitution or Laws of any State to the Contrary
+	</div>
+
+	<div id="t_205_28" style="position: absolute; left: 8.83%; top:49.32%;" class="c_205_0">
+		notwithstanding.
+	</div>
+
+	<div id="t_205_29" style="position: absolute; left: 10.21%; top:50.84%;" class="c_205_0">
+		The Senators and Representatives before mentioned, and the Members of the several
+	</div>
+
+	<div id="t_205_30" style="position: absolute; left: 8.83%; top:52.35%;" class="c_205_0">
+		State Legislatures, and all executive and judicial Officers, both of the United States and of
+	</div>
+
+	<div id="t_205_31" style="position: absolute; left: 8.83%; top:53.87%;" class="c_205_0">
+		the several States, shall be bound by Oath or Affirmation, to support this Constitution;
+	</div>
+
+	<div id="t_205_32" style="position: absolute; left: 8.83%; top:55.38%;" class="c_205_0">
+		but no religious Test shall ever be required as a Qualification to any Office or public Trust
+	</div>
+
+	<div id="t_205_33" style="position: absolute; left: 8.83%; top:56.90%;" class="c_205_0">
+		under the United States.
+	</div>
+
+	<div id="t_205_34" style="position: absolute; left: 8.83%; top:59.28%;" class="c_205_2">
+		ARTICLE. VII. - RATIFICATION DOCUMENTS
+	</div>
+
+	<div id="t_205_35" style="position: absolute; left: 10.21%; top:60.79%;" class="c_205_0">
+		The Ratification of the Conventions of nine States, shall be sufficient for the
+	</div>
+
+	<div id="t_205_36" style="position: absolute; left: 8.83%; top:62.31%;" class="c_205_0">
+		Establishment of this Constitution between the States so ratifying the Same.
+	</div>
+
+	<div id="t_205_37" style="position: absolute; left: 10.21%; top:63.82%;" class="c_205_0">
+		Done in Convention by the Unanimous Consent of the States present the Seventeenth
+	</div>
+
+	<div id="t_205_38" style="position: absolute; left: 8.83%; top:65.34%;" class="c_205_0">
+		Day of September in the Year of our Lord one thousand seven hundred and Eighty
+	</div>
+
+	<div id="t_205_39" style="position: absolute; left: 8.83%; top:66.86%;" class="c_205_0">
+		seven and of the Independence of the United States of America the Twelfth. In
+	</div>
+
+	<div id="t_205_40" style="position: absolute; left: 8.83%; top:68.37%;" class="c_205_0">
+		Witness whereof We have hereunto subscribed our Names.
+	</div>
+
+	<div id="t_205_41" style="position: absolute; left: 8.82%; top:70.76%;" class="c_205_0">
+		G. Washington-Presidt. and deputy
+	</div>
+
+	<div id="t_205_42" style="position: absolute; left: 8.82%; top:72.28%;" class="c_205_0">
+		from VIRGINIA
+	</div>
+
+	<div id="t_205_43" style="position: absolute; left: 8.82%; top:74.28%;" class="c_205_0">
+		NEW HAMPSHIRE: John Langdon,
+	</div>
+
+	<div id="t_205_44" style="position: absolute; left: 8.82%; top:75.79%;" class="c_205_0">
+		Nicholas Gilman
+	</div>
+
+	<div id="t_205_45" style="position: absolute; left: 8.82%; top:77.79%;" class="c_205_0">
+		MASSACHUSETTS: Nathaniel Gorham,
+	</div>
+
+	<div id="t_205_46" style="position: absolute; left: 8.82%; top:79.31%;" class="c_205_0">
+		Rufus King
+	</div>
+
+	<div id="t_205_47" style="position: absolute; left: 8.82%; top:81.31%;" class="c_205_0">
+		CONNECTICUT: Wm. Saml. Johnson,
+	</div>
+
+	<div id="t_205_48" style="position: absolute; left: 8.82%; top:82.82%;" class="c_205_0">
+		Roger Sherman
+	</div>
+
+	<div id="t_205_49" style="position: absolute; left: 8.82%; top:84.83%;" class="c_205_0">
+		NEW YORK: Alexander Hamilton
+	</div>
+
+	<div id="t_205_50" style="position: absolute; left: 8.82%; top:86.83%;" class="c_205_0">
+		NEW JERSEY: Wil. Livingston, David
+	</div>
+
+	<div id="t_205_51" style="position: absolute; left: 8.82%; top:88.34%;" class="c_205_0">
+		Brearly, Wm. Paterson, Jona. Dayton
+	</div>
+
+	<div id="t_205_52" style="position: absolute; left: 8.82%; top:90.34%;" class="c_205_0">
+		PENNSYLVANIA: B. Franklin, Thomas
+	</div>
+
+	<div id="t_205_53" style="position: absolute; left: 8.82%; top:91.86%;" class="c_205_0">
+		Mifflin, Robt. Morris, Geo. Clymer,
+	</div>
+
+	<div id="t_205_54" style="position: absolute; left: 8.82%; top:93.37%;" class="c_205_0">
+		Thos. FitzSimons, Jared Ingersoll, James
+	</div>
+
+	<div id="t_205_55" style="position: absolute; left: 8.82%; top:94.89%;" class="c_205_0">
+		Wilson, Gouv Morris
+	</div>
+
+	<div id="t_205_56" style="position: absolute; left: 37.51%; top:70.76%;" class="c_205_0">
+		DELAWARE: Geo. Read, Gunning
+	</div>
+
+	<div id="t_205_57" style="position: absolute; left: 37.51%; top:72.28%;" class="c_205_0">
+		Bedford jun, John Dickinson, Richard
+	</div>
+
+	<div id="t_205_58" style="position: absolute; left: 37.51%; top:73.79%;" class="c_205_0">
+		Bassett, Jaco. Broom
+	</div>
+
+	<div id="t_205_59" style="position: absolute; left: 37.51%; top:75.79%;" class="c_205_0">
+		MARYLAND: James McHenry, Dan of St
+	</div>
+
+	<div id="t_205_60" style="position: absolute; left: 37.51%; top:77.31%;" class="c_205_0">
+		Thos. Jenifer, Danl Carroll
+	</div>
+
+	<div id="t_205_61" style="position: absolute; left: 37.51%; top:79.31%;" class="c_205_0">
+		VIRGINIA: John Blair, James Madison Jr.
+	</div>
+
+	<div id="t_205_62" style="position: absolute; left: 37.51%; top:81.31%;" class="c_205_0">
+		NORTH CAROLINA: Wm. Blount, Richd.
+	</div>
+
+	<div id="t_205_63" style="position: absolute; left: 37.51%; top:82.83%;" class="c_205_0">
+		Dobbs Spaight, Hu Williamson
+	</div>
+
+	<div id="t_205_64" style="position: absolute; left: 37.51%; top:84.83%;" class="c_205_0">
+		SOUTH CAROLINA: J. Rutledge, Charles
+	</div>
+
+	<div id="t_205_65" style="position: absolute; left: 37.51%; top:86.34%;" class="c_205_0">
+		Cotesworth Pinckney, Charles Pinckney,
+	</div>
+
+	<div id="t_205_66" style="position: absolute; left: 37.51%; top:87.86%;" class="c_205_0">
+		Pierce Butler
+	</div>
+
+	<div id="t_205_67" style="position: absolute; left: 37.51%; top:89.86%;" class="c_205_0">
+		GEORGIA: William Few, Abr Baldwin
+	</div>
+
+	<div id="t_205_68" style="position: absolute; left: 74.43%; top:5.67%;" class="c_205_3">
+		ARTICLE V. AMENDING
+	</div>
+
+	<div id="t_205_69" style="position: absolute; left: 74.43%; top:7.18%;" class="c_205_3">
+		THE CONSTITUTION
+	</div>
+
+	<div id="t_205_70" style="position: absolute; left: 74.43%; top:8.94%;" class="c_205_4">
+		Congress can propose
+	</div>
+
+	<div id="t_205_71" style="position: absolute; left: 74.43%; top:10.45%;" class="c_205_4">
+		changes to the Constitution,
+	</div>
+
+	<div id="t_205_72" style="position: absolute; left: 74.43%; top:11.97%;" class="c_205_4">
+		if two-thirds of the members
+	</div>
+
+	<div id="t_205_73" style="position: absolute; left: 74.43%; top:13.48%;" class="c_205_4">
+		of each house, the Senate
+	</div>
+
+	<div id="t_205_74" style="position: absolute; left: 74.43%; top:15.00%;" class="c_205_4">
+		and the House of
+	</div>
+
+	<div id="t_205_75" style="position: absolute; left: 74.43%; top:16.51%;" class="c_205_4">
+		Representatives, vote to do
+	</div>
+
+	<div id="t_205_76" style="position: absolute; left: 74.43%; top:18.03%;" class="c_205_4">
+		so. Then the proposed
+	</div>
+
+	<div id="t_205_77" style="position: absolute; left: 74.43%; top:19.54%;" class="c_205_4">
+		amendment goes to the
+	</div>
+
+	<div id="t_205_78" style="position: absolute; left: 74.43%; top:21.06%;" class="c_205_4">
+		states, and three-quarters of
+	</div>
+
+	<div id="t_205_79" style="position: absolute; left: 74.43%; top:22.57%;" class="c_205_4">
+		them must ratify it before it
+	</div>
+
+	<div id="t_205_80" style="position: absolute; left: 74.43%; top:24.09%;" class="c_205_4">
+		goes into effect. These days
+	</div>
+
+	<div id="t_205_81" style="position: absolute; left: 74.43%; top:25.60%;" class="c_205_4">
+		that means 38 out of the 50
+	</div>
+
+	<div id="t_205_82" style="position: absolute; left: 74.43%; top:27.12%;" class="c_205_4">
+		states must agree to it before
+	</div>
+
+	<div id="t_205_83" style="position: absolute; left: 74.43%; top:28.63%;" class="c_205_4">
+		it becomes part of the
+	</div>
+
+	<div id="t_205_84" style="position: absolute; left: 74.43%; top:30.15%;" class="c_205_4">
+		Constitution.
+	</div>
+
+	<div id="t_205_85" style="position: absolute; left: 74.51%; top:35.34%;" class="c_205_3">
+		ARTICLE VI. THE
+	</div>
+
+	<div id="t_205_86" style="position: absolute; left: 74.51%; top:36.86%;" class="c_205_3">
+		CONSTITUTION IS
+	</div>
+
+	<div id="t_205_87" style="position: absolute; left: 74.51%; top:38.37%;" class="c_205_3">
+		HIGHEST LAW
+	</div>
+
+	<div id="t_205_88" style="position: absolute; left: 74.51%; top:40.12%;" class="c_205_4">
+		The Constitution is the most
+	</div>
+
+	<div id="t_205_89" style="position: absolute; left: 74.51%; top:41.64%;" class="c_205_4">
+		important law of the land.
+	</div>
+
+	<div id="t_205_90" style="position: absolute; left: 74.51%; top:43.15%;" class="c_205_4">
+		When state law conflicts
+	</div>
+
+	<div id="t_205_91" style="position: absolute; left: 74.51%; top:44.67%;" class="c_205_4">
+		with the Constitution, the
+	</div>
+
+	<div id="t_205_92" style="position: absolute; left: 74.51%; top:46.18%;" class="c_205_4">
+		Constitution wins.
+	</div>
+
+	<div id="t_205_93" style="position: absolute; left: 73.95%; top:51.90%;" class="c_205_3">
+		ARTICLE VII. ACCEPTING
+	</div>
+
+	<div id="t_205_94" style="position: absolute; left: 73.95%; top:53.41%;" class="c_205_3">
+		THE CONSTITUTION
+	</div>
+
+	<div id="t_205_95" style="position: absolute; left: 73.95%; top:55.17%;" class="c_205_4">
+		If 9 of the original 13 states
+	</div>
+
+	<div id="t_205_96" style="position: absolute; left: 73.95%; top:56.68%;" class="c_205_4">
+		agree to the terms of the
+	</div>
+
+	<div id="t_205_97" style="position: absolute; left: 73.95%; top:58.20%;" class="c_205_4">
+		Constitution, it becomes the
+	</div>
+
+	<div id="t_205_98" style="position: absolute; left: 73.95%; top:59.71%;" class="c_205_4">
+		law of the land.
+	</div>
+
+	<div id="t_205_99" style="position: absolute; left: 92.47%; top: 96.75%; letter-spacing: -0.15em;" class="c_205_5">
+		205
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="204.html?page=right"; onclick="goto('204.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="206.html"; onclick="goto('206.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="206.html"; onclick="goto('206.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

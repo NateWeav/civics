@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_188.css">
+                <link rel="stylesheet" href="css/civics_189.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="186.html?page=right"; onclick="goto('186.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="188.html"; onclick="goto('188.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="186.html?page=right"; onclick="goto('186.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_188_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_189_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_188_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="188.html?page=right"; onclick="goto('188.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="190.html"; onclick="goto('190.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="190.html"; onclick="goto('190.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="186.html?page=right"; onclick="goto('186.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="188.html"; onclick="goto('188.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="186.html?page=right"; onclick="goto('186.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_188">
+                                                                                                <div class="pageData">
+
+	<div id="t_188_0" style="position: absolute; left: 5.88%; top:4.43%;" class="c_188_0">
+		An awareness of personal
+	</div>
+
+	<div id="t_188_1" style="position: absolute; left: 5.88%; top:6.20%;" class="c_188_0">
+		talents, interests, and
+	</div>
+
+	<div id="t_188_2" style="position: absolute; left: 5.88%; top:7.96%;" class="c_188_0">
+		aspirations is needed to
+	</div>
+
+	<div id="t_188_3" style="position: absolute; left: 5.88%; top:9.73%;" class="c_188_0">
+		select a career.
+	</div>
+
+	<div id="t_188_4" style="position: absolute; left: 5.88%; top:12.51%;" class="c_188_0">
+		Attitudes and behaviors that
+	</div>
+
+	<div id="t_188_5" style="position: absolute; left: 5.88%; top:14.28%;" class="c_188_0">
+		support a strong work ethic
+	</div>
+
+	<div id="t_188_6" style="position: absolute; left: 5.88%; top:16.05%;" class="c_188_0">
+		enhance career success.
+	</div>
+
+	<div id="t_188_7" style="position: absolute; left: 7.85%; top: 19.48%; letter-spacing: -0.02em;" class="c_188_1">
+		What Do
+	</div>
+
+	<div id="t_188_8" style="position: absolute; left: 7.85%; top: 24.91%; letter-spacing: -0.02em;" class="c_188_1">
+		You Do
+	</div>
+
+	<div id="t_188_9" style="position: absolute; left: 7.85%; top: 30.34%; letter-spacing: -0.02em;" class="c_188_1">
+		Best?
+	</div>
+
+	<div id="t_188_10" style="position: absolute; left: 8.36%; top: 37.35%; letter-spacing: 0.01em;" class="c_188_2">
+		You are the subject of this
+	</div>
+
+	<div id="t_188_11" style="position: absolute; left: 8.36%; top: 39.11%; letter-spacing: 0.01em;" class="c_188_2">
+		chapter. It is time to stop
+	</div>
+
+	<div id="t_188_12" style="position: absolute; left: 8.36%; top: 40.88%; letter-spacing: 0.01em;" class="c_188_2">
+		and reflect about what
+	</div>
+
+	<div id="t_188_13" style="position: absolute; left: 8.36%; top: 42.65%; letter-spacing: 0.01em;" class="c_188_2">
+		makes you happiest.
+	</div>
+
+	<div id="t_188_14" style="position: absolute; left: 32.06%; top: 5.77%;" class="c_188_3">
+		You have met great judges, clever entrepreneurs, brilliant thinkers,
+	</div>
+
+	<div id="t_188_15" style="position: absolute; left: 30.74%; top: 7.66%;" class="c_188_3">
+		charismatic politicians, and lots of good, hard-working people in this book.
+	</div>
+
+	<div id="t_188_16" style="position: absolute; left: 30.74%; top: 9.56%;" class="c_188_3">
+		Now it is your turn. You&rsquo;re probably thinking, &ldquo;Wait! I&rsquo;m just a kid! How
+	</div>
+
+	<div id="t_188_17" style="position: absolute; left: 30.74%; top: 11.45%;" class="c_188_3">
+		should I know what I want to be doing ten years from now?&rdquo; Well, now is
+	</div>
+
+	<div id="t_188_18" style="position: absolute; left: 30.74%; top: 13.35%;" class="c_188_3">
+		the perfect time to start thinking about your talents. Better yet, now is the
+	</div>
+
+	<div id="t_188_19" style="position: absolute; left: 30.74%; top: 15.24%;" class="c_188_3">
+		perfect time to start focusing on what you love to do, and how you can turn
+	</div>
+
+	<div id="t_188_20" style="position: absolute; left: 30.74%; top: 17.13%;" class="c_188_3">
+		that passion into a lifelong career.
+	</div>
+
+	<div id="t_188_21" style="position: absolute; left: 32.06%; top: 21.8%;" class="c_188_3">
+		Anything goes, but you have to be realistic. You may want to be a major-
+	</div>
+
+	<div id="t_188_22" style="position: absolute; left: 50.96%; top:19.33%;" class="c_188_4">
+		DARE TO DREAM
+	</div>
+
+	<div id="t_188_23" style="position: absolute; left: 30.74%; top: 23.7%;" class="c_188_3">
+		league ballplayer, but only about 250 supremely talented players are drafted
+	</div>
+
+	<div id="t_188_24" style="position: absolute; left: 30.74%; top: 25.59%;" class="c_188_3">
+		each year, and of those, half never get to play in the major leagues. When it
+	</div>
+
+	<div id="t_188_25" style="position: absolute; left: 30.74%; top: 27.49%;" class="c_188_3">
+		comes to the workplace, supply and demand are at the forefront. Only a
+	</div>
+
+	<div id="t_188_26" style="position: absolute; left: 30.74%; top: 29.38%;" class="c_188_3">
+		small number of major-league ballplayers are needed, but many people
+	</div>
+
+	<div id="t_188_27" style="position: absolute; left: 30.74%; top: 31.28%;" class="c_188_3">
+		want to play. The high number supplied makes this job very difficult to get.
+	</div>
+
+	<div id="t_188_28" style="position: absolute; left: 51.43%; top:33.69%;" class="c_188_4">
+		I COULD BE A&hellip;
+	</div>
+
+	<div id="t_188_29" style="position: absolute; left: 32.20%; top: 36.16%;" class="c_188_3">
+		Planning a career starts with self-assessment. Think about yourself. Are
+	</div>
+
+	<div id="t_188_30" style="position: absolute; left: 30.88%; top: 38.06%;" class="c_188_3">
+		you great with numbers, or are words more your strong suit? Do you like
+	</div>
+
+	<div id="t_188_31" style="position: absolute; left: 30.88%; top: 39.95%;" class="c_188_3">
+		being around people, or are you happiest spending quiet time by yourself?
+	</div>
+
+	<div id="t_188_32" style="position: absolute; left: 30.88%; top: 41.84%;" class="c_188_3">
+		Think of a recipe for yummy chocolate chip cookies. What ingredients do
+	</div>
+
+	<div id="t_188_33" style="position: absolute; left: 30.88%; top: 43.74%;" class="c_188_3">
+		you need? It&rsquo;s the same with your future. <span class="c_188_5">Human capital</span> <span class="c_188_6">is a combination</span>
+	</div>
+
+	<div id="t_188_34" style="position: absolute; left: 30.88%; top: 45.63%;" class="c_188_3">
+		of education, knowledge, skill, experience, health, training, and talent&mdash;all
+	</div>
+
+	<div id="t_188_35" style="position: absolute; left: 55.88%; top: 47.53%;" class="c_188_3">
+		stirred together to make you well suited to
+	</div>
+
+	<div id="t_188_36" style="position: absolute; left: 55.88%; top: 49.42%;" class="c_188_3">
+		pursue the job of your dreams.
+	</div>
+
+	<div id="t_188_37" style="position: absolute; left: 57.64%; top: 51.32%;" class="c_188_3">
+		No matter what you end up doing to
+	</div>
+
+	<div id="t_188_38" style="position: absolute; left: 55.88%; top: 53.21%;" class="c_188_3">
+		earn a living, your work habits&mdash;showing
+	</div>
+
+	<div id="t_188_39" style="position: absolute; left: 55.88%; top: 55.11%;" class="c_188_3">
+		up on time, and focusing on your tasks&mdash;
+	</div>
+
+	<div id="t_188_40" style="position: absolute; left: 55.88%; top: 57%;" class="c_188_3">
+		will be a real asset when it comes time to
+	</div>
+
+	<div id="t_188_41" style="position: absolute; left: 55.88%; top: 58.89%;" class="c_188_3">
+		find a job. Employers <span class="c_188_7">want</span> <span class="c_188_6">to hire people</span>
+	</div>
+
+	<div id="t_188_42" style="position: absolute; left: 55.88%; top: 60.79%;" class="c_188_3">
+		with strong work ethics.
+	</div>
+
+	<div id="t_188_43" style="position: absolute; left: 46.13%; top:64.55%;" class="c_188_8">
+		Surgeon, chef, graphic
+	</div>
+
+	<div id="t_188_44" style="position: absolute; left: 46.13%; top:66.19%;" class="c_188_8">
+		designer, business analyst
+	</div>
+
+	<div id="t_188_45" style="position: absolute; left: 46.13%; top:67.84%;" class="c_188_8">
+		&mdash;there are literally
+	</div>
+
+	<div id="t_188_46" style="position: absolute; left: 46.13%; top:69.48%;" class="c_188_8">
+		thousands of jobs to
+	</div>
+
+	<div id="t_188_47" style="position: absolute; left: 46.13%; top:71.12%;" class="c_188_8">
+		pursue.
+	</div>
+
+	<div id="t_188_48" style="position: absolute; left: 5.06%; top: 94.42%; letter-spacing: -0.15em;" class="c_188_9">
+		188
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_188_an_awareness.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 29%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_188_you_have_met.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 21%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_188_what_do_you_do.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 26%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_188_i_could_be_a.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 42%; top: 61%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_188_surgeon_chef_graphic_designer.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_189">
+                                                                                                <div class="pageData">
+
+	<div id="t_189_0" style="position: absolute; left: 69.48%; top:4.97%;" class="c_189_0">
+		Young
+	</div>
+
+	<div id="t_189_1" style="position: absolute; left: 72.84%; top:10.40%;" class="c_189_0">
+		and
+	</div>
+
+	<div id="t_189_2" style="position: absolute; left: 62.75%; top:15.83%;" class="c_189_0">
+		Successful
+	</div>
+
+	<div id="t_189_3" style="position: absolute; left: 71.32%; top:23.49%;" class="c_189_1">
+		WHY WAIT TO
+	</div>
+
+	<div id="t_189_4" style="position: absolute; left: 68.60%; top:25.46%;" class="c_189_1">
+		START A BUSINESS?
+	</div>
+
+	<div id="t_189_5" style="position: absolute; left: 71.81%; top:30.55%;" class="c_189_2">
+		The brains behind Emi-Jay
+	</div>
+
+	<div id="t_189_6" style="position: absolute; left: 71.81%; top:32.19%;" class="c_189_2">
+		hair accessories.
+	</div>
+
+	<div id="t_189_7" style="position: absolute; left: 10.87%; top: 7.37%; letter-spacing: 0.01em;" class="c_189_3">
+		&bull; <span class="c_189_4">These entrepreneurs did</span>
+	</div>
+
+	<div id="t_189_8" style="position: absolute; left: 10.87%; top: 9.01%; letter-spacing: 0.01em;" class="c_189_5">
+		not wait until after college
+	</div>
+
+	<div id="t_189_9" style="position: absolute; left: 10.87%; top: 10.65%; letter-spacing: 0.01em;" class="c_189_5">
+		to start businesses. How
+	</div>
+
+	<div id="t_189_10" style="position: absolute; left: 10.87%; top: 12.29%; letter-spacing: 0.01em;" class="c_189_5">
+		did they do it?
+	</div>
+
+	<div id="t_189_11" style="position: absolute; left: 11.60%; top:14.91%;" class="c_189_6">
+		FROM BOW TIES
+	</div>
+
+	<div id="t_189_12" style="position: absolute; left: 34.80%; top:4.12%;" class="c_189_7">
+		Moziah Bridges
+	</div>
+
+	<div id="t_189_13" style="position: absolute; left: 34.80%; top:5.76%;" class="c_189_7">
+		started a bow-tie
+	</div>
+
+	<div id="t_189_14" style="position: absolute; left: 34.80%; top:7.40%;" class="c_189_7">
+		business when he
+	</div>
+
+	<div id="t_189_15" style="position: absolute; left: 34.80%; top:9.04%;" class="c_189_7">
+		was 11. By the
+	</div>
+
+	<div id="t_189_16" style="position: absolute; left: 34.80%; top:10.68%;" class="c_189_7">
+		time he was 13, he
+	</div>
+
+	<div id="t_189_17" style="position: absolute; left: 34.80%; top:12.33%;" class="c_189_7">
+		was making over
+	</div>
+
+	<div id="t_189_18" style="position: absolute; left: 34.80%; top:13.97%;" class="c_189_7">
+		$200,000
+	</div>
+
+	<div id="t_189_19" style="position: absolute; left: 34.80%; top:15.61%;" class="c_189_7">
+		a year.
+	</div>
+
+	<div id="t_189_20" style="position: absolute; left: 15.25%; top:16.81%;" class="c_189_6">
+		TO OFFICE
+	</div>
+
+	<div id="t_189_21" style="position: absolute; left: 13.82%; top:18.70%;" class="c_189_6">
+		CHAIRS AND
+	</div>
+
+	<div id="t_189_22" style="position: absolute; left: 16.27%; top:20.60%;" class="c_189_6">
+		BEYOND
+	</div>
+
+	<div id="t_189_23" style="position: absolute; left: 11.74%; top: 23.07%;" class="c_189_8">
+		You may be surprised at
+	</div>
+
+	<div id="t_189_24" style="position: absolute; left: 10.87%; top: 24.96%;" class="c_189_8">
+		how many successful
+	</div>
+
+	<div id="t_189_25" style="position: absolute; left: 10.87%; top: 26.85%;" class="c_189_8">
+		businesses are run by
+	</div>
+
+	<div id="t_189_26" style="position: absolute; left: 10.87%; top: 28.75%;" class="c_189_8">
+		teenagers. Sure, some
+	</div>
+
+	<div id="t_189_27" style="position: absolute; left: 10.87%; top: 30.64%;" class="c_189_8">
+		have had help from the
+	</div>
+
+	<div id="t_189_28" style="position: absolute; left: 10.87%; top: 32.54%;" class="c_189_8">
+		grown-ups in their lives,
+	</div>
+
+	<div id="t_189_29" style="position: absolute; left: 10.87%; top: 34.43%;" class="c_189_8">
+		but the ideas and the
+	</div>
+
+	<div id="t_189_30" style="position: absolute; left: 10.87%; top: 36.33%;" class="c_189_8">
+		elbow grease were theirs
+	</div>
+
+	<div id="t_189_31" style="position: absolute; left: 10.87%; top: 38.22%;" class="c_189_8">
+		and theirs alone. From
+	</div>
+
+	<div id="t_189_32" style="position: absolute; left: 10.87%; top: 40.12%;" class="c_189_8">
+		fun and funky fashions, to
+	</div>
+
+	<div id="t_189_33" style="position: absolute; left: 10.87%; top: 42.01%;" class="c_189_8">
+		teen-friendly cosmetics,
+	</div>
+
+	<div id="t_189_34" style="position: absolute; left: 10.87%; top: 43.9%;" class="c_189_8">
+		to furniture rentals, to all sorts of super-cool
+	</div>
+
+	<div id="t_189_35" style="position: absolute; left: 10.87%; top: 45.8%;" class="c_189_8">
+		apps&mdash;plenty of teens have decided to start
+	</div>
+
+	<div id="t_189_36" style="position: absolute; left: 10.87%; top: 47.69%;" class="c_189_8">
+		their own companies.
+	</div>
+
+	<div id="t_189_37" style="position: absolute; left: 12.18%; top: 49.59%;" class="c_189_8">
+		Emily Matson and Julianne Goldmark were high-
+	</div>
+
+	<div id="t_189_38" style="position: absolute; left: 10.87%; top: 51.48%;" class="c_189_8">
+		school freshmen when they became obsessed with
+	</div>
+
+	<div id="t_189_39" style="position: absolute; left: 10.87%; top: 53.38%;" class="c_189_8">
+		the hair ties used on a popular TV show. Now,
+	</div>
+
+	<div id="t_189_40" style="position: absolute; left: 10.87%; top: 55.27%;" class="c_189_8">
+		several years later, their hair ribbons are sold in
+	</div>
+
+	<div id="t_189_41" style="position: absolute; left: 10.87%; top: 57.17%;" class="c_189_8">
+		major department stores, and the girls
+	</div>
+
+	<div id="t_189_42" style="position: absolute; left: 10.87%; top: 59.06%;" class="c_189_8">
+		are branching out into clothing.
+	</div>
+
+	<div id="t_189_43" style="position: absolute; left: 12.18%; top: 60.95%;" class="c_189_8">
+		Sean Belnick was a 14-year-old when he
+	</div>
+
+	<div id="t_189_44" style="position: absolute; left: 10.87%; top: 62.85%;" class="c_189_8">
+		pitched an idea to his stepfather, who ran
+	</div>
+
+	<div id="t_189_45" style="position: absolute; left: 10.87%; top: 64.74%;" class="c_189_8">
+		an office furniture business. Belnick had
+	</div>
+
+	<div id="t_189_46" style="position: absolute; left: 10.87%; top: 66.64%;" class="c_189_8">
+		been selling things on eBay for quite some
+	</div>
+
+	<div id="t_189_47" style="position: absolute; left: 10.87%; top: 68.53%;" class="c_189_8">
+		time and was positive he could do the
+	</div>
+
+	<div id="t_189_48" style="position: absolute; left: 10.87%; top: 70.43%;" class="c_189_8">
+		same with office chairs. With a $500 loan,
+	</div>
+
+	<div id="t_189_49" style="position: absolute; left: 10.87%; top: 72.32%;" class="c_189_8">
+		Sean started an Internet-only furniture
+	</div>
+
+	<div id="t_189_50" style="position: absolute; left: 10.87%; top: 74.22%;" class="c_189_8">
+		store and ran it out of his bedroom. Today
+	</div>
+
+	<div id="t_189_51" style="position: absolute; left: 10.87%; top: 76.11%;" class="c_189_8">
+		his company is worth millions of dollars.
+	</div>
+
+	<div id="t_189_52" style="position: absolute; left: 19.77%; top:78.17%;" class="c_189_6">
+		MEDIA MASTERS
+	</div>
+
+	<div id="t_189_53" style="position: absolute; left: 11.74%; top: 80.64%;" class="c_189_8">
+		One thing all of these teen tycoons have in common
+	</div>
+
+	<div id="t_189_54" style="position: absolute; left: 10.87%; top: 82.54%;" class="c_189_8">
+		is their mastery of technology and their use of social
+	</div>
+
+	<div id="t_189_55" style="position: absolute; left: 10.87%; top: 84.43%;" class="c_189_8">
+		media to create a buzz. Dozens of teen bloggers have
+	</div>
+
+	<div id="t_189_56" style="position: absolute; left: 10.87%; top: 86.32%;" class="c_189_8">
+		ended up launching hugely successful social networking
+	</div>
+
+	<div id="t_189_57" style="position: absolute; left: 10.87%; top: 88.22%;" class="c_189_8">
+		sites that reach millions of other teens. Knowing how to
+	</div>
+
+	<div id="t_189_58" style="position: absolute; left: 10.87%; top: 90.11%;" class="c_189_8">
+		use technology is a must in today&rsquo;s business world. And
+	</div>
+
+	<div id="t_189_59" style="position: absolute; left: 10.87%; top: 92.01%;" class="c_189_8">
+		for the next generation of teen dynamos, technology
+	</div>
+
+	<div id="t_189_60" style="position: absolute; left: 10.87%; top: 93.9%;" class="c_189_8">
+		just might bring bigger and better business ventures.
+	</div>
+
+	<div id="t_189_61" style="position: absolute; left: 76.03%; top:58.22%;" class="c_189_7">
+		Sean Belnick was 14 when
+	</div>
+
+	<div id="t_189_62" style="position: absolute; left: 76.03%; top:59.86%;" class="c_189_7">
+		he began selling office
+	</div>
+
+	<div id="t_189_63" style="position: absolute; left: 76.03%; top:61.50%;" class="c_189_7">
+		chairs online.
+	</div>
+
+	<div id="t_189_64" style="position: absolute; left: 65.36%; top:80.85%;" class="c_189_9">
+		STAY IN SCHOOL!
+	</div>
+
+	<div id="t_189_65" style="position: absolute; left: 59.15%; top: 83.32%;" class="c_189_8">
+		Even though these teen entrepreneurs
+	</div>
+
+	<div id="t_189_66" style="position: absolute; left: 58.27%; top: 85.22%;" class="c_189_8">
+		have successful businesses, they know that
+	</div>
+
+	<div id="t_189_67" style="position: absolute; left: 58.27%; top: 87.11%;" class="c_189_8">
+		there is still a lot to learn. Better skills and
+	</div>
+
+	<div id="t_189_68" style="position: absolute; left: 58.27%; top: 89%;" class="c_189_8">
+		higher education levels can lead to higher
+	</div>
+
+	<div id="t_189_69" style="position: absolute; left: 58.27%; top: 90.9%;" class="c_189_8">
+		incomes. Talent, passion, and education
+	</div>
+
+	<div id="t_189_70" style="position: absolute; left: 58.27%; top: 92.79%;" class="c_189_8">
+		can add up to a very successful life.
+	</div>
+
+	<div id="t_189_71" style="position: absolute; left: 93.27%; top: 94.42%; letter-spacing: -0.15em;" class="c_189_10">
+		189
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_these_entrepreneurs.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_moziah_bridges.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 60%; top: 5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_young_and_succesful.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 66%; top: 28%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_the_brains_behind.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 71%; top: 56%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_sean_belnick.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 78%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_media_masters.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 57%; top: 79%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_189_stay_in_school.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_188_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_189_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_188_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="188.html?page=right"; onclick="goto('188.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="190.html"; onclick="goto('190.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="190.html"; onclick="goto('190.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

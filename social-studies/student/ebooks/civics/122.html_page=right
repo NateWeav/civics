@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_122.css">
+                <link rel="stylesheet" href="css/civics_123.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="120.html?page=right"; onclick="goto('120.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="122.html"; onclick="goto('122.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="120.html?page=right"; onclick="goto('120.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_122_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_123_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_122_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="122.html?page=right"; onclick="goto('122.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="124.html"; onclick="goto('124.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="124.html"; onclick="goto('124.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="120.html?page=right"; onclick="goto('120.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="122.html"; onclick="goto('122.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="120.html?page=right"; onclick="goto('120.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_122">
+                                                                                                <div class="pageData">
+
+	<div id="t_122_0" style="position: absolute; left: 5.73%; top:4.13%;" class="c_122_0">
+		The media inform policymakers
+	</div>
+
+	<div id="t_122_1" style="position: absolute; left: 5.73%; top:5.90%;" class="c_122_0">
+		and influence public policy.
+	</div>
+
+	<div id="t_122_2" style="position: absolute; left: 34.74%; top: 5.60%; letter-spacing: 0.01em;" class="c_122_1">
+		Media can be a very good thing, or a very bad thing. More and more,
+	</div>
+
+	<div id="t_122_3" style="position: absolute; left: 41.44%; top: 7.37%; letter-spacing: 0.01em;" class="c_122_1">
+		it is what unites us&mdash;or sometimes drives us apart.
+	</div>
+
+	<div id="t_122_4" style="position: absolute; left: 20.07%; top: 8.63%; letter-spacing: -0.02em;" class="c_122_2">
+		The Power of the Media
+	</div>
+
+	<div id="t_122_5" style="position: absolute; left: 35.14%; top: 15.68%;" class="c_122_3">
+		Many years ago, a journalist and a TV crew spent several days at a
+	</div>
+
+	<div id="t_122_6" style="position: absolute; left: 33.82%; top: 17.58%;" class="c_122_3">
+		mental health hospital in New York. The report they broadcast about
+	</div>
+
+	<div id="t_122_7" style="position: absolute; left: 33.82%; top: 19.47%;" class="c_122_3">
+		conditions at the hospital was heartbreaking and horrifying. But good
+	</div>
+
+	<div id="t_122_8" style="position: absolute; left: 33.82%; top: 21.37%;" class="c_122_3">
+		came out of it, because eventually many changes were made to the
+	</div>
+
+	<div id="t_122_9" style="position: absolute; left: 33.82%; top: 23.26%;" class="c_122_3">
+		way we care for the mentally ill. Media&mdash;TV, radio, newspapers,
+	</div>
+
+	<div id="t_122_10" style="position: absolute; left: 33.82%; top: 25.16%;" class="c_122_3">
+		magazines, and social media&mdash;have that kind of power.
+	</div>
+
+	<div id="t_122_11" style="position: absolute; left: 15.05%; top:26.60%;" class="c_122_4">
+		Gun violence, sadly, is in
+	</div>
+
+	<div id="t_122_12" style="position: absolute; left: 15.05%; top:28.24%;" class="c_122_4">
+		the news all too often&mdash;
+	</div>
+
+	<div id="t_122_13" style="position: absolute; left: 15.05%; top:29.88%;" class="c_122_4">
+		news that cannot be
+	</div>
+
+	<div id="t_122_14" style="position: absolute; left: 15.05%; top:31.52%;" class="c_122_4">
+		ignored.
+	</div>
+
+	<div id="t_122_15" style="position: absolute; left: 43.82%; top:27.33%;" class="c_122_5">
+		FOCUSING PUBLIC ATTENTION
+	</div>
+
+	<div id="t_122_16" style="position: absolute; left: 35.26%; top: 29.8%;" class="c_122_3">
+		Think about the world of 1776 and how the news was spread. Think
+	</div>
+
+	<div id="t_122_17" style="position: absolute; left: 33.92%; top: 31.7%;" class="c_122_3">
+		about Paul Revere and his fellow riders galloping from town to town.
+	</div>
+
+	<div id="t_122_18" style="position: absolute; left: 33.89%; top: 33.59%;" class="c_122_3">
+		Today, he could simply alert the media and send a text to all his
+	</div>
+
+	<div id="t_122_19" style="position: absolute; left: 33.87%; top: 35.49%;" class="c_122_3">
+		friends who would then text <span class="c_122_6">their</span><span class="c_122_7"> friends.</span> <span class="c_122_6">#Britisharecoming</span> <span class="c_122_7">would</span>
+	</div>
+
+	<div id="t_122_20" style="position: absolute; left: 33.85%; top: 37.38%;" class="c_122_3">
+		soon be trending on Twitter.
+	</div>
+
+	<div id="t_122_21" style="position: absolute; left: 29.41%; top: 39.28%;" class="c_122_3">
+		The media battle for your attention every day, and often play an
+	</div>
+
+	<div id="t_122_22" style="position: absolute; left: 26.34%; top: 41.17%;" class="c_122_3">
+		important role in setting the public agenda and getting us to think about
+	</div>
+
+	<div id="t_122_23" style="position: absolute; left: 27.15%; top: 43.06%;" class="c_122_3">
+		difficult topics. Take gun control. You might not think much about it one way
+	</div>
+
+	<div id="t_122_24" style="position: absolute; left: 27.95%; top: 44.96%;" class="c_122_3">
+		or the other on a day-to-day basis, but when headlines scream&mdash;the mentally
+	</div>
+
+	<div id="t_122_25" style="position: absolute; left: 28.76%; top: 46.85%;" class="c_122_3">
+		ill young man who brought about such destruction at Virginia Tech, the
+	</div>
+
+	<div id="t_122_26" style="position: absolute; left: 29.57%; top: 48.75%;" class="c_122_3">
+		Sandy Hook Elementary School massacre, or the slaughter at a church in
+	</div>
+
+	<div id="t_122_27" style="position: absolute; left: 30.37%; top: 50.64%;" class="c_122_3">
+		South Carolina&mdash;suddenly gun control becomes a hotly contested issue.
+	</div>
+
+	<div id="t_122_28" style="position: absolute; left: 30.88%; top: 52.54%;" class="c_122_3">
+		Does media coverage influence public policy? There is a heated debate
+	</div>
+
+	<div id="t_122_29" style="position: absolute; left: 31.65%; top: 54.43%;" class="c_122_3">
+		about the way guns are sold in this country as a result.
+	</div>
+
+	<div id="t_122_30" style="position: absolute; left: 10.57%; top:58.87%; letter-spacing: -0.04em;" class="c_122_8">
+		&ldquo;The biases the media have are much bigger
+	</div>
+
+	<div id="t_122_31" style="position: absolute; left: 10.57%; top:61.78%; letter-spacing: -0.03em;" class="c_122_8">
+		than conservative or liberal. They&rsquo;re about
+	</div>
+
+	<div id="t_122_32" style="position: absolute; left: 10.57%; top:64.68%; letter-spacing: -0.03em;" class="c_122_8">
+		getting ratings, about making money, about
+	</div>
+
+	<div id="t_122_33" style="position: absolute; left: 10.57%; top:67.58%; letter-spacing: -0.035em;" class="c_122_8">
+		doing stories that are easy to cover.&rdquo;
+	</div>
+
+	<div id="t_122_34" style="position: absolute; left: 29.81%; top:70.70%;" class="c_122_9">
+		&ndash; Al Franken, <span class="c_122_10">U.S. Senator</span>
+	</div>
+
+	<div id="t_122_35" style="position: absolute; left: 56.06%; top:56.99%;" class="c_122_5">
+		TWO SIDES TO EVERY STORY
+	</div>
+
+	<div id="t_122_36" style="position: absolute; left: 56.12%; top: 59.46%;" class="c_122_3">
+		Journalists&mdash;the people who produce and
+	</div>
+
+	<div id="t_122_37" style="position: absolute; left: 54.80%; top: 61.35%;" class="c_122_3">
+		write the daily news&mdash; have an obligation to
+	</div>
+
+	<div id="t_122_38" style="position: absolute; left: 54.80%; top: 63.25%;" class="c_122_3">
+		report events truthfully. Mahatma Gandhi
+	</div>
+
+	<div id="t_122_39" style="position: absolute; left: 54.80%; top: 65.14%;" class="c_122_3">
+		said, &ldquo;Even if you are a minority of one, the
+	</div>
+
+	<div id="t_122_40" style="position: absolute; left: 54.80%; top: 67.03%;" class="c_122_3">
+		truth is the truth.&rdquo;
+	</div>
+
+	<div id="t_122_41" style="position: absolute; left: 56.55%; top: 68.93%;" class="c_122_3">
+		Television does us a great service when it
+	</div>
+
+	<div id="t_122_42" style="position: absolute; left: 54.80%; top: 70.82%;" class="c_122_3">
+		broadcasts presidential debates. We can see
+	</div>
+
+	<div id="t_122_43" style="position: absolute; left: 54.80%; top: 72.72%;" class="c_122_3">
+		and hear the candidates, close-up, and
+	</div>
+
+	<div id="t_122_44" style="position: absolute; left: 31.43%; top: 74.61%;" class="c_122_3">
+		compare them as they stand side by side. But we live in a country that is
+	</div>
+
+	<div id="t_122_45" style="position: absolute; left: 31.43%; top: 76.51%;" class="c_122_3">
+		often divided on the issues, and news can sometimes be presented in a
+	</div>
+
+	<div id="t_122_46" style="position: absolute; left: 31.43%; top: 78.4%;" class="c_122_3">
+		biased way. Some argue that
+	</div>
+
+	<div id="t_122_47" style="position: absolute; left: 31.43%; top: 80.3%;" class="c_122_3">
+		television news no longer gives us
+	</div>
+
+	<div id="t_122_48" style="position: absolute; left: 31.43%; top: 82.19%;" class="c_122_3">
+		unbiased reporting without a political
+	</div>
+
+	<div id="t_122_49" style="position: absolute; left: 31.43%; top: 84.08%;" class="c_122_3">
+		agenda. With the birth of 24-hour
+	</div>
+
+	<div id="t_122_50" style="position: absolute; left: 31.43%; top: 85.98%;" class="c_122_3">
+		news networks, such as CNN, FOX
+	</div>
+
+	<div id="t_122_51" style="position: absolute; left: 31.43%; top: 87.87%;" class="c_122_3">
+		News, and MSNBC, we often get a lot
+	</div>
+
+	<div id="t_122_52" style="position: absolute; left: 31.43%; top: 89.77%;" class="c_122_3">
+		of opinion, leaving the viewer to figure
+	</div>
+
+	<div id="t_122_53" style="position: absolute; left: 31.43%; top: 91.66%;" class="c_122_3">
+		out the truth. It&rsquo;s your job to detect
+	</div>
+
+	<div id="t_122_54" style="position: absolute; left: 31.43%; top: 93.56%;" class="c_122_3">
+		bias and separate fact from opinion!
+	</div>
+
+	<div id="t_122_55" style="position: absolute; left: 10.37%; top: 87.54%; letter-spacing: 0.01em;" class="c_122_11">
+		Review ways
+	</div>
+
+	<div id="t_122_56" style="position: absolute; left: 6.90%; top: 89.18%; letter-spacing: 0.01em;" class="c_122_11">
+		to evaluate the media
+	</div>
+
+	<div id="t_122_57" style="position: absolute; left: 8.85%; top: 90.82%; letter-spacing: 0.01em;" class="c_122_11">
+		on pages 56&ndash;57.
+	</div>
+
+	<div id="t_122_58" style="position: absolute; left: 4.80%; top: 94.42%;" class="c_122_12">
+		122
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_the_media_inform.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 30%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_the_power_of_the_media.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10.5%; top: 23.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_gun_violence.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 32%; top: 26.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_focusing_public_attention.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_the_biases_the_media_have.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 50%; top: 56%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_two_sides.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 85.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_122_review_ways.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_123">
+                                                                                                <div class="pageData">
+
+	<div id="t_123_0" style="position: absolute; left: 47.95%; top: 6.48%; letter-spacing: 0.01em;" class="c_123_0">
+		&bull; <span class="c_123_1">Newspapers: The Role of Investigative Journalism</span>
+	</div>
+
+	<div id="t_123_1" style="position: absolute; left: 41.36%; top: 8.55%;" class="c_123_2">
+		Bob Woodward and Carl Bernstein were two reporters for <span class="c_123_3">The</span>
+	</div>
+
+	<div id="t_123_2" style="position: absolute; left: 41.36%; top:10.34%;" class="c_123_4">
+		Washington Post<span class="c_123_5">. For months, they sifted through all sorts of</span>
+	</div>
+
+	<div id="t_123_3" style="position: absolute; left: 41.36%; top: 12.33%;" class="c_123_2">
+		evidence to reveal a tangled web of political scandal that began
+	</div>
+
+	<div id="t_123_4" style="position: absolute; left: 41.36%; top: 14.23%;" class="c_123_2">
+		with a break-in at a Democratic Party campaign headquarters
+	</div>
+
+	<div id="t_123_5" style="position: absolute; left: 42.23%; top: 16.12%;" class="c_123_2">
+		at the Watergate Hotel. As the shocking story unfolded, the
+	</div>
+
+	<div id="t_123_6" style="position: absolute; left: 42.67%; top: 18.02%;" class="c_123_2">
+		outcry was swift. The Senate established a committee to
+	</div>
+
+	<div id="t_123_7" style="position: absolute; left: 22.91%; top:20.41%;" class="c_123_6">
+		Three
+	</div>
+
+	<div id="t_123_8" style="position: absolute; left: 14.62%; top:25.84%;" class="c_123_6">
+		Memorable
+	</div>
+
+	<div id="t_123_9" style="position: absolute; left: 17.74%; top:31.27%;" class="c_123_6">
+		Moments
+	</div>
+
+	<div id="t_123_10" style="position: absolute; left: 15.47%; top:38.50%;" class="c_123_7">
+		WHEN MEDIA MADE AN IMPACT
+	</div>
+
+	<div id="t_123_11" style="position: absolute; left: 55.15%; top: 19.91%;" class="c_123_2">
+		investigate the Watergate scandal, and
+	</div>
+
+	<div id="t_123_12" style="position: absolute; left: 55.15%; top: 21.81%;" class="c_123_2">
+		President Nixon decided to resign.
+	</div>
+
+	<div id="t_123_13" style="position: absolute; left: 56.40%; top: 24.80%; letter-spacing: 0.01em;" class="c_123_0">
+		&bull; <span class="c_123_1">Television: The First Humans on the Moon</span>
+	</div>
+
+	<div id="t_123_14" style="position: absolute; left: 55.31%; top: 26.86%;" class="c_123_2">
+		For several tense
+	</div>
+
+	<div id="t_123_15" style="position: absolute; left: 55.31%; top: 28.76%;" class="c_123_2">
+		minutes, Americans
+	</div>
+
+	<div id="t_123_16" style="position: absolute; left: 55.31%; top: 30.65%;" class="c_123_2">
+		huddled around their
+	</div>
+
+	<div id="t_123_17" style="position: absolute; left: 55.31%; top: 32.55%;" class="c_123_2">
+		TV sets, held their
+	</div>
+
+	<div id="t_123_18" style="position: absolute; left: 55.31%; top: 34.44%;" class="c_123_2">
+		breath, then cheered
+	</div>
+
+	<div id="t_123_19" style="position: absolute; left: 55.31%; top: 36.33%;" class="c_123_2">
+		when astronauts from
+	</div>
+
+	<div id="t_123_20" style="position: absolute; left: 55.31%; top: 38.23%;" class="c_123_2">
+		NASA&rsquo;s <span class="c_123_3">Apollo 11</span>
+	</div>
+
+	<div id="t_123_21" style="position: absolute; left: 55.31%; top: 40.12%;" class="c_123_2">
+		landed on the moon.
+	</div>
+
+	<div id="t_123_22" style="position: absolute; left: 16.84%; top: 42.29%; letter-spacing: 0.01em;" class="c_123_0">
+		&bull; <span class="c_123_1">Social Media: The Boston Marathon Bombing</span>
+	</div>
+
+	<div id="t_123_23" style="position: absolute; left: 11.15%; top: 44.35%;" class="c_123_2">
+		They had gathered to cheer their friends and family and
+	</div>
+
+	<div id="t_123_24" style="position: absolute; left: 11.15%; top: 46.25%;" class="c_123_2">
+		instead ended up recording history. The despicable
+	</div>
+
+	<div id="t_123_25" style="position: absolute; left: 11.15%; top: 48.14%;" class="c_123_2">
+		bombing at the Boston Marathon in 2013 was vividly
+	</div>
+
+	<div id="t_123_26" style="position: absolute; left: 11.15%; top: 50.04%;" class="c_123_2">
+		captured by onlookers with cell phones. But in the tragic
+	</div>
+
+	<div id="t_123_27" style="position: absolute; left: 11.15%; top: 51.93%;" class="c_123_2">
+		aftermath, an innocent man, captured on camera near the
+	</div>
+
+	<div id="t_123_28" style="position: absolute; left: 11.15%; top: 53.83%;" class="c_123_2">
+		site, was accused of being part of the attack and his life
+	</div>
+
+	<div id="t_123_29" style="position: absolute; left: 11.15%; top: 55.72%;" class="c_123_2">
+		has not been the same since. Social media presented
+	</div>
+
+	<div id="t_123_30" style="position: absolute; left: 11.15%; top: 57.62%;" class="c_123_2">
+		a &ldquo;truth&rdquo; that was anything but truthful.
+	</div>
+
+	<div id="t_123_31" style="position: absolute; left: 11.86%; top: 63.52%;" class="c_123_2">
+		Politicians are not saints. They are in positions of power and there are often
+	</div>
+
+	<div id="t_123_32" style="position: absolute; left: 26.13%; top:61.05%;" class="c_123_8">
+		&ldquo;DID YOU OR DID YOU NOT&hellip;&rdquo;
+	</div>
+
+	<div id="t_123_33" style="position: absolute; left: 10.54%; top: 65.41%;" class="c_123_2">
+		temptations. Media hold government officials accountable for their actions. The very
+	</div>
+
+	<div id="t_123_34" style="position: absolute; left: 10.54%; top: 67.31%;" class="c_123_2">
+		things that make media a powerful force&mdash;the ability to capture an event and record
+	</div>
+
+	<div id="t_123_35" style="position: absolute; left: 10.54%; top: 69.2%;" class="c_123_2">
+		it as it unfolds&mdash;can lead to handcuffs for an unwary politician. Social media has
+	</div>
+
+	<div id="t_123_36" style="position: absolute; left: 10.54%; top: 71.1%;" class="c_123_2">
+		become a powerful force as well. Wherever there is a politician and a citizen
+	</div>
+
+	<div id="t_123_37" style="position: absolute; left: 10.54%; top: 72.99%;" class="c_123_2">
+		with a cell phone, there is the potential for news in the making.
+	</div>
+
+	<div id="t_123_38" style="position: absolute; left: 81.94%; top:61.94%;" class="c_123_9">
+		Do these 2016
+	</div>
+
+	<div id="t_123_39" style="position: absolute; left: 81.94%; top:63.59%;" class="c_123_9">
+		tabloid headlines
+	</div>
+
+	<div id="t_123_40" style="position: absolute; left: 81.94%; top:65.23%;" class="c_123_9">
+		show evidence of
+	</div>
+
+	<div id="t_123_41" style="position: absolute; left: 81.94%; top:66.87%;" class="c_123_9">
+		bias? Can you tell
+	</div>
+
+	<div id="t_123_42" style="position: absolute; left: 81.94%; top:68.51%;" class="c_123_9">
+		which side of the
+	</div>
+
+	<div id="t_123_43" style="position: absolute; left: 81.94%; top:70.15%;" class="c_123_9">
+		spectrum they
+	</div>
+
+	<div id="t_123_44" style="position: absolute; left: 81.94%; top:71.79%;" class="c_123_9">
+		support? How?
+	</div>
+
+	<div id="t_123_45" style="position: absolute; left: 12.60%; top: 75.4%;" class="c_123_2">
+		There are so many media sources offering
+	</div>
+
+	<div id="t_123_46" style="position: absolute; left: 10.85%; top: 77.125%;" class="c_123_2">
+		&ldquo;news.&rdquo; Remember to always <span class="c_123_10">evaluate the source,</span>
+	</div>
+
+	<div id="t_123_47" style="position: absolute; left: 10.85%; top:78.97%;" class="c_123_11">
+		identify propaganda, look for bias, and separate
+	</div>
+
+	<div id="t_123_48" style="position: absolute; left: 10.85%; top:80.98%;" class="c_123_11">
+		fact from opinion! <span class="c_123_12">We need the media! Our</span>
+	</div>
+
+	<div id="t_123_49" style="position: absolute; left: 10.85%; top: 82.98%;" class="c_123_2">
+		government officials use the media to
+	</div>
+
+	<div id="t_123_50" style="position: absolute; left: 10.85%; top: 84.87%;" class="c_123_2">
+		communicate with us. They keep us up-to-date on
+	</div>
+
+	<div id="t_123_51" style="position: absolute; left: 10.85%; top: 86.77%;" class="c_123_2">
+		events, and in times of tragedy&mdash;deadly
+	</div>
+
+	<div id="t_123_52" style="position: absolute; left: 10.85%; top: 88.66%;" class="c_123_2">
+		tornadoes, senseless bombings, the deaths of
+	</div>
+
+	<div id="t_123_53" style="position: absolute; left: 10.85%; top: 90.56%;" class="c_123_2">
+		heroes and legends&mdash;the media help us unite as
+	</div>
+
+	<div id="t_123_54" style="position: absolute; left: 10.85%; top: 92.45%;" class="c_123_2">
+		people of one heart to begin to heal together.
+	</div>
+
+	<div id="t_123_55" style="position: absolute; left: 93.27%; top: 94.52%;" class="c_123_13">
+		123
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 10%; top: 20%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_123_three_memorable_moments.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 61%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_123_did_you_or_did_you_not.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 77%; top: 58.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_123_do_these_2016_tabloid.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_122_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_123_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_122_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="122.html?page=right"; onclick="goto('122.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="124.html"; onclick="goto('124.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="124.html"; onclick="goto('124.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_4.css">
+                <link rel="stylesheet" href="css/civics_5.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="2.html?page=right"; onclick="goto('2.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="4.html"; onclick="goto('4.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="2.html?page=right"; onclick="goto('2.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="4.html?page=right"; onclick="goto('4.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="6.html"; onclick="goto('6.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="6.html"; onclick="goto('6.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="2.html?page=right"; onclick="goto('2.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="4.html"; onclick="goto('4.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="2.html?page=right"; onclick="goto('2.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_4">
+                                                                                                <div class="pageData">
+
+	<div id="t_4_0" style="position: absolute; left: 62.51%; top:7.56%; letter-spacing: 4.0px;" class="c_4_0">
+		CHAPTER SIX
+	</div>
+
+	<a rel="external" href="106.html"; onclick="goto('106.html'); return false;"><div id="t_4_1" style="position: absolute; left: 57.33%; top:10.41%;" class="c_4_1">On the Home Front<span class="c_4_2">.....106</span>
+	</div>
+
+		</a><a rel="external" href="108.html"; onclick="goto('108.html'); return false;"><div id="t_4_2" style="position: absolute; left: 59.15%; top:13.67%;" class="c_4_3">County, City, Town.....108
+	</div>
+
+		</a><a rel="external" href="110.html"; onclick="goto('110.html'); return false;"><div id="t_4_3" style="position: absolute; left: 61.28%; top:15.82%;" class="c_4_3">Here at Home.....110
+	</div>
+
+		</a><a rel="external" href="112.html"; onclick="goto('112.html'); return false;"><div id="t_4_4" style="position: absolute; left: 57.02%; top:17.97%;" class="c_4_3">Virginia&rsquo;s Court System.....112
+	</div>
+
+		</a><a rel="external" href="114.html"; onclick="goto('114.html'); return false;"><div id="t_4_5" style="position: absolute; left: 58.72%; top:20.11%;" class="c_4_3">Five Important Jobs.....114
+	</div>
+
+		</a><a rel="external" href="116.html"; onclick="goto('116.html'); return false;"><div id="t_4_6" style="position: absolute; left: 60.02%; top:22.26%;" class="c_4_3">It&rsquo;s the Law Here.....116
+	</div>
+
+		</a><a rel="external" href="118.html"; onclick="goto('118.html'); return false;"><div id="t_4_7" style="position: absolute; left: 53.71%; top:24.41%;" class="c_4_3">Review &amp; Apply Your Learning.....118
+	</div></a>
+
+	<div id="t_4_8" style="position: absolute; left: 60.66%; top:30.94%; letter-spacing: 4.0px;" class="c_4_0">
+		CHAPTER SEVEN
+	</div>
+
+	<a rel="external" href="120.html"; onclick="goto('120.html'); return false;"><div id="t_4_9" style="position: absolute; left: 57.06%; top:34.05%;" class="c_4_4">Pushing for Change<span class="c_4_2">.....120</span>
+	</div>
+
+		</a><a rel="external" href="122.html"; onclick="goto('122.html'); return false;"><div id="t_4_10" style="position: absolute; left: 56.78%; top:37.31%;" class="c_4_3">The Power of the Media.....122
+	</div>
+
+		</a><a rel="external" href="124.html"; onclick="goto('124.html'); return false;"><div id="t_4_11" style="position: absolute; left: 56.76%; top:39.46%;" class="c_4_3">The Power of One Voice.....124
+	</div>
+
+		</a><a rel="external" href="126.html"; onclick="goto('126.html'); return false;"><div id="t_4_12" style="position: absolute; left: 59.63%; top:41.60%;" class="c_4_3">Agents of Change.....126
+	</div>
+
+		</a><a rel="external" href="128.html"; onclick="goto('128.html'); return false;"><div id="t_4_13" style="position: absolute; left: 55.17%; top:43.75%;" class="c_4_3">A Clear and Present Danger.....128
+	</div>
+
+		</a><a rel="external" href="130.html"; onclick="goto('130.html'); return false;"><div id="t_4_14" style="position: absolute; left: 53.82%; top:45.90%;" class="c_4_3">Review &amp; Apply Your Learning.....130
+	</div></a>
+
+	<div id="t_4_15" style="position: absolute; left: 15.69%; top:53.04%; letter-spacing: 4.0px;" class="c_4_0">
+		CHAPTER EIGHT
+	</div>
+
+	<a rel="external" href="132.html"; onclick="goto('132.html'); return false;"><div id="t_4_16" style="position: absolute; left: 13.59%; top:55.89%;" class="c_4_1">Order in the Court<span class="c_4_2">.....132</span>
+	</div>
+
+		</a><a rel="external" href="134.html"; onclick="goto('134.html'); return false;"><div id="t_4_17" style="position: absolute; left: 9.41%; top:59.16%;" class="c_4_3">The Court System: An Overview.....134
+	</div>
+
+		</a><a rel="external" href="136.html"; onclick="goto('136.html'); return false;"><div id="t_4_18" style="position: absolute; left: 9.58%; top:61.30%;" class="c_4_3">The High Courts: A Closer Look.....136
+	</div>
+
+		</a><a rel="external" href="138.html"; onclick="goto('138.html'); return false;"><div id="t_4_19" style="position: absolute; left: 14.60%; top:63.45%;" class="c_4_3">Landmarks in Justice.....138
+	</div>
+
+		</a><a rel="external" href="140.html"; onclick="goto('140.html'); return false;"><div id="t_4_20" style="position: absolute; left: 17.15%; top:65.60%;" class="c_4_3">Criminal Cases.....140
+	</div>
+
+		</a><a rel="external" href="142.html"; onclick="goto('142.html'); return false;"><div id="t_4_21" style="position: absolute; left: 21.99%; top:67.74%;" class="c_4_3">Civil Cases:
+	</div>
+
+		</a><a rel="external" href="142.html"; onclick="goto('142.html'); return false;"><div id="t_4_22" style="position: absolute; left: 13.33%; top:69.51%;" class="c_4_3">Settling Disagreements.....142
+	</div>
+
+		</a><a rel="external" href="144.html"; onclick="goto('144.html'); return false;"><div id="t_4_23" style="position: absolute; left: 14.06%; top:71.79%;" class="c_4_3">Due Process Promises.....144
+	</div>
+
+		</a><a rel="external" href="146.html"; onclick="goto('146.html'); return false;"><div id="t_4_24" style="position: absolute; left: 14.72%; top:73.93%;" class="c_4_3">The Court at School.....146
+	</div>
+
+		</a><a rel="external" href="148.html"; onclick="goto('148.html'); return false;"><div id="t_4_25" style="position: absolute; left: 10.03%; top:76.08%;" class="c_4_3">Review &amp; Apply Your Learning.....148
+	</div></a>
+
+	<div id="t_4_26" style="position: absolute; left: 5.16%; top:95.35%;" class="c_4_5">
+		4
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_5">
+                                                                                                <div class="pageData">
+
+	<div id="t_5_0" style="position: absolute; left: 19.84%; top:7.98%; letter-spacing: 4.0px;" class="c_5_0">
+		CHAPTER NINE
+	</div>
+
+	<a rel="external" href="150.html"; onclick="goto('150.html'); return false;"><div id="t_5_1" style="position: absolute; left: 11.55%; top:10.84%;" class="c_5_1">America and Its Resources<span class="c_5_2">.....150</span>
+	</div>
+
+		</a><a rel="external" href="152.html"; onclick="goto('152.html'); return false;"><div id="t_5_2" style="position: absolute; left: 16.56%; top:14.10%;" class="c_5_3">Let&rsquo;s Talk Economics!.....152
+	</div>
+
+		</a><a rel="external" href="154.html"; onclick="goto('154.html'); return false;"><div id="t_5_3" style="position: absolute; left: 15.87%; top:16.25%;" class="c_5_3">How The World Works.....154
+	</div>
+
+		</a><a rel="external" href="156.html"; onclick="goto('156.html'); return false;"><div id="t_5_4" style="position: absolute; left: 17.27%; top:18.40%;" class="c_5_3">The American Way .....156
+	</div>
+
+		</a><a rel="external" href="158.html"; onclick="goto('158.html'); return false;"><div id="t_5_5" style="position: absolute; left: 14.20%; top:20.54%;" class="c_5_3">Getting Down to Business.....158
+	</div>
+
+		</a><a rel="external" href="160.html"; onclick="goto('160.html'); return false;"><div id="t_5_6" style="position: absolute; left: 16.71%; top:22.69%;" class="c_5_3">Supply and Demand.....160
+	</div>
+
+		</a><a rel="external" href="162.html"; onclick="goto('162.html'); return false;"><div id="t_5_7" style="position: absolute; left: 19.35%; top:24.84%;" class="c_5_3">Economic Flow.....162
+	</div>
+
+		</a><a rel="external" href="164.html"; onclick="goto('164.html'); return false;"><div id="t_5_8" style="position: absolute; left: 18.28%; top:26.98%;" class="c_5_3">Put It in the Bank.....164
+	</div>
+
+		</a><a rel="external" href="166.html"; onclick="goto('166.html'); return false;"><div id="t_5_9" style="position: absolute; left: 18.56%; top:29.13%;" class="c_5_3">Our Global Links.....166
+	</div>
+
+		</a><a rel="external" href="168.html"; onclick="goto('168.html'); return false;"><div id="t_5_10" style="position: absolute; left: 12.13%; top:31.28%;" class="c_5_3">Review &amp; Apply Your Learning.....168
+	</div></a>
+
+	<div id="t_5_11" style="position: absolute; left: 20.58%; top:34.92%; letter-spacing: 4.0px;" class="c_5_0">
+		CHAPTER TEN
+	</div>
+
+	<a rel="external" href="170.html"; onclick="goto('170.html'); return false;"><div id="t_5_12" style="position: absolute; left: 18.01%; top:37.78%;" class="c_5_4">A Helping Hand<span class="c_5_2">.....170</span>
+	</div>
+
+		</a><a rel="external" href="172.html"; onclick="goto('172.html'); return false;"><div id="t_5_13" style="position: absolute; left: 14.74%; top:41.04%;" class="c_5_3">The Government Steps In.....172
+	</div>
+
+		</a><a rel="external" href="174.html"; onclick="goto('174.html'); return false;"><div id="t_5_14" style="position: absolute; left: 16.20%; top:43.19%;" class="c_5_3">Our Nation&rsquo;s Business.....174
+	</div>
+
+		</a><a rel="external" href="176.html"; onclick="goto('176.html'); return false;"><div id="t_5_15" style="position: absolute; left: 20.23%; top:45.34%;" class="c_5_3">It&rsquo;s Tax Time!.....176
+	</div>
+
+		</a><a rel="external" href="178.html"; onclick="goto('178.html'); return false;"><div id="t_5_16" style="position: absolute; left: 15.87%; top:47.48%;" class="c_5_3">Money, Money, Money!....178
+	</div>
+
+		</a><a rel="external" href="180.html"; onclick="goto('180.html'); return false;"><div id="t_5_17" style="position: absolute; left: 17.10%; top:49.63%;" class="c_5_3">The Federal Reserve.....180
+	</div>
+
+		</a><a rel="external" href="182.html"; onclick="goto('182.html'); return false;"><div id="t_5_18" style="position: absolute; left: 18.81%; top:51.78%;" class="c_5_3">Keeping Us Safe.....182
+	</div>
+
+		</a><a rel="external" href="184.html"; onclick="goto('184.html'); return false;"><div id="t_5_19" style="position: absolute; left: 12.24%; top:53.92%;" class="c_5_3">Review &amp; Apply Your Learning.....184
+	</div></a>
+
+	<div id="t_5_20" style="position: absolute; left: 18.16%; top:59.82%; letter-spacing: 4.0px;" class="c_5_0">
+		CHAPTER ELEVEN
+	</div>
+
+	<a rel="external" href="186.html"; onclick="goto('186.html'); return false;"><div id="t_5_21" style="position: absolute; left: 16.47%; top:62.67%;" class="c_5_1">What Lies Ahead?<span class="c_5_2">.....186</span>
+	</div>
+
+		</a><a rel="external" href="188.html"; onclick="goto('188.html'); return false;"><div id="t_5_22" style="position: absolute; left: 15.70%; top:65.93%;" class="c_5_3">What Do You Do Best?.....188
+	</div>
+
+		</a><a rel="external" href="190.html"; onclick="goto('190.html'); return false;"><div id="t_5_23" style="position: absolute; left: 16.49%; top:68.08%;" class="c_5_3">You and Technology .....190
+	</div>
+
+		</a><a rel="external" href="192.html"; onclick="goto('192.html'); return false;"><div id="t_5_24" style="position: absolute; left: 20.64%; top:70.23%;" class="c_5_3">Having It All.....192
+	</div>
+
+		</a><a rel="external" href="194.html"; onclick="goto('194.html'); return false;"><div id="t_5_25" style="position: absolute; left: 12.13%; top:72.37%;" class="c_5_3">Review &amp; Apply Your Learning.....194
+	</div></a>
+
+	<div id="t_5_26" style="position: absolute; left: 56.13%; top:63.59%; letter-spacing: 4.0px;" class="c_5_0">
+		ADDITIONAL REFERENCE
+	</div>
+
+	<a rel="external" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><div id="t_5_27" style="position: absolute; left: 56.70%; top:66.02%;" class="c_5_5">Documents and Maps<span class="c_5_2">.....195</span>
+	</div>
+
+		</a><a rel="external" href="196.html"; onclick="goto('196.html'); return false;"><div id="t_5_28" style="position: absolute; left: 56.49%; top:69.79%;" class="c_5_3">Declaration of Independence.....196
+	</div>
+
+		</a><a rel="external" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><div id="t_5_29" style="position: absolute; left: 53.03%; top:71.94%;" class="c_5_3">The Constitution of the United States.....199
+	</div>
+
+		</a><a rel="external" href="206.html"; onclick="goto('206.html'); return false;"><div id="t_5_30" style="position: absolute; left: 62.12%; top:74.09%;" class="c_5_3">The Bill of Rights.....206
+	</div>
+
+		</a><a rel="external" href="206.html?page=right"; onclick="goto('206.html?page=right'); return false;"><div id="t_5_31" style="position: absolute; left: 58.62%; top:76.23%;" class="c_5_3">Additional Amendments.....207
+	</div>
+
+		</a><a rel="external" href="210.html?page=right"; onclick="goto('210.html?page=right'); return false;"><div id="t_5_32" style="position: absolute; left: 58.18%; top:78.38%;" class="c_5_3">The Virginia Statute for Religious
+	</div>
+
+		</a><a rel="external" href="210.html?page=right"; onclick="goto('210.html?page=right'); return false;"><div id="t_5_33" style="position: absolute; left: 65.63%; top:80.15%;" class="c_5_3">Freedom.....211
+	</div>
+
+		</a><a rel="external" href="212.html"; onclick="goto('212.html'); return false;"><div id="t_5_34" style="position: absolute; left: 56.55%; top:82.29%;" class="c_5_3">Virginia Declaration of Rights.....212
+	</div>
+
+		</a><a rel="external" href="214.html"; onclick="goto('214.html'); return false;"><div id="t_5_35" style="position: absolute; left: 58.20%; top:84.57%;" class="c_5_3">Virginia Congressional &amp;Judicial
+	</div>
+
+		</a><a rel="external" href="214.html"; onclick="goto('214.html'); return false;"><div id="t_5_36" style="position: absolute; left: 66.08%; top:86.46%;" class="c_5_3">Districts.....214
+	</div>
+
+		</a><a rel="external" href="216.html"; onclick="goto('216.html'); return false;"><div id="t_5_37" style="position: absolute; left: 59.04%; top:88.61%;" class="c_5_3">Political Map of the U.S.....216
+	</div>
+
+		</a><a rel="external" href="218.html"; onclick="goto('218.html'); return false;"><div id="t_5_38" style="position: absolute; left: 65.96%; top:90.76%;" class="c_5_3">Glossary.....218
+	</div>
+
+		</a><a rel="external" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><div id="t_5_39" style="position: absolute; left: 56.57%; top:92.90%;" class="c_5_3">Index.....221
+	</div>
+
+		</a><a rel="external" href="224.html"; onclick="goto('224.html'); return false;"><div id="t_5_40" style="position: absolute; left: 69.97%; top:92.90%;" class="c_5_3">Photo Credits.....224
+	</div></a>
+
+	<div id="t_5_41" style="position: absolute; left: 93.29%; top:95.35%;" class="c_5_6">
+		5
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="4.html?page=right"; onclick="goto('4.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="6.html"; onclick="goto('6.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="6.html"; onclick="goto('6.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

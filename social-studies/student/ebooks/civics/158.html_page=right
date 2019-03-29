@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_158.css">
+                <link rel="stylesheet" href="css/civics_159.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="156.html?page=right"; onclick="goto('156.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="158.html"; onclick="goto('158.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="156.html?page=right"; onclick="goto('156.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_158_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_159_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_158_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="158.html?page=right"; onclick="goto('158.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="160.html"; onclick="goto('160.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="160.html"; onclick="goto('160.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="156.html?page=right"; onclick="goto('156.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="158.html"; onclick="goto('158.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="156.html?page=right"; onclick="goto('156.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_158">
+                                                                                                <div class="pageData">
+
+	<div id="t_158_0" style="position: absolute; left: 70.86%; top:6.51%;" class="c_158_0">
+		1. SOLE
+	</div>
+
+	<div id="t_158_1" style="position: absolute; left: 65.01%; top:8.40%;" class="c_158_0">
+		PROPRIETORSHIP
+	</div>
+
+	<div id="t_158_2" style="position: absolute; left: 71.70%; top: 15.01%; letter-spacing: 0.01em;" class="c_158_1">
+		This bike shop owner
+	</div>
+
+	<div id="t_158_3" style="position: absolute; left: 71.70%; top: 16.78%; letter-spacing: 0.01em;" class="c_158_1">
+		is responsible for
+	</div>
+
+	<div id="t_158_4" style="position: absolute; left: 71.70%; top: 18.54%; letter-spacing: 0.01em;" class="c_158_1">
+		every aspect of his
+	</div>
+
+	<div id="t_158_5" style="position: absolute; left: 71.70%; top: 20.31%; letter-spacing: 0.01em;" class="c_158_1">
+		business. He pays all
+	</div>
+
+	<div id="t_158_6" style="position: absolute; left: 71.70%; top: 22.08%; letter-spacing: 0.01em;" class="c_158_1">
+		the bills but also gets
+	</div>
+
+	<div id="t_158_7" style="position: absolute; left: 71.70%; top: 23.85%; letter-spacing: 0.01em;" class="c_158_1">
+		to keep all the
+	</div>
+
+	<div id="t_158_8" style="position: absolute; left: 71.70%; top: 25.62%; letter-spacing: 0.01em;" class="c_158_1">
+		profits.
+	</div>
+
+	<div id="t_158_9" style="position: absolute; left: 57.29%; top:31.43%;" class="c_158_0">
+		2. PARTNERSHIP
+	</div>
+
+	<div id="t_158_10" style="position: absolute; left: 45.61%; top: 34.75%; letter-spacing: 0.01em;" class="c_158_2">
+		These architects share the profits but also all the risks.
+	</div>
+
+	<div id="t_158_11" style="position: absolute; left: 56.59%; top:65.24%;" class="c_158_0">
+		3. CORPORATIONS
+	</div>
+
+	<div id="t_158_12" style="position: absolute; left: 41.89%; top: 68.52%; letter-spacing: 0.01em;" class="c_158_2">
+		Multiple owners share the profits but have some legal protections.
+	</div>
+
+	<div id="t_158_13" style="position: absolute; left: 5.95%; top:4.61%;" class="c_158_3">
+		There are three basic ways that
+	</div>
+
+	<div id="t_158_14" style="position: absolute; left: 5.95%; top:6.37%;" class="c_158_3">
+		businesses organize to earn profits.
+	</div>
+
+	<div id="t_158_15" style="position: absolute; left: 5.95%; top:8.90%;" class="c_158_3">
+		Entrepreneurs play an important
+	</div>
+
+	<div id="t_158_16" style="position: absolute; left: 5.95%; top:10.67%;" class="c_158_3">
+		role in all three types of business
+	</div>
+
+	<div id="t_158_17" style="position: absolute; left: 5.95%; top:12.43%;" class="c_158_3">
+		organizations.
+	</div>
+
+	<div id="t_158_18" style="position: absolute; left: 7.61%; top: 15.04%; letter-spacing: -0.02em;" class="c_158_4">
+		Getting Down
+	</div>
+
+	<div id="t_158_19" style="position: absolute; left: 7.61%; top: 20.86%; letter-spacing: -0.02em;" class="c_158_4">
+		to Business
+	</div>
+
+	<div id="t_158_20" style="position: absolute; left: 7.59%; top: 27.72%; letter-spacing: 0.01em;" class="c_158_2">
+		Think about the three big economic
+	</div>
+
+	<div id="t_158_21" style="position: absolute; left: 7.59%; top: 29.49%; letter-spacing: 0.01em;" class="c_158_2">
+		questions that drive all economies. Those
+	</div>
+
+	<div id="t_158_22" style="position: absolute; left: 7.59%; top: 31.26%; letter-spacing: 0.01em;" class="c_158_2">
+		questions are answered by three different
+	</div>
+
+	<div id="t_158_23" style="position: absolute; left: 7.59%; top: 33.02%; letter-spacing: 0.01em;" class="c_158_2">
+		types of companies.
+	</div>
+
+	<div id="t_158_24" style="position: absolute; left: 8.46%; top: 36.3%;" class="c_158_5">
+		Do you like working on your own or do
+	</div>
+
+	<div id="t_158_25" style="position: absolute; left: 7.59%; top: 38.19%;" class="c_158_5">
+		you and your best friend do everything
+	</div>
+
+	<div id="t_158_26" style="position: absolute; left: 7.59%; top: 40.08%;" class="c_158_5">
+		together? Maybe you prefer having a
+	</div>
+
+	<div id="t_158_27" style="position: absolute; left: 7.59%; top: 41.98%;" class="c_158_5">
+		great team to share the work? Just as
+	</div>
+
+	<div id="t_158_28" style="position: absolute; left: 7.59%; top: 43.87%;" class="c_158_5">
+		people have different personalities, so
+	</div>
+
+	<div id="t_158_29" style="position: absolute; left: 7.59%; top: 45.77%;" class="c_158_5">
+		too, do businesses.
+	</div>
+
+	<div id="t_158_30" style="position: absolute; left: 13.59%; top:47.84%;" class="c_158_6">
+		PROFIT AND RISK
+	</div>
+
+	<div id="t_158_31" style="position: absolute; left: 8.90%; top: 50.31%;" class="c_158_5">
+		Many small businesses, such as florists
+	</div>
+
+	<div id="t_158_32" style="position: absolute; left: 7.59%; top: 52.2%;" class="c_158_5">
+		and bakeries, are owned by one person.
+	</div>
+
+	<div id="t_158_33" style="position: absolute; left: 7.59%; top: 54.1%;" class="c_158_5">
+		If the business does well, the profits are
+	</div>
+
+	<div id="t_158_34" style="position: absolute; left: 7.59%; top: 55.99%;" class="c_158_5">
+		all theirs, because they have taken the
+	</div>
+
+	<div id="t_158_35" style="position: absolute; left: 7.59%; top: 57.89%;" class="c_158_5">
+		risk of investing their own money. Law
+	</div>
+
+	<div id="t_158_36" style="position: absolute; left: 7.59%; top: 59.78%;" class="c_158_5">
+		and architecture firms tend toward
+	</div>
+
+	<div id="t_158_37" style="position: absolute; left: 7.59%; top: 61.68%;" class="c_158_5">
+		partnerships for sharing the workload
+	</div>
+
+	<div id="t_158_38" style="position: absolute; left: 7.59%; top: 63.57%;" class="c_158_5">
+		and dividing the profits. As a business
+	</div>
+
+	<div id="t_158_39" style="position: absolute; left: 7.59%; top: 65.47%;" class="c_158_5">
+		grows bigger, the owners might choose
+	</div>
+
+	<div id="t_158_40" style="position: absolute; left: 7.59%; top: 67.36%;" class="c_158_5">
+		the option of registering with a state
+	</div>
+
+	<div id="t_158_41" style="position: absolute; left: 7.59%; top: 69.25%;" class="c_158_5">
+		government to become a <span class="c_158_7">corporation</span><span class="c_158_8">.</span>
+	</div>
+
+	<div id="t_158_42" style="position: absolute; left: 7.63%; top:73.58%;" class="c_158_9">
+		Words to Know
+	</div>
+
+	<div id="t_158_43" style="position: absolute; left: 9.63%; top:76.91%;" class="c_158_10">
+		<span class="c_158_11">corporation</span><span class="c_158_12"> (</span><span class="c_158_13">core-poor-a-shun</span><span class="c_158_12">)</span>
+	</div>
+
+	<div id="t_158_44" style="position: absolute; left: 7.23%; top:75.16%; font-size: 2.5em;" class="c_158_10">&#8227;</div>
+	<div id="t_158_45" style="position: absolute; left: 7.63%; top:79.10%;" class="c_158_14">
+		A group that legally acts as a single
+	</div>
+
+	<div id="t_158_46" style="position: absolute; left: 7.63%; top:81.00%;" class="c_158_14">
+		business entity, sharing ownership and
+	</div>
+
+	<div id="t_158_47" style="position: absolute; left: 7.63%; top:82.89%;" class="c_158_14">
+		profits, but with some financial protection
+	</div>
+
+	<div id="t_158_48" style="position: absolute; left: 7.63%; top:84.79%;" class="c_158_14">
+		for shareholders
+	</div>
+
+	<div id="t_158_49" style="position: absolute; left: 9.63%; top:87.39%;" class="c_158_10">
+		<span class="c_158_11">proprietorship</span><span class="c_158_12"> (</span><span class="c_158_13">pro-pry-it-ur-ship</span><span class="c_158_12">)</span>
+	</div>
+
+	<div id="t_158_50" style="position: absolute; left: 7.23%; top:85.64%; font-size: 2.5em;" class="c_158_10">&#8227;</div>
+	<div id="t_158_51" style="position: absolute; left: 7.63%; top:89.58%;" class="c_158_14">
+		Owning a business with full responsibility
+	</div>
+
+	<div id="t_158_52" style="position: absolute; left: 7.63%; top:91.48%;" class="c_158_14">
+		for running it
+	</div>
+
+	<div id="t_158_53" style="position: absolute; left: 4.87%; top: 95.1%; letter-spacing: -0.15em;" class="c_158_15">
+		158
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_158_there_are_three.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 17%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_158_getting_down_to_business.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 60%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_158_sole_proprietorship.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 48%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_158_profit_and_risk.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_158_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_159">
+                                                                                                <div class="pageData">
+
+	<div id="t_159_0" style="position: absolute; left: 10.33%; top:5.70%;" class="c_159_0">
+		WHY BECOME A CORPORATION?
+	</div>
+
+	<div id="t_159_1" style="position: absolute; left: 10.87%; top: 8.17%;" class="c_159_1">
+		Sole <span class="c_159_2">proprietorships</span><span class="c_159_3"> and partnerships are very</span>
+	</div>
+
+	<div id="t_159_2" style="position: absolute; left: 9.56%; top: 10.06%;" class="c_159_1">
+		straightforward. Corporations are a lot more
+	</div>
+
+	<div id="t_159_3" style="position: absolute; left: 9.56%; top: 11.96%;" class="c_159_1">
+		complicated. Think of the biggest companies you
+	</div>
+
+	<div id="t_159_4" style="position: absolute; left: 9.56%; top: 13.85%;" class="c_159_1">
+		can: McDonald&rsquo;s, Exxon, all the carmakers. Think
+	</div>
+
+	<div id="t_159_5" style="position: absolute; left: 9.56%; top: 15.75%;" class="c_159_1">
+		about all the thousands of people it takes to run
+	</div>
+
+	<div id="t_159_6" style="position: absolute; left: 9.56%; top: 17.64%;" class="c_159_1">
+		those companies and the responsibility they bear
+	</div>
+
+	<div id="t_159_7" style="position: absolute; left: 9.56%; top: 19.54%;" class="c_159_1">
+		for the products they sell.
+	</div>
+
+	<div id="t_159_8" style="position: absolute; left: 54.77%; top:5.62%;" class="c_159_0">
+		PROTECTION FOR THE OWNERS
+	</div>
+
+	<div id="t_159_9" style="position: absolute; left: 55.05%; top: 8.09%;" class="c_159_1">
+		In a corporation, shareholders&mdash;the owners
+	</div>
+
+	<div id="t_159_10" style="position: absolute; left: 53.74%; top: 9.98%;" class="c_159_1">
+		and all the other people who have invested in
+	</div>
+
+	<div id="t_159_11" style="position: absolute; left: 53.74%; top: 11.88%;" class="c_159_1">
+		the company&mdash;cannot be held personally
+	</div>
+
+	<div id="t_159_12" style="position: absolute; left: 53.74%; top: 13.77%;" class="c_159_1">
+		responsible if something disastrous happens.
+	</div>
+
+	<div id="t_159_13" style="position: absolute; left: 55.05%; top: 15.67%;" class="c_159_1">
+		Suppose a corporation runs out of money, is
+	</div>
+
+	<div id="t_159_14" style="position: absolute; left: 53.74%; top: 17.56%;" class="c_159_1">
+		unable to pay its bills, and has to close its
+	</div>
+
+	<div id="t_159_15" style="position: absolute; left: 58.00%; top: 19.46%;" class="c_159_1">
+		offices. All the people to whom it owes
+	</div>
+
+	<div id="t_159_16" style="position: absolute; left: 58.00%; top: 21.35%;" class="c_159_1">
+		money will have to settle for whatever can
+	</div>
+
+	<div id="t_159_17" style="position: absolute; left: 58.00%; top: 23.24%;" class="c_159_1">
+		be had by selling off the company&rsquo;s assets,
+	</div>
+
+	<div id="t_159_18" style="position: absolute; left: 58.00%; top: 25.14%;" class="c_159_1">
+		but the homes and personal belongings of
+	</div>
+
+	<div id="t_159_19" style="position: absolute; left: 58.00%; top: 27.03%;" class="c_159_1">
+		the owners can seldom be touched.
+	</div>
+
+	<div id="t_159_20" style="position: absolute; left: 59.32%; top: 28.93%;" class="c_159_1">
+		Another benefit corporations have is
+	</div>
+
+	<div id="t_159_21" style="position: absolute; left: 58.00%; top: 30.82%;" class="c_159_1">
+		protecting some of their profits from taxes
+	</div>
+
+	<div id="t_159_22" style="position: absolute; left: 58.00%; top: 32.72%;" class="c_159_1">
+		through special tax deductions. There is a
+	</div>
+
+	<div id="t_159_23" style="position: absolute; left: 58.00%; top: 34.61%;" class="c_159_1">
+		reason that so many big companies have
+	</div>
+
+	<div id="t_159_24" style="position: absolute; left: 58.00%; top: 36.51%;" class="c_159_1">
+		opted to incorporate. It is often good
+	</div>
+
+	<div id="t_159_25" style="position: absolute; left: 58.00%; top: 38.4%;" class="c_159_1">
+		business sense.
+	</div>
+
+	<div id="t_159_26" style="position: absolute; left: 32.98%; top: 21.18%; letter-spacing: 0.01em;" class="c_159_4">
+		An oil-drenched pelican
+	</div>
+
+	<div id="t_159_27" style="position: absolute; left: 32.98%; top: 22.95%; letter-spacing: 0.01em;" class="c_159_4">
+		struggles to survive after an
+	</div>
+
+	<div id="t_159_28" style="position: absolute; left: 32.98%; top: 24.71%; letter-spacing: 0.01em;" class="c_159_4">
+		offshore rig owned by a big
+	</div>
+
+	<div id="t_159_29" style="position: absolute; left: 32.98%; top: 26.48%; letter-spacing: 0.01em;" class="c_159_4">
+		oil corporation exploded. For
+	</div>
+
+	<div id="t_159_30" style="position: absolute; left: 32.98%; top: 28.25%; letter-spacing: 0.01em;" class="c_159_4">
+		over 85 days, 200 million
+	</div>
+
+	<div id="t_159_31" style="position: absolute; left: 32.98%; top: 30.02%; letter-spacing: 0.01em;" class="c_159_4">
+		gallons of crude oil leaked
+	</div>
+
+	<div id="t_159_32" style="position: absolute; left: 32.98%; top: 31.79%; letter-spacing: 0.01em;" class="c_159_4">
+		into the Gulf of Mexico.
+	</div>
+
+	<div id="t_159_33" style="position: absolute; left: 32.98%; top: 33.56%; letter-spacing: 0.01em;" class="c_159_4">
+		There were many lawsuits,
+	</div>
+
+	<div id="t_159_34" style="position: absolute; left: 32.98%; top: 35.32%; letter-spacing: 0.01em;" class="c_159_4">
+		but the corporation heads
+	</div>
+
+	<div id="t_159_35" style="position: absolute; left: 32.98%; top: 37.09%; letter-spacing: 0.01em;" class="c_159_4">
+		could not be sued personally.
+	</div>
+
+	<div id="t_159_36" style="position: absolute; left: 54.68%; top:40.90%;" class="c_159_5">
+		New Ideas,
+	</div>
+
+	<div id="t_159_37" style="position: absolute; left: 57.31%; top:46.33%;" class="c_159_5">
+		Big Risks
+	</div>
+
+	<div id="t_159_38" style="position: absolute; left: 60.42%; top:53.94%;" class="c_159_6">
+		ENTREPRENEURS WITH
+	</div>
+
+	<div id="t_159_39" style="position: absolute; left: 65.47%; top:55.91%;" class="c_159_6">
+		BIG DREAMS
+	</div>
+
+	<div id="t_159_40" style="position: absolute; left: 12.91%; top: 47.02%;" class="c_159_1">
+		Think about Henry Ford and his great idea to
+	</div>
+
+	<div id="t_159_41" style="position: absolute; left: 11.59%; top: 48.92%;" class="c_159_1">
+		produce a cheaper car. Think of Bill Gates who
+	</div>
+
+	<div id="t_159_42" style="position: absolute; left: 11.59%; top: 50.81%;" class="c_159_1">
+		started Microsoft, or Steve Jobs and Steve
+	</div>
+
+	<div id="t_159_43" style="position: absolute; left: 11.59%; top: 52.71%;" class="c_159_1">
+		Wozniak who created Apple&mdash;the people who
+	</div>
+
+	<div id="t_159_44" style="position: absolute; left: 11.59%; top: 54.6%;" class="c_159_1">
+		figured out how to make computers smaller and
+	</div>
+
+	<div id="t_159_45" style="position: absolute; left: 11.59%; top: 56.5%;" class="c_159_1">
+		easy to use. And what about Facebook, Twitter,
+	</div>
+
+	<div id="t_159_46" style="position: absolute; left: 11.59%; top: 58.39%;" class="c_159_1">
+		and countless other great websites or new apps?
+	</div>
+
+	<div id="t_159_47" style="position: absolute; left: 11.59%; top: 60.29%;" class="c_159_1">
+		The people behind these ideas were entrepreneurs&mdash;risk takers who
+	</div>
+
+	<div id="t_159_48" style="position: absolute; left: 11.59%; top: 62.18%;" class="c_159_1">
+		used all their energy and resources to make a product or sell a
+	</div>
+
+	<div id="t_159_49" style="position: absolute; left: 11.59%; top: 64.07%;" class="c_159_1">
+		service. Because they took all the risks, they reaped the huge profits.
+	</div>
+
+	<div id="t_159_50" style="position: absolute; left: 12.91%; top: 65.97%;" class="c_159_1">
+		Entrepreneurs bring excitement! They stir up the marketplace by
+	</div>
+
+	<div id="t_159_51" style="position: absolute; left: 11.59%; top: 67.86%;" class="c_159_1">
+		bringing new goods and services to consumers. When an
+	</div>
+
+	<div id="t_159_52" style="position: absolute; left: 11.59%; top: 69.76%;" class="c_159_1">
+		entrepreneur has a new idea and delivers a product in an exciting,
+	</div>
+
+	<div id="t_159_53" style="position: absolute; left: 11.59%; top: 71.65%;" class="c_159_1">
+		new way, it can lead to technological progress and economic growth.
+	</div>
+
+	<div id="t_159_54" style="position: absolute; left: 12.91%; top: 73.55%;" class="c_159_1">
+		Entrepreneurs can set up a sole proprietorship, a partnership,
+	</div>
+
+	<div id="t_159_55" style="position: absolute; left: 11.59%; top: 75.44%;" class="c_159_1">
+		or a corporation&mdash;whatever feels most comfortable. But one
+	</div>
+
+	<div id="t_159_56" style="position: absolute; left: 11.59%; top: 77.34%;" class="c_159_1">
+		thing is true. Being an entrepreneur means you must
+	</div>
+
+	<div id="t_159_57" style="position: absolute; left: 11.59%; top: 79.23%;" class="c_159_1">
+		wear many hats: from creator to salesperson
+	</div>
+
+	<div id="t_159_58" style="position: absolute; left: 11.59%; top: 81.12%;" class="c_159_1">
+		to shipping clerk to bill payer
+	</div>
+
+	<div id="t_159_59" style="position: absolute; left: 11.59%; top: 83.02%;" class="c_159_1">
+		to fund-raiser.
+	</div>
+
+	<div id="t_159_60" style="position: absolute; left: 70.42%; top: 59.61%; letter-spacing: 0.01em;" class="c_159_7">
+		There are a thousand
+	</div>
+
+	<div id="t_159_61" style="position: absolute; left: 70.42%; top: 61.50%; letter-spacing: 0.01em;" class="c_159_7">
+		small details to think
+	</div>
+
+	<div id="t_159_62" style="position: absolute; left: 70.42%; top: 63.40%; letter-spacing: 0.01em;" class="c_159_7">
+		about when you run a
+	</div>
+
+	<div id="t_159_63" style="position: absolute; left: 70.42%; top: 65.29%; letter-spacing: 0.01em;" class="c_159_7">
+		&ldquo;start-up.&rdquo;
+	</div>
+
+	<div id="t_159_64" style="position: absolute; left: 92.86%; top: 94.45%; letter-spacing: -0.15em;" class="c_159_8">
+		159
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 4%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_159_why_become.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 49%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_159_protection_for_the.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 27%; top: 21%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_159_an_oil-drenched.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 49%; top: 41%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_159_new_ideas_big_risks.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 65%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_159_there_are_a_thousand.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_158_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_159_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_158_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="158.html?page=right"; onclick="goto('158.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="160.html"; onclick="goto('160.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="160.html"; onclick="goto('160.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

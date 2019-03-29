@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_58.css">
+                <link rel="stylesheet" href="css/civics_59.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="56.html?page=right"; onclick="goto('56.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="58.html"; onclick="goto('58.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="56.html?page=right"; onclick="goto('56.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_58_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_59_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_58_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="58.html?page=right"; onclick="goto('58.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="60.html"; onclick="goto('60.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="60.html"; onclick="goto('60.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="56.html?page=right"; onclick="goto('56.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="58.html"; onclick="goto('58.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="56.html?page=right"; onclick="goto('56.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_58">
+                                                                                                <div class="pageData">
+
+	<div id="t_58_0" style="position: absolute; left: 5.70%; top:4.33%;" class="c_58_0">
+		Running for political office
+	</div>
+
+	<div id="t_58_1" style="position: absolute; left: 5.70%; top:6.10%;" class="c_58_0">
+		can be very expensive.
+	</div>
+
+	<div id="t_58_2" style="position: absolute; left: 8.82%; top: 21.47%; letter-spacing: -0.02em;" class="c_58_1">
+		The High
+	</div>
+
+	<div id="t_58_3" style="position: absolute; left: 8.82%; top: 27.28%; letter-spacing: -0.02em;" class="c_58_1">
+		Cost of Politics
+	</div>
+
+	<div id="t_58_4" style="position: absolute; left: 8.82%; top: 34.12%; letter-spacing: 0.01em;" class="c_58_2">
+		Want to run for office? On the local level, it&rsquo;s not impossible
+	</div>
+
+	<div id="t_58_5" style="position: absolute; left: 8.82%; top: 36.02%; letter-spacing: 0.01em;" class="c_58_2">
+		to be an unknown and get elected. But on the state or national level,
+	</div>
+
+	<div id="t_58_6" style="position: absolute; left: 8.82%; top: 37.91%; letter-spacing: 0.01em;" class="c_58_2">
+		the stakes are high and the costs even higher. You need money and lots of it!
+	</div>
+
+	<div id="t_58_7" style="position: absolute; left: 77.66%; top:28.18%;" class="c_58_3">
+		Eat with the
+	</div>
+
+	<div id="t_58_8" style="position: absolute; left: 77.66%; top:29.82%;" class="c_58_3">
+		candidate? Fork
+	</div>
+
+	<div id="t_58_9" style="position: absolute; left: 77.66%; top:31.46%;" class="c_58_3">
+		over the cash&mdash;
+	</div>
+
+	<div id="t_58_10" style="position: absolute; left: 77.66%; top:33.11%;" class="c_58_3">
+		and in some cases
+	</div>
+
+	<div id="t_58_11" style="position: absolute; left: 77.66%; top:34.75%;" class="c_58_3">
+		a lot of it!
+	</div>
+
+	<div id="t_58_12" style="position: absolute; left: 34.87%; top:39.90%;" class="c_58_4">
+		THE PRICE OF VICTORY
+	</div>
+
+	<div id="t_58_13" style="position: absolute; left: 26.44%; top: 42.62%;" class="c_58_5">
+		From ordering pizzas for the volunteers who work for you to printing signs
+	</div>
+
+	<div id="t_58_14" style="position: absolute; left: 25.13%; top: 44.52%;" class="c_58_5">
+		and placing ads on TV and getting to six cities in one day&mdash;every part of a
+	</div>
+
+	<div id="t_58_15" style="position: absolute; left: 25.13%; top: 46.41%;" class="c_58_5">
+		political campaign comes with a big price tag. Candidates have to spend huge
+	</div>
+
+	<div id="t_58_16" style="position: absolute; left: 25.13%; top: 48.31%;" class="c_58_5">
+		amounts of time raising funds. If they already hold a political office, or have
+	</div>
+
+	<div id="t_58_17" style="position: absolute; left: 25.13%; top: 50.2%;" class="c_58_5">
+		another career, it means that they are doing two big jobs at once.
+	</div>
+
+	<div id="t_58_18" style="position: absolute; left: 26.44%; top: 52.09%;" class="c_58_5">
+		There is a big advantage for a candidate who can personally pay for all the
+	</div>
+
+	<div id="t_58_19" style="position: absolute; left: 25.13%; top: 53.99%;" class="c_58_5">
+		items needed to create &ldquo;buzz&rdquo; without
+	</div>
+
+	<div id="t_58_20" style="position: absolute; left: 25.13%; top: 55.88%;" class="c_58_5">
+		having to ask for donations. It is hard for
+	</div>
+
+	<div id="t_58_21" style="position: absolute; left: 25.13%; top: 57.78%;" class="c_58_5">
+		someone with no money to get a foothold,
+	</div>
+
+	<div id="t_58_22" style="position: absolute; left: 27.33%; top: 59.67%;" class="c_58_5">
+		because running for public office,
+	</div>
+
+	<div id="t_58_23" style="position: absolute; left: 27.33%; top: 61.57%;" class="c_58_5">
+		especially at the national level, can cost
+	</div>
+
+	<div id="t_58_24" style="position: absolute; left: 27.33%; top: 63.46%;" class="c_58_5">
+		millions of dollars. Congress has enacted
+	</div>
+
+	<div id="t_58_25" style="position: absolute; left: 27.33%; top: 65.36%;" class="c_58_5">
+		laws to regulate spending in federal
+	</div>
+
+	<div id="t_58_26" style="position: absolute; left: 27.33%; top: 67.25%;" class="c_58_5">
+		elections. States are responsible for
+	</div>
+
+	<div id="t_58_27" style="position: absolute; left: 27.33%; top: 69.14%;" class="c_58_5">
+		regulating money in state and local
+	</div>
+
+	<div id="t_58_28" style="position: absolute; left: 27.33%; top: 71.04%;" class="c_58_5">
+		elections.
+	</div>
+
+	<div id="t_58_29" style="position: absolute; left: 18.59%; top:72.98%;" class="c_58_4">
+		CAMPAIGNING FOR CASH
+	</div>
+
+	<div id="t_58_30" style="position: absolute; left: 10.14%; top: 75.7%;" class="c_58_5">
+		How do you share your political message with the public?
+	</div>
+
+	<div id="t_58_31" style="position: absolute; left: 8.82%; top: 77.6%;" class="c_58_5">
+		You need help! You might need to hire people to run your
+	</div>
+
+	<div id="t_58_32" style="position: absolute; left: 8.82%; top: 79.49%;" class="c_58_5">
+		campaign and manage your volunteers. You need someone to
+	</div>
+
+	<div id="t_58_33" style="position: absolute; left: 8.82%; top: 81.39%;" class="c_58_5">
+		design a website and all your campaign literature. It cannot be
+	</div>
+
+	<div id="t_58_34" style="position: absolute; left: 8.82%; top: 83.28%;" class="c_58_5">
+		done without money. So you attend fund-raising dinners
+	</div>
+
+	<div id="t_58_35" style="position: absolute; left: 8.82%; top: 85.18%;" class="c_58_5">
+		($1,000 per dinner and up are not uncommon at the higher
+	</div>
+
+	<div id="t_58_36" style="position: absolute; left: 8.82%; top: 87.07%;" class="c_58_5">
+		levels of politics). Does someone want a photo with you, the
+	</div>
+
+	<div id="t_58_37" style="position: absolute; left: 8.82%; top: 88.96%;" class="c_58_5">
+		candidate? That&rsquo;s going to cost the person a lot more! The
+	</div>
+
+	<div id="t_58_38" style="position: absolute; left: 8.82%; top: 90.86%;" class="c_58_5">
+		amount of money involved in getting elected at the state or
+	</div>
+
+	<div id="t_58_39" style="position: absolute; left: 8.82%; top: 92.75%;" class="c_58_5">
+		national level is enormous.
+	</div>
+
+	<div id="t_58_40" style="position: absolute; left: 4.95%; top: 94.63%;" class="c_58_6">
+		58
+	</div>
+
+	<div id="t_58_41" style="position: absolute; left: 63.18%; top:56.91%;" class="c_58_4">
+		WHERE&rsquo;S THE MONEY?
+	</div>
+
+	<div id="t_58_42" style="position: absolute; left: 63.33%; top: 59.63%;" class="c_58_5">
+		The <span class="c_58_7">FEC &mdash; Federal Election</span>
+	</div>
+
+	<div id="t_58_43" style="position: absolute; left: 62.02%; top:61.13%;" class="c_58_8">
+		Commission &mdash; <span class="c_58_9">monitors donations</span>
+	</div>
+
+	<div id="t_58_44" style="position: absolute; left: 62.02%; top: 63.42%;" class="c_58_5">
+		to candidates for federal offices,
+	</div>
+
+	<div id="t_58_45" style="position: absolute; left: 62.02%; top: 65.31%;" class="c_58_5">
+		such as the president and U.S.
+	</div>
+
+	<div id="t_58_46" style="position: absolute; left: 62.02%; top: 67.21%;" class="c_58_5">
+		Congress.
+	</div>
+
+	<div id="t_58_47" style="position: absolute; left: 62.02%; top: 69.31%; letter-spacing: 0.01em;" class="c_58_10">
+		&bull; <span class="c_58_11">Individuals</span>
+	</div>
+
+	<div id="t_58_48" style="position: absolute; left: 62.02%; top: 71.37%;" class="c_58_5">
+		As of 2016 you can donate up to
+	</div>
+
+	<div id="t_58_49" style="position: absolute; left: 62.02%; top: 73.27%;" class="c_58_5">
+		$2,700 per election directly to a
+	</div>
+
+	<div id="t_58_50" style="position: absolute; left: 62.02%; top: 75.16%;" class="c_58_5">
+		candidate.
+	</div>
+
+	<div id="t_58_51" style="position: absolute; left: 62.02%; top: 77.39%; letter-spacing: 0.01em;" class="c_58_10">
+		&bull; <span class="c_58_11">Political Action Committees (PACs)</span>
+	</div>
+
+	<div id="t_58_52" style="position: absolute; left: 62.02%; top: 79.45%;" class="c_58_5">
+		You can give $5,000 a year to each
+	</div>
+
+	<div id="t_58_53" style="position: absolute; left: 62.02%; top: 81.35%;" class="c_58_5">
+		PAC, which are often run by
+	</div>
+
+	<div id="t_58_54" style="position: absolute; left: 62.02%; top: 83.24%;" class="c_58_5">
+		corporations, unions, and others.
+	</div>
+
+	<div id="t_58_55" style="position: absolute; left: 62.02%; top: 85.60%; letter-spacing: 0.01em;" class="c_58_10">
+		&bull; <span class="c_58_11">527 Groups</span>
+	</div>
+
+	<div id="t_58_56" style="position: absolute; left: 62.02%; top: 87.66%;" class="c_58_5">
+		Very powerful! A 527 can raise
+	</div>
+
+	<div id="t_58_57" style="position: absolute; left: 62.02%; top: 89.56%;" class="c_58_5">
+		unlimited funds from anyone. 527s
+	</div>
+
+	<div id="t_58_58" style="position: absolute; left: 62.02%; top: 91.45%;" class="c_58_5">
+		must simply register with the IRS
+	</div>
+
+	<div id="t_58_59" style="position: absolute; left: 62.02%; top: 93.34%;" class="c_58_5">
+		(the tax service) and file full
+	</div>
+
+	<div id="t_58_60" style="position: absolute; left: 62.02%; top: 95.24%;" class="c_58_5">
+		financial disclosures.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 2%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_58_running_for_political.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 23%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_58_the_high_cost.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 72%; top: 26%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_58_eat_with_the_candidate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 58%; top: 54%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_58_wheres_the_money.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 71%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_58_campaigning_for_cash.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_59">
+                                                                                                <div class="pageData">
+
+	<div id="t_59_0" style="position: absolute; left: 11.41%; top: 7.35%; letter-spacing: 0.01em;" class="c_59_0">
+		&bull; <span class="c_59_1">PACs are special-interest groups&mdash;private organizations, groups of</span>
+	</div>
+
+	<div id="t_59_1" style="position: absolute; left: 11.41%; top: 9.25%; letter-spacing: 0.01em;" class="c_59_2">
+		individuals, businesses, and unions or trade groups&mdash;that raise and
+	</div>
+
+	<div id="t_59_2" style="position: absolute; left: 11.41%; top: 11.14%; letter-spacing: 0.01em;" class="c_59_2">
+		spend huge sums of money in the hopes of influencing an election.
+	</div>
+
+	<div id="t_59_3" style="position: absolute; left: 12.72%; top: 13.2%;" class="c_59_3">
+		The FEC monitors a PAC&rsquo;s spending, but it&rsquo;s easy enough to
+	</div>
+
+	<div id="t_59_4" style="position: absolute; left: 11.41%; top: 15.1%;" class="c_59_3">
+		simply form new ones to get around the rules. TV, radio, and print
+	</div>
+
+	<div id="t_59_5" style="position: absolute; left: 11.41%; top: 16.99%;" class="c_59_3">
+		campaign ads from PACs will clearly state who paid for the ad.
+	</div>
+
+	<div id="t_59_6" style="position: absolute; left: 11.41%; top: 18.89%;" class="c_59_3">
+		Some of the nastiest political TV ads have been created by PACs.
+	</div>
+
+	<div id="t_59_7" style="position: absolute; left: 12.72%; top: 20.78%;" class="c_59_3">
+		Super PACs are a new way to try to get around the FEC rules.
+	</div>
+
+	<div id="t_59_8" style="position: absolute; left: 11.41%; top: 22.67%;" class="c_59_3">
+		There are no limits on who can contribute to a super PAC or how
+	</div>
+
+	<div id="t_59_9" style="position: absolute; left: 11.41%; top: 24.57%;" class="c_59_3">
+		much they can give. They can raise money from many sources
+	</div>
+
+	<div id="t_59_10" style="position: absolute; left: 11.41%; top: 26.46%;" class="c_59_3">
+		and spend unlimited amounts to get their candidate elected or
+	</div>
+
+	<div id="t_59_11" style="position: absolute; left: 11.41%; top: 28.36%;" class="c_59_3">
+		the opposing candidate defeated.
+	</div>
+
+	<div id="t_59_12" style="position: absolute; left: 12.72%; top: 30.25%;" class="c_59_3">
+		PACs, super PACs, and 527s have a big impact on our elections,
+	</div>
+
+	<div id="t_59_13" style="position: absolute; left: 11.41%; top: 32.15%;" class="c_59_3">
+		so it&rsquo;s nice to know that in the 2012 presidential election, most
+	</div>
+
+	<div id="t_59_14" style="position: absolute; left: 11.41%; top: 34.04%;" class="c_59_3">
+		of the money raised for each candidate came from individuals.
+	</div>
+
+	<div id="t_59_15" style="position: absolute; left: 19.78%; top:37.42%;" class="c_59_4">
+		HOW TO SLOW SPENDING
+	</div>
+
+	<div id="t_59_16" style="position: absolute; left: 10.14%; top: 40.14%;" class="c_59_3">
+		There is a big cry for campaign finance reform, and some
+	</div>
+
+	<div id="t_59_17" style="position: absolute; left: 8.82%; top: 42.03%;" class="c_59_3">
+		states and cities are writing their own laws to rein in the costs.
+	</div>
+
+	<div id="t_59_18" style="position: absolute; left: 8.82%; top: 43.93%;" class="c_59_3">
+		In 2002 both major political parties got together to set limits to
+	</div>
+
+	<div id="t_59_19" style="position: absolute; left: 8.82%; top: 45.82%;" class="c_59_3">
+		the spending, but in 2014, in a case called <span class="c_59_5">Citizens United v.</span>
+	</div>
+
+	<div id="t_59_20" style="position: absolute; left: 8.82%; top:47.32%;" class="c_59_6">
+		Federal Election Commission<span class="c_59_7">, the Supreme Court ruled that</span>
+	</div>
+
+	<div id="t_59_21" style="position: absolute; left: 8.82%; top: 49.61%;" class="c_59_3">
+		Congress cannot limit corporate contributions to independent
+	</div>
+
+	<div id="t_59_22" style="position: absolute; left: 8.82%; top: 51.51%;" class="c_59_3">
+		groups because placing limits on donations violated the First
+	</div>
+
+	<div id="t_59_23" style="position: absolute; left: 8.82%; top: 53.4%;" class="c_59_3">
+		Amendment&rsquo;s freedom of political speech. So ignore the ads.
+	</div>
+
+	<div id="t_59_24" style="position: absolute; left: 8.82%; top: 55.29%;" class="c_59_3">
+		Listen to what your candidate is saying. Check the facts. After all,
+	</div>
+
+	<div id="t_59_25" style="position: absolute; left: 8.82%; top: 57.19%;" class="c_59_3">
+		a vote is not something to be &ldquo;bought.&rdquo;
+	</div>
+
+	<div id="t_59_26" style="position: absolute; left: 68.91%; top:2.58%;" class="c_59_8">
+		The PAC
+	</div>
+
+	<div id="t_59_27" style="position: absolute; left: 68.76%; top:8.01%;" class="c_59_8">
+		Problem
+	</div>
+
+	<div id="t_59_28" style="position: absolute; left: 72.19%; top:15.02%;" class="c_59_9">
+		POLITICAL ACTION
+	</div>
+
+	<div id="t_59_29" style="position: absolute; left: 72.38%; top:16.99%;" class="c_59_9">
+		COMMITTEES AND
+	</div>
+
+	<div id="t_59_30" style="position: absolute; left: 68.43%; top:18.96%;" class="c_59_9">
+		UNREGULATED SPENDING
+	</div>
+
+	<div id="t_59_31" style="position: absolute; left: 83.57%; top:39.81%;" class="c_59_4">
+		Room
+	</div>
+
+	<div id="t_59_32" style="position: absolute; left: 86.95%; top:41.70%;" class="c_59_4">
+		for
+	</div>
+
+	<div id="t_59_33" style="position: absolute; left: 81.98%; top:43.85%;" class="c_59_4">
+		Debate
+	</div>
+
+	<div id="t_59_34" style="position: absolute; left: 76.71%; top:46.21%;" class="c_59_10">
+		Many super PACs
+	</div>
+
+	<div id="t_59_35" style="position: absolute; left: 68.70%; top:48.11%;" class="c_59_10">
+		and 527 groups are bank-
+	</div>
+
+	<div id="t_59_36" style="position: absolute; left: 68.70%; top:50.00%;" class="c_59_10">
+		rolled by America&rsquo;s
+	</div>
+
+	<div id="t_59_37" style="position: absolute; left: 68.70%; top:51.90%;" class="c_59_10">
+		wealthiest people. Some
+	</div>
+
+	<div id="t_59_38" style="position: absolute; left: 68.70%; top:53.79%;" class="c_59_10">
+		have business interests at
+	</div>
+
+	<div id="t_59_39" style="position: absolute; left: 68.70%; top:55.68%;" class="c_59_10">
+		stake in the outcome of an
+	</div>
+
+	<div id="t_59_40" style="position: absolute; left: 68.70%; top:57.58%;" class="c_59_10">
+		election. Should these
+	</div>
+
+	<div id="t_59_41" style="position: absolute; left: 68.70%; top:59.47%;" class="c_59_10">
+		groups be required to
+	</div>
+
+	<div id="t_59_42" style="position: absolute; left: 68.70%; top:61.37%;" class="c_59_10">
+		identify their biggest
+	</div>
+
+	<div id="t_59_43" style="position: absolute; left: 68.70%; top:63.26%;" class="c_59_10">
+		donors? Why or why not?
+	</div>
+
+	<div id="t_59_44" style="position: absolute; left: 58.45%; top:68.10%;" class="c_59_11">
+		CAMPAIGN SPENDING:
+	</div>
+
+	<div id="t_59_45" style="position: absolute; left: 62.03%; top:70.12%;" class="c_59_11">
+		THEN AND NOW
+	</div>
+
+	<div id="t_59_46" style="position: absolute; left: 53.06%; top:74.13%;" class="c_59_12">
+		Billions of dollars are being spent on elections these
+	</div>
+
+	<div id="t_59_47" style="position: absolute; left: 51.80%; top:75.77%;" class="c_59_12">
+		days. In the 2012 election, spending topped 7 billion
+	</div>
+
+	<div id="t_59_48" style="position: absolute; left: 51.80%; top:77.41%;" class="c_59_12">
+		dollars when the races for president and members of
+	</div>
+
+	<div id="t_59_49" style="position: absolute; left: 51.80%; top:79.05%;" class="c_59_12">
+		Congress were added together.
+	</div>
+
+	<div id="t_59_50" style="position: absolute; left: 53.06%; top:81.45%;" class="c_59_12">
+		Based on this graph, in which elections did spending
+	</div>
+
+	<div id="t_59_51" style="position: absolute; left: 51.80%; top:83.09%;" class="c_59_12">
+		drop compared to the previous election?
+	</div>
+
+	<div id="t_59_52" style="position: absolute; left: 93.57%; top: 94.96%;" class="c_59_13">
+		59
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_59_the_pac_problem.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 38%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_59_how_to_slow_spending.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 66%; top: 38%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_59_room_for_debate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 50%; top: 66%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_59_campaign_spending.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_58_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_59_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_58_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="58.html?page=right"; onclick="goto('58.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="60.html"; onclick="goto('60.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="60.html"; onclick="goto('60.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

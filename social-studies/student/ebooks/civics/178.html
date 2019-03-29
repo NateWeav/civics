@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_178.css">
+                <link rel="stylesheet" href="css/civics_179.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="176.html?page=right"; onclick="goto('176.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="178.html"; onclick="goto('178.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="176.html?page=right"; onclick="goto('176.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_178_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_179_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_178_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="178.html?page=right"; onclick="goto('178.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="180.html"; onclick="goto('180.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="180.html"; onclick="goto('180.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="176.html?page=right"; onclick="goto('176.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="178.html"; onclick="goto('178.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="176.html?page=right"; onclick="goto('176.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_178">
+                                                                                                <div class="pageData">
+
+	<div id="t_178_0" style="position: absolute; left: 5.50%; top:3.96%; letter-spacing: -0.02em;" class="c_178_0">
+		Money is anything that is generally accepted as a method
+	</div>
+
+	<div id="t_178_1" style="position: absolute; left: 5.50%; top:5.73%;" class="c_178_0">
+		of payment for goods and services.
+	</div>
+
+	<div id="t_178_2" style="position: absolute; left: 5.50%; top:8.51%; letter-spacing: -0.02em;" class="c_178_0">
+		Money makes it easier to trade, borrow, save, invest, and
+	</div>
+
+	<div id="t_178_3" style="position: absolute; left: 5.50%; top:10.28%;" class="c_178_0">
+		compare the value of goods and services.
+	</div>
+
+	<div id="t_178_4" style="position: absolute; left: 9.20%; top: 11.62%; letter-spacing: -0.02em;" class="c_178_1">
+		Money, Money,
+	</div>
+
+	<div id="t_178_5" style="position: absolute; left: 17.99%; top: 17.05%; letter-spacing: -0.02em;" class="c_178_1">
+		Money!
+	</div>
+
+	<div id="t_178_6" style="position: absolute; left: 7.11%; top: 24.10%; letter-spacing: 0.01em;" class="c_178_2">
+		Money does not grow on trees, but it does come
+	</div>
+
+	<div id="t_178_7" style="position: absolute; left: 7.11%; top: 25.87%; letter-spacing: 0.01em;" class="c_178_2">
+		flying off printing presses and coin-minting machines,
+	</div>
+
+	<div id="t_178_8" style="position: absolute; left: 22.32%; top: 27.63%; letter-spacing: 0.01em;" class="c_178_2">
+		thanks to our government.
+	</div>
+
+	<div id="t_178_9" style="position: absolute; left: 26.27%; top: 30.15%;" class="c_178_3">
+		In the early days of the Virginia colony, in addition to using British and Spanish
+	</div>
+
+	<div id="t_178_10" style="position: absolute; left: 25.39%; top: 32.04%;" class="c_178_3">
+		coins, the colonists bartered. They paid for the things they wanted with a few
+	</div>
+
+	<div id="t_178_11" style="position: absolute; left: 25.39%; top: 33.94%;" class="c_178_3">
+		cabbages or a hen or two. Tobacco was a common form of currency. We have
+	</div>
+
+	<div id="t_178_12" style="position: absolute; left: 25.39%; top: 35.83%;" class="c_178_3">
+		come a long way since those days when dried plant leaves were used to pay for
+	</div>
+
+	<div id="t_178_13" style="position: absolute; left: 25.39%; top: 37.73%;" class="c_178_3">
+		things! The exchange of money is at the root of our economic system.
+	</div>
+
+	<div id="t_178_14" style="position: absolute; left: 25.39%; top: 39.62%;" class="c_178_3">
+		&bull; <span class="c_178_4">Money acts as a medium of exchange</span><span class="c_178_5">, making trade easier. Would you rather</span>
+	</div>
+
+	<div id="t_178_15" style="position: absolute; left: 21.91%; top: 41.52%;" class="c_178_3">
+		pay for a movie with cash or bags of potatoes?
+	</div>
+
+	<div id="t_178_16" style="position: absolute; left: 21.91%; top: 43.41%;" class="c_178_3">
+		&bull; <span class="c_178_4">Money acts as a store of value</span><span class="c_178_5">, making it easier to save and invest. Would you</span>
+	</div>
+
+	<div id="t_178_17" style="position: absolute; left: 21.91%; top: 45.31%;" class="c_178_3">
+		rather keep $20 of value in crisp one-dollar bills or in $20 worth of bananas?
+	</div>
+
+	<div id="t_178_18" style="position: absolute; left: 21.91%; top: 47.2%;" class="c_178_3">
+		&bull; <span class="c_178_4">Money acts as a measure of value</span><span class="c_178_5">, making it easier to compare the value of goods</span>
+	</div>
+
+	<div id="t_178_19" style="position: absolute; left: 21.91%; top: 49.09%;" class="c_178_3">
+		and services. Do those awesome sneakers cost $50 or two pigs?
+	</div>
+
+	<div id="t_178_20" style="position: absolute; left: 19.32%; top: 54.16%;" class="c_178_3">
+		What&rsquo;s in your wallet? It is filled with a combination of work from the U.S. Treasury
+	</div>
+
+	<div id="t_178_21" style="position: absolute; left: 40.87%; top:51.69%;" class="c_178_6">
+		COINS AND CURRENCY
+	</div>
+
+	<div id="t_178_22" style="position: absolute; left: 18.00%; top: 56.06%;" class="c_178_3">
+		Department&rsquo;s Bureau of Engraving and Printing, the U.S. Mint, and the Federal Reserve Bank.
+	</div>
+
+	<div id="t_178_23" style="position: absolute; left: 18.00%; top: 57.95%;" class="c_178_3">
+		Our dollar bills are officially <span class="c_178_7">Federal Reserve Notes</span><span class="c_178_5">. They got that name because they are</span>
+	</div>
+
+	<div id="t_178_24" style="position: absolute; left: 18.00%; top: 59.85%;" class="c_178_3">
+		the responsibility of the Federal Reserve System (the Fed). The Bureau of Engraving and
+	</div>
+
+	<div id="t_178_25" style="position: absolute; left: 18.00%; top: 61.74%;" class="c_178_3">
+		Printing makes the bills, but until they are released by the Fed, they are basically useless.
+	</div>
+
+	<div id="t_178_26" style="position: absolute; left: 18.00%; top: 63.63%;" class="c_178_3">
+		Coins are produced by the U.S. Mint, according to a directive in the Constitution. In fact, so
+	</div>
+
+	<div id="t_178_27" style="position: absolute; left: 18.00%; top: 65.53%;" class="c_178_3">
+		important was the striking of coins to the new nation, that the U.S. Mint in Philadelphia was
+	</div>
+
+	<div id="t_178_28" style="position: absolute; left: 18.00%; top: 67.42%;" class="c_178_3">
+		the very first federal building built after the Constitution was ratified.
+	</div>
+
+	<div id="t_178_29" style="position: absolute; left: 3.49%; top:47.07%;" class="c_178_8">
+		Can you find the
+	</div>
+
+	<div id="t_178_30" style="position: absolute; left: 3.49%; top:48.72%;" class="c_178_8">
+		Virginia quarter?
+	</div>
+
+	<div id="t_178_31" style="position: absolute; left: 3.49%; top:50.36%;" class="c_178_8">
+		State quarters
+	</div>
+
+	<div id="t_178_32" style="position: absolute; left: 3.49%; top:52.00%;" class="c_178_8">
+		were a very
+	</div>
+
+	<div id="t_178_33" style="position: absolute; left: 3.49%; top:53.64%;" class="c_178_8">
+		successful money-
+	</div>
+
+	<div id="t_178_34" style="position: absolute; left: 3.49%; top:55.28%;" class="c_178_8">
+		making venture
+	</div>
+
+	<div id="t_178_35" style="position: absolute; left: 3.49%; top:56.92%;" class="c_178_8">
+		for the U.S.
+	</div>
+
+	<div id="t_178_36" style="position: absolute; left: 3.49%; top:58.57%;" class="c_178_8">
+		Mint. People
+	</div>
+
+	<div id="t_178_37" style="position: absolute; left: 3.49%; top:60.21%;" class="c_178_8">
+		collected all 50
+	</div>
+
+	<div id="t_178_38" style="position: absolute; left: 3.49%; top:61.85%;" class="c_178_8">
+		states and never
+	</div>
+
+	<div id="t_178_39" style="position: absolute; left: 3.49%; top:63.49%;" class="c_178_8">
+		used them.
+	</div>
+
+	<div id="t_178_40" style="position: absolute; left: 20.38%; top:70.05%;" class="c_178_6">
+		DOLLARS&hellip;
+	</div>
+
+	<div id="t_178_41" style="position: absolute; left: 9.07%; top: 72.53%;" class="c_178_3">
+		Our paper money got its name from a silver
+	</div>
+
+	<div id="t_178_42" style="position: absolute; left: 7.76%; top: 74.42%;" class="c_178_3">
+		coin minted in the 1500s in what is now the
+	</div>
+
+	<div id="t_178_43" style="position: absolute; left: 7.76%; top: 76.31%;" class="c_178_3">
+		Czech Republic. The coins were called
+	</div>
+
+	<div id="t_178_44" style="position: absolute; left: 7.76%; top: 78.21%;" class="c_178_3">
+		&ldquo;joachimsthalers.&rdquo; Since that name was a real
+	</div>
+
+	<div id="t_178_45" style="position: absolute; left: 7.76%; top: 80.1%;" class="c_178_3">
+		mouthful, it was shortened to thalers. Several
+	</div>
+
+	<div id="t_178_46" style="position: absolute; left: 7.76%; top: 82%;" class="c_178_3">
+		countries used thalers&mdash;among them the Dutch,
+	</div>
+
+	<div id="t_178_47" style="position: absolute; left: 7.76%; top: 83.89%;" class="c_178_3">
+		who were big seafarers. Their pronunciation,
+	</div>
+
+	<div id="t_178_48" style="position: absolute; left: 7.76%; top: 85.79%;" class="c_178_3">
+		&ldquo;daler,&rdquo; spread to the famed Spanish <span class="c_178_9">piece of</span>
+	</div>
+
+	<div id="t_178_49" style="position: absolute; left: 7.76%; top:87.38%;" class="">
+        <span class="c_178_10">eight</span><span class="c_178_3"> &mdash; which became known as the Spanish</span>
+	</div>
+
+	<div id="t_178_50" style="position: absolute; left: 7.76%; top: 89.58%;" class="c_178_3">
+		dollar. Spanish dollars were some of the most-
+	</div>
+
+	<div id="t_178_51" style="position: absolute; left: 7.76%; top: 91.47%;" class="c_178_3">
+		used coins in the colonies, and they continued
+	</div>
+
+	<div id="t_178_52" style="position: absolute; left: 7.76%; top: 93.36%;" class="c_178_3">
+		to be used a lot even after independence.
+	</div>
+
+	<div id="t_178_53" style="position: absolute; left: 62.03%; top:69.78%;" class="c_178_6">
+		&hellip;AND CENTS
+	</div>
+
+	<div id="t_178_54" style="position: absolute; left: 50.93%; top: 72.25%;" class="c_178_3">
+		Dollars got their start as coins. When the
+	</div>
+
+	<div id="t_178_55" style="position: absolute; left: 49.62%; top: 74.15%;" class="c_178_3">
+		Constitution was ratified, the secretary of the
+	</div>
+
+	<div id="t_178_56" style="position: absolute; left: 49.62%; top: 76.04%;" class="c_178_3">
+		treasury, Alexander Hamilton, researched the exact
+	</div>
+
+	<div id="t_178_57" style="position: absolute; left: 49.62%; top: 77.93%;" class="c_178_3">
+		amount of silver in a Spanish dollar&mdash;and decided
+	</div>
+
+	<div id="t_178_58" style="position: absolute; left: 49.62%; top: 79.83%;" class="c_178_3">
+		that a U.S. dollar coin should be equal to its silver
+	</div>
+
+	<div id="t_178_59" style="position: absolute; left: 49.62%; top: 81.72%;" class="c_178_3">
+		content. The reason a quarter goes by its name is
+	</div>
+
+	<div id="t_178_60" style="position: absolute; left: 49.62%; top: 83.62%;" class="c_178_3">
+		that it had one-fourth the amount of silver that a
+	</div>
+
+	<div id="t_178_61" style="position: absolute; left: 49.62%; top: 85.51%;" class="c_178_3">
+		whole dollar did. The rest was cheaper metal.
+	</div>
+
+	<div id="t_178_62" style="position: absolute; left: 50.93%; top: 87.41%;" class="c_178_3">
+		Are we moving away from using coins? In 1997
+	</div>
+
+	<div id="t_178_63" style="position: absolute; left: 49.62%; top: 89.3%;" class="c_178_3">
+		Congress mandated minting $1.00 coins, but the
+	</div>
+
+	<div id="t_178_64" style="position: absolute; left: 49.62%; top: 91.2%;" class="c_178_3">
+		public rarely uses them, so a billion dollars&rsquo; worth
+	</div>
+
+	<div id="t_178_65" style="position: absolute; left: 49.62%; top: 93.09%;" class="c_178_3">
+		are sitting unused at the Federal Reserve.
+	</div>
+
+	<div id="t_178_66" style="position: absolute; left: 4.69%; top: 94.79%; letter-spacing: -0.15em;" class="c_178_12">
+		178
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_178_money_is_anything.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_178_money_money_money.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 0%; top: 43.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_178_can_you_find.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 16%; top: 50%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_178_coins_and_currency.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 68%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_178_dollars.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 46%; top: 69%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_178_and_cents.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_179">
+                                                                                                <div class="pageData">
+
+	<div id="t_179_0" style="position: absolute; left: 50.49%; top:3.29%;" class="c_179_0">
+		Forge-Proof!
+	</div>
+
+	<div id="t_179_1" style="position: absolute; left: 57.13%; top:10.99%;" class="c_179_1">
+		MONEY THAT IS ALMOST
+	</div>
+
+	<div id="t_179_2" style="position: absolute; left: 54.89%; top:12.96%;" class="c_179_1">
+		IMPOSSIBLE TO COUNTERFEIT
+	</div>
+
+	<div id="t_179_3" style="position: absolute; left: 11.78%; top:17.08%;" class="c_179_2">
+		THE STRIP
+	</div>
+
+	<div id="t_179_4" style="position: absolute; left: 10.12%; top:19.43%;" class="c_179_3">
+		Move the bill from side
+	</div>
+
+	<div id="t_179_5" style="position: absolute; left: 10.12%; top:21.07%;" class="c_179_3">
+		to side, and bells on the
+	</div>
+
+	<div id="t_179_6" style="position: absolute; left: 10.12%; top:22.71%;" class="c_179_3">
+		blue strip will change to
+	</div>
+
+	<div id="t_179_7" style="position: absolute; left: 10.12%; top:24.35%;" class="c_179_3">
+		100s.
+	</div>
+
+	<div id="t_179_8" style="position: absolute; left: 30.34%; top:17.62%;" class="c_179_2">
+		THE INKWELL
+	</div>
+
+	<div id="t_179_9" style="position: absolute; left: 30.36%; top:19.69%;" class="c_179_3">
+		The bell in the inkwell
+	</div>
+
+	<div id="t_179_10" style="position: absolute; left: 30.36%; top:21.33%;" class="c_179_3">
+		changes from copper
+	</div>
+
+	<div id="t_179_11" style="position: absolute; left: 30.36%; top:22.97%;" class="c_179_3">
+		to green when you flex
+	</div>
+
+	<div id="t_179_12" style="position: absolute; left: 30.36%; top:24.61%;" class="c_179_3">
+		the paper.
+	</div>
+
+	<div id="t_179_13" style="position: absolute; left: 48.53%; top:16.23%;" class="c_179_4">
+		&bull; <span class="c_179_5">How does the Federal Reserve assure us that our money is</span>
+	</div>
+
+	<div id="t_179_14" style="position: absolute; left: 48.53%; top:17.87%;" class="c_179_3">
+		real? There are several safeguards at work.
+	</div>
+
+	<div id="t_179_15" style="position: absolute; left: 48.53%; top: 19.81%;" class="c_179_6">
+		Today&rsquo;s bills have lots of safeguards hidden in plain
+	</div>
+
+	<div id="t_179_16" style="position: absolute; left: 48.53%; top: 21.71%;" class="c_179_6">
+		sight, from the special paper they are printed on to
+	</div>
+
+	<div id="t_179_17" style="position: absolute; left: 48.53%; top: 23.6%;" class="c_179_6">
+		security features that are extremely difficult to fake.
+	</div>
+
+	<div id="t_179_18" style="position: absolute; left: 48.53%; top: 25.5%;" class="c_179_6">
+		You just have to know where to look.
+	</div>
+
+	<div id="t_179_19" style="position: absolute; left: 13.77%; top:28.39%;" class="c_179_2">
+		CHECK IT OUT
+	</div>
+
+	<div id="t_179_20" style="position: absolute; left: 9.40%; top: 30.86%;" class="c_179_6">
+		It is difficult to carry around large
+	</div>
+
+	<div id="t_179_21" style="position: absolute; left: 8.09%; top: 32.76%;" class="c_179_6">
+		amounts of cash. Checks are a much
+	</div>
+
+	<div id="t_179_22" style="position: absolute; left: 8.09%; top: 34.65%;" class="c_179_6">
+		easier way to pay for goods and
+	</div>
+
+	<div id="t_179_23" style="position: absolute; left: 8.09%; top: 36.55%;" class="c_179_6">
+		services. A check is an order to a
+	</div>
+
+	<div id="t_179_24" style="position: absolute; left: 8.09%; top: 38.44%;" class="c_179_6">
+		bank to give someone
+	</div>
+
+	<div id="t_179_25" style="position: absolute; left: 8.09%; top: 40.33%;" class="c_179_6">
+		money from your
+	</div>
+
+	<div id="t_179_26" style="position: absolute; left: 8.09%; top: 42.23%;" class="c_179_6">
+		account.
+	</div>
+
+	<div id="t_179_27" style="position: absolute; left: 26.41%; top: 41.81%; letter-spacing: 0.01em;" class="c_179_7">
+		A bad idea!
+	</div>
+
+	<div id="t_179_28" style="position: absolute; left: 8.82%; top:60.65%;" class="c_179_8">
+		Room for
+	</div>
+
+	<div id="t_179_29" style="position: absolute; left: 8.82%; top:62.54%;" class="c_179_8">
+		Debate
+	</div>
+
+	<div id="t_179_30" style="position: absolute; left: 8.82%; top:65.66%;" class="c_179_9">
+		It costs 1.7
+	</div>
+
+	<div id="t_179_31" style="position: absolute; left: 8.82%; top:67.56%;" class="c_179_9">
+		cents to produce
+	</div>
+
+	<div id="t_179_32" style="position: absolute; left: 8.82%; top:69.45%;" class="c_179_9">
+		a penny, and 8 cents to
+	</div>
+
+	<div id="t_179_33" style="position: absolute; left: 8.82%; top:71.35%;" class="c_179_9">
+		make a nickel. Should the
+	</div>
+
+	<div id="t_179_34" style="position: absolute; left: 8.82%; top:73.24%;" class="c_179_9">
+		United States continue to
+	</div>
+
+	<div id="t_179_35" style="position: absolute; left: 8.82%; top:75.14%;" class="c_179_9">
+		produce these small-
+	</div>
+
+	<div id="t_179_36" style="position: absolute; left: 8.82%; top:77.03%;" class="c_179_9">
+		denomination coins? Why
+	</div>
+
+	<div id="t_179_37" style="position: absolute; left: 8.82%; top:78.92%;" class="c_179_9">
+		or why not?
+	</div>
+
+	<div id="t_179_38" style="position: absolute; left: 45.74%; top: 45.15%;" class="c_179_6">
+		When you write a check to someone, that person will take
+	</div>
+
+	<div id="t_179_39" style="position: absolute; left: 44.43%; top: 47.05%;" class="c_179_6">
+		it to a bank. The series of small numbers at the bottom
+	</div>
+
+	<div id="t_179_40" style="position: absolute; left: 44.43%; top: 48.94%;" class="c_179_6">
+		contains all the information needed to locate the account
+	</div>
+
+	<div id="t_179_41" style="position: absolute; left: 44.43%; top: 50.84%;" class="c_179_6">
+		the money will be removed from. Then that money is
+	</div>
+
+	<div id="t_179_42" style="position: absolute; left: 44.43%; top: 52.73%;" class="c_179_6">
+		transferred to the person named on the check.
+	</div>
+
+	<div id="t_179_43" style="position: absolute; left: 49.98%; top:54.93%;" class="c_179_2">
+		DEBIT CARDS: THE NEW CHECK
+	</div>
+
+	<div id="t_179_44" style="position: absolute; left: 48.38%; top: 57.4%;" class="c_179_6">
+		More and more, we are moving away from a paper-
+	</div>
+
+	<div id="t_179_45" style="position: absolute; left: 44.43%; top: 59.3%;" class="c_179_6">
+		based economy to an electronic one. Debit cards work the
+	</div>
+
+	<div id="t_179_46" style="position: absolute; left: 44.43%; top: 61.19%;" class="c_179_6">
+		same way checks do, with none of the hassle of finding a
+	</div>
+
+	<div id="t_179_47" style="position: absolute; left: 44.43%; top: 63.08%;" class="c_179_6">
+		pen, or producing two types of identification when you
+	</div>
+
+	<div id="t_179_48" style="position: absolute; left: 44.43%; top: 64.98%;" class="c_179_6">
+		shop. Simply swipe, insert, or tap the card&mdash;which is
+	</div>
+
+	<div id="t_179_49" style="position: absolute; left: 44.43%; top: 66.87%;" class="c_179_6">
+		encoded with all your account information&mdash;and funds
+	</div>
+
+	<div id="t_179_50" style="position: absolute; left: 48.81%; top: 68.77%;" class="c_179_6">
+		from your bank account will be instantly transferred to
+	</div>
+
+	<div id="t_179_51" style="position: absolute; left: 52.94%; top: 70.66%;" class="c_179_6">
+		the store owner&rsquo;s account. New phone apps also
+	</div>
+
+	<div id="t_179_52" style="position: absolute; left: 52.94%; top: 72.56%;" class="c_179_6">
+		let you pay for things.
+	</div>
+
+	<div id="t_179_53" style="position: absolute; left: 58.77%; top:74.63%;" class="c_179_2">
+		THE FUTURE OF MONEY
+	</div>
+
+	<div id="t_179_54" style="position: absolute; left: 53.82%; top: 77.1%;" class="c_179_6">
+		In the last 20 years we have gone from writing
+	</div>
+
+	<div id="t_179_55" style="position: absolute; left: 52.94%; top: 78.99%;" class="c_179_6">
+		billions of checks a year to half that. E-banking
+	</div>
+
+	<div id="t_179_56" style="position: absolute; left: 52.94%; top: 80.89%;" class="c_179_6">
+		use has risen dramatically, and computer
+	</div>
+
+	<div id="t_179_57" style="position: absolute; left: 52.94%; top: 82.78%;" class="c_179_6">
+		transfers of money may soon eliminate checks.
+	</div>
+
+	<div id="t_179_58" style="position: absolute; left: 53.65%; top: 84.68%;" class="c_179_6">
+		Perhaps in the not-so-distant future, bills and
+	</div>
+
+	<div id="t_179_59" style="position: absolute; left: 56.61%; top: 86.57%;" class="c_179_6">
+		coins will be replaced with microchips
+	</div>
+
+	<div id="t_179_60" style="position: absolute; left: 59.56%; top: 88.46%;" class="c_179_6">
+		encrypted in smartphones. Do you think
+	</div>
+
+	<div id="t_179_61" style="position: absolute; left: 60.95%; top: 90.36%;" class="c_179_6">
+		we will still have bills and coins 50
+	</div>
+
+	<div id="t_179_62" style="position: absolute; left: 60.88%; top: 92.25%;" class="c_179_6">
+		years from now?
+	</div>
+
+	<div id="t_179_63" style="position: absolute; left: 93.17%; top: 94.65%; letter-spacing: -0.15em;" class="c_179_10">
+		179
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 46%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_179_forge_proof.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 29%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_179_check_it_out.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 21%; top: 44%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_179_a_bad_idea.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 39.5%; top: 43%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_179_when_you_write_a_check.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_179_room_for_debate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 48.5%; top: 74%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_179_the_future_of_money.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_178_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_179_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_178_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="178.html?page=right"; onclick="goto('178.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="180.html"; onclick="goto('180.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="180.html"; onclick="goto('180.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

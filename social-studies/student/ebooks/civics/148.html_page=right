@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_148.css">
+                <link rel="stylesheet" href="css/civics_149.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="146.html?page=right"; onclick="goto('146.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="148.html"; onclick="goto('148.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="146.html?page=right"; onclick="goto('146.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_148_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_149_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_148_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="148.html?page=right"; onclick="goto('148.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="150.html"; onclick="goto('150.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="150.html"; onclick="goto('150.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="146.html?page=right"; onclick="goto('146.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="148.html"; onclick="goto('148.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="146.html?page=right"; onclick="goto('146.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_148">
+                                                                                                <div class="pageData">
+
+	<div id="t_148_0" style="position: absolute; left: 27.41%; top: 4.71%; letter-spacing: -0.02em;" class="c_148_0">
+		Chapter 8 Review
+	</div>
+
+	<div id="t_148_1" style="position: absolute; left: 11.35%; top:12.25%;" class="c_148_1">
+		Use pages 134<span class="c_148_2">&ndash;</span><span class="c_148_3">135 to answer questions 1</span><span class="c_148_2">&ndash;</span><span class="c_148_3">2 in complete sentences.</span>
+	</div>
+
+	<div id="t_148_2" style="position: absolute; left: 11.35%; top: 14.2%;" class="c_148_4">
+		1.   The United States has a dual court system. What does that mean?
+	</div>
+
+	<div id="t_148_3" style="position: absolute; left: 11.35%; top: 16.09%;" class="c_148_4">
+		2.   Describe the organization of federal and state courts.
+	</div>
+
+	<div id="t_148_4" style="position: absolute; left: 11.35%; top:18.95%;" class="c_148_1">
+		Use pages 136<span class="c_148_2">&ndash;</span><span class="c_148_3">137 to answer question 3.</span>
+	</div>
+
+	<div id="t_148_5" style="position: absolute; left: 11.35%; top: 20.89%;" class="c_148_4">
+		3.   Explain the court&rsquo;s power of judicial review in a short paragraph. Be sure to use the
+	</div>
+
+	<div id="t_148_6" style="position: absolute; left: 14.07%; top: 22.79%;" class="c_148_4">
+		following terms: <span class="c_148_5">constitutional  &bull; </span><span class="c_148_6">Marbury v. Madison</span><span class="c_148_5"> &bull; Supreme Court</span>
+	</div>
+
+	<div id="t_148_7" style="position: absolute; left: 11.35%; top:25.51%;" class="c_148_1">
+		Use pages 138<span class="c_148_2">&ndash;</span><span class="c_148_3">139 to answer question 4 in complete sentences.</span>
+	</div>
+
+	<div id="t_148_8" style="position: absolute; left: 11.35%; top: 27.46%;" class="c_148_4">
+		4.   The Sixth Amendment states you have the right to an attorney. How does the case
+	</div>
+
+	<div id="t_148_9" style="position: absolute; left: 14.06%; top:28.95%;" class="c_148_7">
+		Gideon v. Wainwright<span class="c_148_8"> add to that right?</span>
+	</div>
+
+	<div id="t_148_10" style="position: absolute; left: 11.35%; top:32.08%;" class="c_148_1">
+		Use pages 140<span class="c_148_2">&ndash;</span><span class="c_148_3">141 to answer question 5.</span>
+	</div>
+
+	<div id="t_148_11" style="position: absolute; left: 11.35%; top: 34.03%;" class="c_148_4">
+		5.   Copy the criminal case timeline for a misdemeanor.  Place the following terms on the
+	</div>
+
+	<div id="t_148_12" style="position: absolute; left: 14.16%; top: 35.92%;" class="c_148_4">
+		timeline in the order they occur, assuming probable cause was established.
+	</div>
+
+	<div id="t_148_13" style="position: absolute; left: 18.82%; top:38.67%;" class="c_148_9">
+		Bail/ Jail  &bull; Arrest  &bull; Trial  &bull; Verdict  &bull; Arraignment  &bull; Possible appeal
+	</div>
+
+	<div id="t_148_14" style="position: absolute; left: 15.08%; top:43.97%;" class="c_148_10">
+		1st
+	</div>
+
+    <div id="t_148_14a" style="position: absolute; left: 26.58%; top:43.97%;" class="c_148_10">
+        2nd
+    </div>
+
+    <div id="t_148_14b" style="position: absolute; left: 39.0%; top:43.97%;" class="c_148_10">
+        3rd
+    </div>
+
+    <div id="t_148_14c" style="position: absolute; left: 51.08%; top:43.97%;" class="c_148_10">
+        4th
+    </div>
+
+    <div id="t_148_14d" style="position: absolute; left: 62.08%; top:43.97%;" class="c_148_10">
+        5th
+    </div>
+
+    <div id="t_148_14e" style="position: absolute; left: 74.08%; top:43.97%;" class="c_148_10">
+        6th
+    </div>
+
+	<div id="t_148_15" style="position: absolute; left: 11.35%; top:48.37%;" class="c_148_1">
+		Use pages 142<span class="c_148_2">&ndash;</span><span class="c_148_3">143 to answer questions 6</span><span class="c_148_2">&ndash;</span><span class="c_148_3">7 in complete sentences.</span>
+	</div>
+
+	<div id="t_148_16" style="position: absolute; left: 11.35%; top: 50.31%;" class="c_148_4">
+		6.   How is a civil case different from a criminal case?
+	</div>
+
+	<div id="t_148_17" style="position: absolute; left: 11.35%; top: 52.21%;" class="c_148_4">
+		7.   In a civil case who is the plaintiff?  Who is the defendant?
+	</div>
+
+	<div id="t_148_18" style="position: absolute; left: 11.35%; top:55.95%;" class="c_148_1">
+		Use pages 144<span class="c_148_2">&ndash;</span><span class="c_148_3">145 to answer questions 8</span><span class="c_148_2">&ndash;</span><span class="c_148_3">9 in complete sentences.</span>
+	</div>
+
+	<div id="t_148_19" style="position: absolute; left: 11.35%; top: 57.89%;" class="c_148_4">
+		8.   Which amendment prohibits state and local governments from violating due process?
+	</div>
+
+	<div id="t_148_20" style="position: absolute; left: 11.35%; top: 59.79%;" class="c_148_4">
+		9.   List three examples of your due process protections.
+	</div>
+
+	<div id="t_148_21" style="position: absolute; left: 11.35%; top:63.52%;" class="c_148_1">
+		Use pages 146<span class="c_148_2">&ndash;</span><span class="c_148_3">147 to answer question 10.</span>
+	</div>
+
+	<div id="t_148_22" style="position: absolute; left: 11.35%; top: 65.47%;" class="c_148_4">
+		10. Copy and complete the chart to review how these cases impact students.
+	</div>
+
+	<div id="t_148_23" style="position: absolute; left: 16.73%; top:68.97%;" class="c_148_11">
+		CASE
+	</div>
+	
+	<div id="t_148_23" style="position: absolute; left: 43.73%; top:68.97%;" class="c_148_11">
+		IMPACT ON STUDENTS
+	</div>
+	
+	<div id="t_148_24" style="position: absolute; left: 12.62%; top:72.95%;letter-spacing: -0.02em;" class="c_148_12">
+		Tinker v. Des Moines
+	</div>
+
+	<div id="t_148_25" style="position: absolute; left: 12.62%; top:77.75%;letter-spacing: -0.02em;" class="c_148_12">
+		New Jersey v. T.L.O.
+	</div>
+
+	<div id="t_148_26" style="position: absolute; left: 12.62%; top:82.55%;letter-spacing: -0.07em;" class="c_148_12">
+		Hazelwood v. Kuhlmeier
+	</div>
+
+	<div id="t_148_27" style="position: absolute; left: 12.62%; top:87.35%;letter-spacing: -0.02em;" class="c_148_12">
+		Ingraham v. Wright
+	</div>
+
+	<div id="t_148_28" style="position: absolute; left: 4.43%; top: 94.59%;" class="c_148_13">
+		148
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 12%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_chapter_8_review.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 19%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_use_pages_136-137.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 26%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_use_pages_138-139.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 32%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_use_pages_140-141.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 48%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_use_pages_142-143.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 56%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_use_pages_144-145.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 64%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_148_use_pages_146-147.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_149">
+                                                                                                <div class="pageData">
+
+	<div id="t_149_0" style="position: absolute; left: 27.74%; top: 5.47%; letter-spacing: -0.02em;" class="c_149_0">
+		Apply Your Learning
+	</div>
+
+	<div id="t_149_1" style="position: absolute; left: 15.05%; top: 13.05%;" class="c_149_1">
+		1. <span class="c_149_2">The U.S. has a dual court system consisting of state and federal courts. Federal judges</span>
+	</div>
+
+	<div id="t_149_2" style="position: absolute; left: 15.05%; top:14.82%;" class="c_149_3">
+		serve for life while Virginia state judges are appointed for fixed terms.
+	</div>
+
+	<div id="t_149_3" style="position: absolute; left: 16.37%; top: 16.83%;" class="c_149_1">
+		Should federal judges serve for life? Brainstorm a list of costs and benefits that result from
+	</div>
+
+	<div id="t_149_4" style="position: absolute; left: 15.05%; top: 18.73%;" class="c_149_1">
+		federal judges and justices having no term limits.  Review your list; do the expected costs
+	</div>
+
+	<div id="t_149_5" style="position: absolute; left: 15.05%; top: 20.62%;" class="c_149_1">
+		outweigh the benefits or do the benefits outweigh the costs? Using a decision-making
+	</div>
+
+	<div id="t_149_6" style="position: absolute; left: 15.05%; top: 22.52%;" class="c_149_1">
+		model to analyze costs and benefits of a choice serves several purposes.  Read each
+	</div>
+
+	<div id="t_149_7" style="position: absolute; left: 15.05%; top: 24.41%;" class="c_149_1">
+		purpose below and answer the corresponding questions:
+	</div>
+
+	<div id="t_149_8" style="position: absolute; left: 20.94%; top: 26.31%;" class="c_149_4">
+		&bull; <span class="c_149_2">Purpose #1: </span><span class="c_149_5">Decision-making models help you better understand the choices</span>
+	</div>
+
+	<div id="t_149_9" style="position: absolute; left: 21.37%; top: 28.2%;" class="c_149_1">
+		people faced in the past. Why do you think the Founding Fathers made the choice
+	</div>
+
+	<div id="t_149_10" style="position: absolute; left: 21.37%; top: 30.1%;" class="c_149_1">
+		they did on term limits for the judicial branch?
+	</div>
+
+	<div id="t_149_11" style="position: absolute; left: 20.94%; top: 31.99%;" class="c_149_4">
+		&bull; <span class="c_149_2">Purpose #2: </span><span class="c_149_5">Decision-making models help you make decisions for the future.</span>
+	</div>
+
+	<div id="t_149_12" style="position: absolute; left: 20.94%; top: 33.88%;" class="c_149_1">
+		Based on your analysis, what do you think should be the future of judicial terms?
+	</div>
+
+	<div id="t_149_13" style="position: absolute; left: 15.05%; top: 37.67%;" class="c_149_1">
+		2. <span class="c_149_2">In a criminal case, a court determines whether a person accused of breaking the</span>
+	</div>
+
+	<div id="t_149_14" style="position: absolute; left: 15.05%; top:39.45%;" class="c_149_3">
+		law is guilty or not guilty of a misdemeanor or a felony.  In a civil case, a court settles
+	</div>
+
+	<div id="t_149_15" style="position: absolute; left: 15.05%; top:41.34%;" class="c_149_3">
+		a disagreement between two parties to recover damages or receive compensation.
+	</div>
+
+	<div id="t_149_16" style="position: absolute; left: 16.37%; top: 43.36%;" class="c_149_1">
+		The Fifth Amendment protects against double jeopardy&mdash;you cannot be tried twice for
+	</div>
+
+	<div id="t_149_17" style="position: absolute; left: 15.05%; top: 45.25%;" class="c_149_1">
+		the same crime. Research the history of double jeopardy and create a timeline that shows
+	</div>
+
+	<div id="t_149_18" style="position: absolute; left: 15.05%; top: 47.14%;" class="c_149_1">
+		the history of this protection. Use your timeline to draw conclusions about how laws are
+	</div>
+
+	<div id="t_149_19" style="position: absolute; left: 15.05%; top: 49.04%;" class="c_149_1">
+		designed to protect citizens.
+	</div>
+
+	<div id="t_149_20" style="position: absolute; left: 16.37%; top: 50.93%;" class="c_149_1">
+		Sometimes there are situations where a criminal and civil trial can occur from the same
+	</div>
+
+	<div id="t_149_21" style="position: absolute; left: 15.05%; top: 52.83%;" class="c_149_1">
+		event. Does this violate the constitutional protection of double jeopardy? Why or why not?
+	</div>
+
+	<div id="t_149_22" style="position: absolute; left: 15.05%; top: 54.72%;" class="c_149_1">
+		Create a scenario describing someone who is on trial for a crime and is being sued in a
+	</div>
+
+	<div id="t_149_23" style="position: absolute; left: 15.05%; top: 56.62%;" class="c_149_1">
+		related civil case. Use content-specific vocabulary from pages 140<span class="c_149_6">&ndash;</span><span class="c_149_5">143 in your scenario.</span>
+	</div>
+
+	<div id="t_149_24" style="position: absolute; left: 39.53%; top: 59.88%; letter-spacing: -0.02em;" class="c_149_0">
+		Imagine...
+	</div>
+
+	<div id="t_149_25" style="position: absolute; left: 16.37%; top:67.06%;" class="c_149_3">
+		Imagine that you are the principal of your school. <span class="c_149_5">Using the ruling of </span><span class="c_149_7">Tinker v.</span>
+	</div>
+
+	<div id="t_149_26" style="position: absolute; left: 15.05%; top:68.95%;" class="c_149_8">
+		Des Moines<span class="c_149_9"> found on page 146 and your school&rsquo;s student code of conduct, create a</span>
+	</div>
+
+	<div id="t_149_27" style="position: absolute; left: 15.05%; top: 71.25%;" class="c_149_1">
+		presentation for the student body. Explain why&mdash;or why not&mdash;certain actions, behaviors, or
+	</div>
+
+	<div id="t_149_28" style="position: absolute; left: 15.05%; top: 73.14%;" class="c_149_1">
+		items should, or should not, be permitted in your school.
+	</div>
+
+	<div id="t_149_29" style="position: absolute; left: 93.0%; top: 94.91%;" class="c_149_10">
+		149
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_149_apply_your_learning.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 38%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_149_in_a_criminal_case.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 67%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_149_imagine_that_you_are_principal.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_148_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_149_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_148_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="148.html?page=right"; onclick="goto('148.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="150.html"; onclick="goto('150.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="150.html"; onclick="goto('150.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_94.css">
+                <link rel="stylesheet" href="css/civics_95.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="92.html?page=right"; onclick="goto('92.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="94.html"; onclick="goto('94.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="92.html?page=right"; onclick="goto('92.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_94_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_95_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_94_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="94.html?page=right"; onclick="goto('94.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="96.html"; onclick="goto('96.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="96.html"; onclick="goto('96.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="92.html?page=right"; onclick="goto('92.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="94.html"; onclick="goto('94.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="92.html?page=right"; onclick="goto('92.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_94">
+                                                                                                <div class="pageData">
+
+	<div id="t_94_0" style="position: absolute; left: 2.40%; top:4.13%;" class="c_94_0">
+		Legislative, executive,
+	</div>
+
+	<div id="t_94_1" style="position: absolute; left: 2.40%; top:5.90%;" class="c_94_0">
+		and judicial powers
+	</div>
+
+	<div id="t_94_2" style="position: absolute; left: 2.40%; top:7.67%;" class="c_94_0">
+		are separated at the
+	</div>
+
+	<div id="t_94_3" style="position: absolute; left: 2.40%; top:9.44%;" class="c_94_0">
+		state level of
+	</div>
+
+	<div id="t_94_4" style="position: absolute; left: 2.40%; top:11.20%;" class="c_94_0">
+		government.
+	</div>
+
+	<div id="t_94_5" style="position: absolute; left: 71.61%; top:5.38%;" class="c_94_1">
+		The Virginia Capitol,
+	</div>
+
+	<div id="t_94_6" style="position: absolute; left: 71.61%; top:7.02%;" class="c_94_1">
+		designed by Thomas
+	</div>
+
+	<div id="t_94_7" style="position: absolute; left: 71.61%; top:8.66%;" class="c_94_1">
+		Jefferson and completed in
+	</div>
+
+	<div id="t_94_8" style="position: absolute; left: 71.61%; top:10.30%;" class="c_94_1">
+		1788, has served as a
+	</div>
+
+	<div id="t_94_9" style="position: absolute; left: 71.61%; top:11.94%;" class="c_94_1">
+		model for countless other
+	</div>
+
+	<div id="t_94_10" style="position: absolute; left: 71.61%; top:13.58%;" class="c_94_1">
+		important buildings in
+	</div>
+
+	<div id="t_94_11" style="position: absolute; left: 71.61%; top:15.23%;" class="c_94_1">
+		America.
+	</div>
+
+	<div id="t_94_12" style="position: absolute; left: 14.84%; top:41.32%;" class="c_94_2">
+		THE GENERAL
+	</div>
+
+	<div id="t_94_13" style="position: absolute; left: 16.41%; top:43.22%;" class="c_94_2">
+		ASSEMBLY:
+	</div>
+
+	<div id="t_94_14" style="position: absolute; left: 12.93%; top:45.11%;" class="c_94_2">
+		THE LEGISLATIVE
+	</div>
+
+	<div id="t_94_15" style="position: absolute; left: 17.85%; top:47.01%;" class="c_94_2">
+		BRANCH
+	</div>
+
+	<div id="t_94_16" style="position: absolute; left: 8.82%; top:49.43%;" class="c_94_3">
+		&bull; <span class="c_94_4">This is a bicameral legislature. The two</span>
+	</div>
+
+	<div id="t_94_17" style="position: absolute; left: 8.82%; top:51.32%;" class="c_94_5">
+		chambers are the House of Delegates
+	</div>
+
+	<div id="t_94_18" style="position: absolute; left: 8.82%; top:53.21%;" class="c_94_5">
+		and the Senate.
+	</div>
+
+	<div id="t_94_19" style="position: absolute; left: 8.82%; top: 73.85%;" class="c_94_6">
+		The <span class="c_94_7">House of Delegates</span> <span class="c_94_8">has 100</span>
+	</div>
+
+	<div id="t_94_20" style="position: absolute; left: 8.82%; top: 75.74%;" class="c_94_6">
+		members. Each delegate is elected
+	</div>
+
+	<div id="t_94_21" style="position: absolute; left: 8.82%; top: 77.64%;" class="c_94_6">
+		for a two-year term from districts
+	</div>
+
+	<div id="t_94_22" style="position: absolute; left: 8.82%; top: 79.53%;" class="c_94_6">
+		across the state. Each delegate
+	</div>
+
+	<div id="t_94_23" style="position: absolute; left: 8.82%; top: 81.42%;" class="c_94_6">
+		represents about 80,000 Virginians.
+	</div>
+
+	<div id="t_94_24" style="position: absolute; left: 8.82%; top: 84.58%;" class="c_94_6">
+		The <span class="c_94_7">Senate</span><span class="c_94_8"> has 40 members.</span>
+	</div>
+
+	<div id="t_94_25" style="position: absolute; left: 8.82%; top: 86.48%;" class="c_94_6">
+		Senators serve for a four-year term,
+	</div>
+
+	<div id="t_94_26" style="position: absolute; left: 8.82%; top: 88.37%;" class="c_94_6">
+		and all senators&rsquo; terms start and
+	</div>
+
+	<div id="t_94_27" style="position: absolute; left: 8.82%; top: 90.26%;" class="c_94_6">
+		end at the same time. A senator
+	</div>
+
+	<div id="t_94_28" style="position: absolute; left: 8.82%; top: 92.16%;" class="c_94_6">
+		represents about 200,000
+	</div>
+
+	<div id="t_94_29" style="position: absolute; left: 8.82%; top: 94.05%;" class="c_94_6">
+		Virginians.
+	</div>
+
+	<div id="t_94_30" style="position: absolute; left: 2.94%; top: 95.08%;" class="c_94_9">
+		94
+	</div>
+
+	<div id="t_94_31" style="position: absolute; left: 54.67%; top: 38.79%; letter-spacing: -0.02em;" class="c_94_10">
+		Virginia&rsquo;s
+	</div>
+
+	<div id="t_94_32" style="position: absolute; left: 50.61%; top: 43.83%; letter-spacing: -0.02em;" class="c_94_10">
+		Government
+	</div>
+
+	<div id="t_94_33" style="position: absolute; left: 55.41%; top: 50.63%; letter-spacing: 0.01em;" class="c_94_11">
+		Our state has a lofty goal:
+	</div>
+
+	<div id="t_94_34" style="position: absolute; left: 44.16%; top: 52.40%; letter-spacing: 0.01em;" class="c_94_11">
+		to be recognized as the best-managed state in the nation.
+	</div>
+
+	<div id="t_94_35" style="position: absolute; left: 42.17%; top: 54.88%;" class="c_94_6">
+		The majestic Capitol building is the heart and soul of
+	</div>
+
+	<div id="t_94_36" style="position: absolute; left: 40.85%; top: 56.78%;" class="c_94_6">
+		the <span class="c_94_7">Commonwealth of Virginia</span><span class="c_94_8">. Our state is one of only four</span>
+	</div>
+
+	<div id="t_94_37" style="position: absolute; left: 40.85%; top: 58.67%;" class="c_94_6">
+		in the United States that uses the term &ldquo;commonwealth&rdquo; to
+	</div>
+
+	<div id="t_94_38" style="position: absolute; left: 40.85%; top: 60.57%;" class="c_94_6">
+		describe itself. It means that the prime concern of Virginia&rsquo;s
+	</div>
+
+	<div id="t_94_39" style="position: absolute; left: 40.85%; top: 62.46%;" class="c_94_6">
+		leaders is protecting the common &ldquo;wealth,&rdquo; meaning the well-
+	</div>
+
+	<div id="t_94_40" style="position: absolute; left: 40.85%; top: 64.36%;" class="c_94_6">
+		being of all its citizens.
+	</div>
+
+	<div id="t_94_41" style="position: absolute; left: 53.52%; top:66.18%;" class="c_94_12">
+		A THREE-WAY SPLIT
+	</div>
+
+	<div id="t_94_42" style="position: absolute; left: 42.17%; top: 68.9%;" class="c_94_6">
+		How is our state governed? Much like the United States
+	</div>
+
+	<div id="t_94_43" style="position: absolute; left: 40.85%; top: 70.79%;" class="c_94_6">
+		Constitution, the Virginia Constitution divides control
+	</div>
+
+	<div id="t_94_44" style="position: absolute; left: 40.85%; top: 72.69%;" class="c_94_6">
+		between three different branches. The legislative branch
+	</div>
+
+	<div id="t_94_45" style="position: absolute; left: 40.85%; top: 74.58%;" class="c_94_6">
+		writes the laws; the executive branch, led by the governor,
+	</div>
+
+	<div id="t_94_46" style="position: absolute; left: 40.85%; top: 76.48%;" class="c_94_6">
+		carries out the laws; and the judicial branch makes sure
+	</div>
+
+	<div id="t_94_47" style="position: absolute; left: 40.85%; top: 78.37%;" class="c_94_6">
+		those laws are upheld.
+	</div>
+
+	<div id="t_94_48" style="position: absolute; left: 42.17%; top: 80.27%;" class="c_94_6">
+		Our state&rsquo;s system of government has a lot in common with
+	</div>
+
+	<div id="t_94_49" style="position: absolute; left: 40.85%; top: 82.16%;" class="c_94_6">
+		the federal government, but it also has some differences. For
+	</div>
+
+	<div id="t_94_50" style="position: absolute; left: 40.85%; top: 84.06%;" class="c_94_6">
+		example, Virginia Supreme Court justices serve for 12-year
+	</div>
+
+	<div id="t_94_51" style="position: absolute; left: 40.85%; top: 85.95%;" class="c_94_6">
+		terms, not life. Our governors cannot serve more than one
+	</div>
+
+	<div id="t_94_52" style="position: absolute; left: 40.85%; top: 87.84%;" class="c_94_6">
+		four-year term at a time, so there are no consecutive terms.
+	</div>
+
+	<div id="t_94_53" style="position: absolute; left: 40.85%; top: 89.74%;" class="c_94_6">
+		But despite the differences, the bottom line is the same&mdash;
+	</div>
+
+	<div id="t_94_54" style="position: absolute; left: 40.85%; top: 91.63%;" class="c_94_6">
+		helping the citizens of Virginia to thrive as they pursue life,
+	</div>
+
+	<div id="t_94_55" style="position: absolute; left: 40.85%; top: 93.53%;" class="c_94_6">
+		liberty, and happiness.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 0%; top: 0%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_94_legislative_executive_and_judicial.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 67%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_94_the_virginia_capitol.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 40%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_94_the_general_assembly.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 40%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_94_virginias_government.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 36%; top: 66%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_94_a_three_way_split.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_95">
+                                                                                                <div class="pageData">
+
+	<div id="t_95_0" style="position: absolute; left: 8.82%; top:37.89%;" class="c_95_0">
+		The Governor&rsquo;s Mansion in Richmond sits near the Capitol.
+	</div>
+
+	<div id="t_95_1" style="position: absolute; left: 65.08%; top:4.69%;" class="c_95_1">
+		THE GOVERNOR&rsquo;S
+	</div>
+
+	<div id="t_95_2" style="position: absolute; left: 68.48%; top:6.58%;" class="c_95_1">
+		OFFICE: THE
+	</div>
+
+	<div id="t_95_3" style="position: absolute; left: 63.62%; top:8.48%;" class="c_95_1">
+		EXECUTIVE BRANCH
+	</div>
+
+	<div id="t_95_4" style="position: absolute; left: 61.94%; top:10.64%;" class="c_95_2">
+		&bull; <span class="c_95_3">Virginia&rsquo;s governor, like the nation&rsquo;s</span>
+	</div>
+
+	<div id="t_95_5" style="position: absolute; left: 61.94%; top:12.29%;" class="c_95_4">
+		president, heads the executive branch.
+	</div>
+
+	<div id="t_95_6" style="position: absolute; left: 61.94%; top:13.93%;" class="c_95_2">
+		&bull; <span class="c_95_3">Elected for one four-year term.</span>
+	</div>
+
+	<div id="t_95_7" style="position: absolute; left: 61.94%; top:15.57%;" class="c_95_2">
+		&bull; <span class="c_95_3">Appoints a Cabinet.</span>
+	</div>
+
+	<div id="t_95_8" style="position: absolute; left: 81.55%; top:21.37%;" class="c_95_0">
+		Governor Terry
+	</div>
+
+	<div id="t_95_9" style="position: absolute; left: 81.55%; top:23.01%;" class="c_95_0">
+		McAuliffe (2014&ndash;
+	</div>
+
+	<div id="t_95_10" style="position: absolute; left: 81.55%; top:24.65%;" class="c_95_0">
+		2018) takes to the
+	</div>
+
+	<div id="t_95_11" style="position: absolute; left: 81.55%; top:26.29%;" class="c_95_0">
+		sky to study a rail
+	</div>
+
+	<div id="t_95_12" style="position: absolute; left: 81.55%; top:27.93%;" class="c_95_0">
+		accident.
+	</div>
+
+	<div id="t_95_13" style="position: absolute; left: 61.94%; top: 34.69%;" class="c_95_5">
+		Virginia&rsquo;s <span class="c_95_6">lieutenant governor</span>
+	</div>
+
+	<div id="t_95_14" style="position: absolute; left: 61.94%; top: 36.58%;" class="c_95_5">
+		and <span class="c_95_6">attorney general</span> <span class="c_95_7">are also</span>
+	</div>
+
+	<div id="t_95_15" style="position: absolute; left: 61.94%; top: 38.47%;" class="c_95_5">
+		elected for a four-year term to
+	</div>
+
+	<div id="t_95_16" style="position: absolute; left: 61.94%; top: 40.37%;" class="c_95_5">
+		help run this branch. Since they
+	</div>
+
+	<div id="t_95_17" style="position: absolute; left: 61.94%; top: 42.26%;" class="c_95_5">
+		are elected separately, it is not
+	</div>
+
+	<div id="t_95_18" style="position: absolute; left: 61.94%; top: 44.16%;" class="c_95_5">
+		uncommon to have a governor
+	</div>
+
+	<div id="t_95_19" style="position: absolute; left: 61.94%; top: 46.05%;" class="c_95_5">
+		from one party and an attorney
+	</div>
+
+	<div id="t_95_20" style="position: absolute; left: 61.94%; top: 47.95%;" class="c_95_5">
+		general and/or lieutenant
+	</div>
+
+	<div id="t_95_21" style="position: absolute; left: 61.94%; top: 49.84%;" class="c_95_5">
+		governor from another party.
+	</div>
+
+	<div id="t_95_22" style="position: absolute; left: 61.94%; top: 52.49%;" class="c_95_5">
+		A Cabinet with 12 departments
+	</div>
+
+	<div id="t_95_23" style="position: absolute; left: 61.94%; top: 54.39%;" class="c_95_5">
+		helps with the work of running
+	</div>
+
+	<div id="t_95_24" style="position: absolute; left: 61.94%; top: 56.28%;" class="c_95_5">
+		the state.
+	</div>
+
+	<div id="t_95_25" style="position: absolute; left: 71.09%; top:61.63%;" class="c_95_4">
+		The City of Chesapeake&rsquo;s
+	</div>
+
+	<div id="t_95_26" style="position: absolute; left: 71.09%; top:63.27%;" class="c_95_4">
+		modern circuit court offices.
+	</div>
+
+	<div id="t_95_27" style="position: absolute; left: 54.50%; top:69.62%;" class="c_95_8">
+		JUVENILE/FAMILY
+	</div>
+
+	<div id="t_95_28" style="position: absolute; left: 60.09%; top:71.52%;" class="c_95_8">
+		COURTS
+	</div>
+
+	<div id="t_95_29" style="position: absolute; left: 57.75%; top:73.68%;" class="c_95_0">
+		32 different locations
+	</div>
+
+	<div id="t_95_30" style="position: absolute; left: 92.32%; top: 95.2%;" class="c_95_9">
+		95
+	</div>
+
+	<div id="t_95_31" style="position: absolute; left: 37.03%; top:51.30%;" class="c_95_8">
+		SUPREME COURT
+	</div>
+
+	<div id="t_95_32" style="position: absolute; left: 37.31%; top:53.47%;" class="c_95_0">
+		A chief justice and 6 justices.
+	</div>
+
+	<div id="t_95_33" style="position: absolute; left: 39.85%; top:55.11%;" class="c_95_0">
+		Located in Richmond.
+	</div>
+
+	<div id="t_95_34" style="position: absolute; left: 35.68%; top:58.54%;" class="c_95_8">
+		COURT OF APPEALS
+	</div>
+
+	<div id="t_95_35" style="position: absolute; left: 36.58%; top:60.71%;" class="c_95_0">
+		11 judges. Located in Richmond.
+	</div>
+
+	<div id="t_95_36" style="position: absolute; left: 37.44%; top:64.44%;" class="c_95_8">
+		CIRCUIT COURTS
+	</div>
+
+	<div id="t_95_37" style="position: absolute; left: 40.16%; top:66.60%;" class="c_95_0">
+		31 different locations
+	</div>
+
+	<div id="t_95_38" style="position: absolute; left: 28.19%; top:69.79%;" class="c_95_8">
+		DISTRICT COURTS
+	</div>
+
+	<div id="t_95_39" style="position: absolute; left: 31.56%; top:71.95%;" class="c_95_0">
+		32 different locations
+	</div>
+
+	<div id="t_95_40" style="position: absolute; left: 7.68%; top:44.75%;" class="c_95_1">
+		THE COURT SYSTEM:
+	</div>
+
+	<div id="t_95_41" style="position: absolute; left: 11.95%; top:46.64%;" class="c_95_1">
+		THE JUDICIAL
+	</div>
+
+	<div id="t_95_42" style="position: absolute; left: 14.77%; top:48.54%;" class="c_95_1">
+		BRANCH
+	</div>
+
+	<div id="t_95_43" style="position: absolute; left: 7.65%; top:50.70%;" class="c_95_2">
+		&bull; <span class="c_95_3">Four levels of courts of law</span>
+	</div>
+
+	<div id="t_95_44" style="position: absolute; left: 7.65%; top:52.34%;" class="c_95_4">
+		protect the citizens of our state.
+	</div>
+
+	<div id="t_95_45" style="position: absolute; left: 7.65%; top: 54.67%;" class="c_95_5">
+		Our state <span class="c_95_6">Supreme Court</span><span class="c_95_7"> has</span>
+	</div>
+
+	<div id="t_95_46" style="position: absolute; left: 7.65%; top: 56.56%;" class="c_95_5">
+		the last word on decisions
+	</div>
+
+	<div id="t_95_47" style="position: absolute; left: 7.65%; top: 58.46%;" class="c_95_5">
+		being appealed from the lower
+	</div>
+
+	<div id="t_95_48" style="position: absolute; left: 7.65%; top: 60.35%;" class="c_95_5">
+		courts (unless a ruling by
+	</div>
+
+	<div id="t_95_49" style="position: absolute; left: 7.65%; top: 62.24%;" class="c_95_5">
+		that court goes to the U.S.
+	</div>
+
+	<div id="t_95_50" style="position: absolute; left: 7.65%; top: 64.14%;" class="c_95_5">
+		Supreme Court).
+	</div>
+
+	<div id="t_95_51" style="position: absolute; left: 7.65%; top: 67.3%;" class="c_95_5">
+		The <span class="c_95_6">Court of Appeals</span> <span class="c_95_7">rules</span>
+	</div>
+
+	<div id="t_95_52" style="position: absolute; left: 7.65%; top: 69.19%;" class="c_95_5">
+		on disputed verdicts
+	</div>
+
+	<div id="t_95_53" style="position: absolute; left: 7.65%; top: 71.08%;" class="c_95_5">
+		from circuit courts
+	</div>
+
+	<div id="t_95_54" style="position: absolute; left: 7.65%; top: 72.98%;" class="c_95_5">
+		and district courts.
+	</div>
+
+	<div id="t_95_55" style="position: absolute; left: 7.65%; top: 75.88%;" class="c_95_5">
+		There are <span class="c_95_6">circuit courts</span> <span class="c_95_7">in</span>
+	</div>
+
+	<div id="t_95_56" style="position: absolute; left: 7.65%; top: 77.78%;" class="c_95_5">
+		each city and county. Circuit
+	</div>
+
+	<div id="t_95_57" style="position: absolute; left: 7.65%; top: 79.67%;" class="c_95_5">
+		courts are trial courts and
+	</div>
+
+	<div id="t_95_58" style="position: absolute; left: 7.65%; top: 81.57%;" class="c_95_5">
+		hear all types of major cases.
+	</div>
+
+	<div id="t_95_59" style="position: absolute; left: 7.65%; top:84.07%;" class="c_95_10">
+		District courts <span class="c_95_11">deal with</span>
+	</div>
+
+	<div id="t_95_60" style="position: absolute; left: 7.65%; top: 86.37%;" class="c_95_5">
+		things like small claims and
+	</div>
+
+	<div id="t_95_61" style="position: absolute; left: 7.65%; top: 88.26%;" class="c_95_5">
+		traffic violations. <span class="c_95_6">Juvenile</span>
+	</div>
+
+	<div id="t_95_62" style="position: absolute; left: 7.65%; top:89.75%;" class="c_95_10">
+		and domestic relations
+	</div>
+
+	<div id="t_95_63" style="position: absolute; left: 7.65%; top:91.65%;" class="c_95_10">
+		courts <span class="c_95_11">deal with teenage</span>
+	</div>
+
+	<div id="t_95_64" style="position: absolute; left: 7.65%; top: 93.94%;" class="c_95_5">
+		offenders and family issues.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 58%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_95_the_governors_office.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 77%; top: 18%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_95_governor_terry.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 35%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_95_the_governors_mansion.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 45%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_95_the_court_system.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 49%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_95_court_infographic.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 65%; top: 59%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_95_the_city_of_chesapeake.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_94_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_95_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_94_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="94.html?page=right"; onclick="goto('94.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="96.html"; onclick="goto('96.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="96.html"; onclick="goto('96.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_104.css">
+                <link rel="stylesheet" href="css/civics_105.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="102.html?page=right"; onclick="goto('102.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="104.html"; onclick="goto('104.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="102.html?page=right"; onclick="goto('102.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_104_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_105_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_104_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="104.html?page=right"; onclick="goto('104.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="106.html"; onclick="goto('106.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="106.html"; onclick="goto('106.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="102.html?page=right"; onclick="goto('102.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="104.html"; onclick="goto('104.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="102.html?page=right"; onclick="goto('102.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_104">
+                                                                                                <div class="pageData">
+
+	<div id="t_104_0" style="position: absolute; left: 27.49%; top: 4.71%; letter-spacing: -0.02em;" class="c_104_0">
+		Chapter 5 Review
+	</div>
+
+	<div id="t_104_1" style="position: absolute; left: 11.35%; top:12.08%;" class="c_104_1">
+		Use pages 92&ndash;93 to answer question 1 in complete sentences.
+	</div>
+
+	<div id="t_104_2" style="position: absolute; left: 11.35%; top: 14.02%;" class="c_104_2">
+		1. What document established Virginia&rsquo;s state government and later influenced
+	</div>
+
+	<div id="t_104_3" style="position: absolute; left: 13.62%; top: 15.92%;" class="c_104_2">
+		the writing of the Constitution of the United States?
+	</div>
+
+	<div id="t_104_4" style="position: absolute; left: 11.35%; top:18.39%;" class="c_104_1">
+		Use pages 94&ndash;95 to answer questions 2&ndash;3.
+	</div>
+
+	<div id="t_104_5" style="position: absolute; left: 11.35%; top: 20.34%;" class="c_104_2">
+		2. Copy and complete the chart about Virginia&rsquo;s state government.
+	</div>
+
+	<div id="t_104_6" style="position: absolute; left: 41.57%; top:22.93%;" class="c_104_3">
+		POWERS AND PEOPLE
+	</div>
+
+	<div id="t_104_7" style="position: absolute; left: 14.62%; top:22.93%;" class="c_104_3">
+		BRANCH
+	</div>
+
+	<div id="t_104_8" style="position: absolute; left: 14.90%; top:26.46%;" class="c_104_4">
+		Legislative
+	</div>
+
+	<div id="t_104_9" style="position: absolute; left: 14.90%; top:29.24%;" class="c_104_4">
+		Executive
+	</div>
+
+	<div id="t_104_10" style="position: absolute; left: 14.90%; top:32.02%;" class="c_104_4">
+		Judicial
+	</div>
+
+	<div id="t_104_11" style="position: absolute; left: 11.35%; top: 35.62%;" class="c_104_2">
+		3. Write a paragraph comparing and contrasting Virginia&rsquo;s government to the
+	</div>
+
+	<div id="t_104_12" style="position: absolute; left: 13.71%; top: 37.51%;" class="c_104_2">
+		government of the United States.
+	</div>
+
+	<div id="t_104_13" style="position: absolute; left: 11.35%; top:40.24%;" class="c_104_1">
+		Use pages 96&ndash;97 to answer questions 4&ndash;5.
+	</div>
+
+	<div id="t_104_14" style="position: absolute; left: 11.35%; top: 42.18%;" class="c_104_2">
+		4. Use your own words to define <span class="c_104_5">federalism</span><span class="c_104_6"> in a complete sentence.</span>
+	</div>
+
+	<div id="t_104_15" style="position: absolute; left: 11.35%; top: 44.08%;" class="c_104_2">
+		5. Copy each example below. On the lines, write an &ldquo;S&rdquo; for state, &ldquo;F&rdquo; for federal, &ldquo; or &ldquo;C&rdquo; for
+	</div>
+
+	<div id="t_104_16" style="position: absolute; left: 13.97%; top: 45.97%;" class="c_104_2">
+		concurrent to show who has each power.
+	</div>
+
+	<div id="t_104_17" style="position: absolute; left: 17.24%; top: 47.87%;" class="c_104_2">
+		______ Send troops into Syria
+	</div>
+
+	<div id="t_104_18" style="position: absolute; left: 17.24%; top: 49.76%;" class="c_104_2">
+		______ Change the age for a learner&rsquo;s permit to drive a car to age 16
+	</div>
+
+	<div id="t_104_19" style="position: absolute; left: 17.24%; top: 51.65%;" class="c_104_2">
+		______ Set up a meeting with the ambassador of Chile
+	</div>
+
+	<div id="t_104_20" style="position: absolute; left: 17.24%; top: 53.55%;" class="c_104_2">
+		______ Raise taxes
+	</div>
+
+	<div id="t_104_21" style="position: absolute; left: 17.24%; top: 55.44%;" class="c_104_2">
+		______ Plow interstates when it snows
+	</div>
+
+	<div id="t_104_22" style="position: absolute; left: 11.35%; top:58.55%;" class="c_104_1">
+		Use pages 98&ndash;99 to answer question 6.
+	</div>
+
+	<div id="t_104_23" style="position: absolute; left: 11.35%; top: 60.49%;" class="c_104_2">
+		6. Explain how the federal and state governments share some responsibilities.
+	</div>
+
+	<div id="t_104_24" style="position: absolute; left: 11.35%; top:63.09%;" class="c_104_1">
+		Use pages 100&ndash;101 to answer question 7.
+	</div>
+
+	<div id="t_104_25" style="position: absolute; left: 11.35%; top: 65.04%;" class="c_104_2">
+		7. Create a flow chart or diagram that shows how a bill becomes a law in Virginia.
+	</div>
+
+	<div id="t_104_26" style="position: absolute; left: 11.35%; top:67.64%;" class="c_104_1">
+		Use pages 102&ndash;103 to answer question 8.
+	</div>
+
+	<div id="t_104_27" style="position: absolute; left: 11.35%; top: 69.59%;" class="c_104_2">
+		8. Copy and complete the graphic organizer about the roles of the governor.
+	</div>
+
+	<div id="t_104_28" style="position: absolute; left: 54.54%; top:71.58%;" class="c_104_7">
+		RESPONSIBILITY
+	</div>
+
+	<div id="t_104_29" style="position: absolute; left: 16.60%; top:71.66%;" class="c_104_3">
+		ROLE
+	</div>
+
+	<div id="t_104_30" style="position: absolute; left: 12.27%; top:74.99%;" class="c_104_4">
+		Chief of State
+	</div>
+
+	<div id="t_104_31" style="position: absolute; left: 12.27%; top:81.81%;" class="c_104_4">
+		Chief Executive
+	</div>
+
+	<div id="t_104_32" style="position: absolute; left: 12.27%; top:92.04%;" class="c_104_4">
+		Chief Citizen
+	</div>
+
+	<div id="t_104_33" style="position: absolute; left: 4.73%; top:94.80%;" class="c_104_8">
+		104
+	</div>
+
+	<div id="t_104_34" style="position: absolute; left: 38.64%; top:78.46%;" class="c_104_4">
+		Proposer of the legislative agenda
+	</div>
+
+	<div id="t_104_35" style="position: absolute; left: 38.64%; top:85.28%;" class="c_104_4">
+		Head of the armed forces of the Commonwealth of Virginia
+	</div>
+
+	<div id="t_104_36" style="position: absolute; left: 38.64%; top:88.56%;" class="c_104_4">
+		Leader of the political party that controls the executive branch
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 11%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_104_chapter_5_review.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 19%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_104_use_pages_94-95.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 40%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_104_use_pages_96-97.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 58%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_104_use_pages_98-99.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 63%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_104_use_pages_100-101.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 68%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_104_use_pages_102-103.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_105">
+                                                                                                <div class="pageData">
+
+	<div id="t_105_0" style="position: absolute; left: 25.55%; top: 5.47%; letter-spacing: -0.02em;" class="c_105_0">
+		Apply Your Learning
+	</div>
+
+	<div id="t_105_1" style="position: absolute; left: 12.50%; top: 13.41%;" class="c_105_1">
+		1. <span class="c_105_2">The governor of Virginia must carry out many formal and informal powers and fill</span>
+    </div>
+
+	<div id="t_105_2" style="position: absolute; left: 12.50%; top:14.91%;" class="c_105_3">
+		several roles. <span class="c_105_4">Visit the official Commonwealth of Virginia executive branch website to learn</span>
+	</div>
+
+	<div id="t_105_3" style="position: absolute; left: 12.50%; top: 17.2%;" class="c_105_1">
+		about recent news and events with which the governor was involved. Follow this example
+	</div>
+
+	<div id="t_105_4" style="position: absolute; left: 12.50%; top: 19.1%;" class="c_105_1">
+		to chart the weekly activities of the governor of Virginia.
+	</div>
+
+	<div id="t_105_5" style="position: absolute; left: 22.04%; top:22.56%;" class="c_105_5">
+		DATE
+	</div>
+
+	<div id="t_105_6" style="position: absolute; left: 38.48%; top:22.56%;" class="c_105_5">
+		ACTIVITY OR EVENT
+	</div>
+
+	<div id="t_105_7" style="position: absolute; left: 69.83%; top:22.56%;" class="c_105_5">
+		ROLE
+	</div>
+
+	<div id="t_105_8" style="position: absolute; left: 14.48%; top:26.15%;" class="c_105_6">
+		1/29/16
+	</div>
+
+	<div id="t_105_9" style="position: absolute; left: 37.61%; top:25.96%;" class="c_105_6">
+		Gov. McAuliffe announced a
+	</div>
+
+	<div id="t_105_10" style="position: absolute; left: 37.61%; top:27.60%;" class="c_105_6">
+		bipartisan deal to keep
+	</div>
+
+	<div id="t_105_11" style="position: absolute; left: 37.61%; top:29.24%;" class="c_105_6">
+		Virginia communities safe.
+	</div>
+
+	<div id="t_105_12" style="position: absolute; left: 62.96%; top:26.23%;" class="c_105_6">
+		Chief Legislator
+	</div>
+
+	<div id="t_105_13" style="position: absolute; left: 12.70%; top: 32.53%;" class="c_105_1">
+		Create a color-coded graph or pie chart that shows which role the governor fills most frequently.
+	</div>
+
+	<div id="t_105_14" style="position: absolute; left: 12.70%; top: 34.42%;" class="c_105_1">
+		Analyze your data. Explain why you conclude that role occurs more than others.
+	</div>
+
+	<div id="t_105_15" style="position: absolute; left: 12.50%; top: 38.05%;" class="c_105_1">
+		2. <span class="c_105_2">The expansion of the national</span>
+	</div>
+
+	<div id="t_105_16" style="position: absolute; left: 12.50%; top:39.82%;" class="c_105_3">
+		government&rsquo;s powers into areas
+	</div>
+
+	<div id="t_105_17" style="position: absolute; left: 12.50%; top:41.72%;" class="c_105_3">
+		traditionally reserved
+	</div>
+
+	<div id="t_105_18" style="position: absolute; left: 12.50%; top:43.61%;" class="c_105_3">
+		for the states has altered the
+	</div>
+
+	<div id="t_105_19" style="position: absolute; left: 12.50%; top:45.51%;" class="c_105_3">
+		relationship of states to the
+	</div>
+
+	<div id="t_105_20" style="position: absolute; left: 12.50%; top:47.40%;" class="c_105_3">
+		national government.
+	</div>
+
+	<div id="t_105_21" style="position: absolute; left: 12.50%; top: 49.42%;" class="c_105_1">
+		Analyze this political cartoon by
+	</div>
+
+	<div id="t_105_22" style="position: absolute; left: 12.50%; top: 51.31%;" class="c_105_1">
+		answering the questions provided.
+	</div>
+
+	<div id="t_105_23" style="position: absolute; left: 12.50%; top: 53.21%;" class="c_105_7">
+		&bull; <span class="c_105_4">What is the source and</span>
+	</div>
+
+	<div id="t_105_24" style="position: absolute; left: 14.25%; top: 55.1%;" class="c_105_1">
+		who created it?
+	</div>
+
+	<div id="t_105_25" style="position: absolute; left: 12.50%; top: 56.99%;" class="c_105_7">
+		&bull; <span class="c_105_4">What do you see? Explain</span>
+	</div>
+
+	<div id="t_105_26" style="position: absolute; left: 14.25%; top: 58.89%;" class="c_105_1">
+		any symbols or actions.
+	</div>
+
+	<div id="t_105_27" style="position: absolute; left: 12.50%; top: 60.78%;" class="c_105_7">
+		&bull; <span class="c_105_4">Whose point of view does it</span>
+	</div>
+
+	<div id="t_105_28" style="position: absolute; left: 14.33%; top: 62.68%;" class="c_105_1">
+		represent?
+	</div>
+
+	<div id="t_105_29" style="position: absolute; left: 12.50%; top: 64.57%;" class="c_105_7">
+		&bull; <span class="c_105_4">What is the artist&rsquo;s message?</span>
+	</div>
+
+	<div id="t_105_30" style="position: absolute; left: 12.50%; top: 66.47%;" class="c_105_7">
+		&bull; <span class="c_105_4">What event could have</span>
+	</div>
+
+	<div id="t_105_31" style="position: absolute; left: 14.25%; top: 68.36%;" class="c_105_1">
+		prompted the artist to
+	</div>
+
+	<div id="t_105_32" style="position: absolute; left: 14.25%; top: 70.26%;" class="c_105_1">
+		create this cartoon?
+	</div>
+
+	<div id="t_105_33" style="position: absolute; left: 40.66%; top:66.51%;" class="c_105_8">
+		Doing the Nullification Rag by Pat Bagley, <span class="c_105_9">Salt Lake Tribune,</span> <span class="c_105_10">2/3/11</span>
+	</div>
+
+	<div id="t_105_34" style="position: absolute; left: 39.98%; top: 74.42%; letter-spacing: -0.02em;" class="c_105_0">
+		Imagine...
+	</div>
+
+	<div id="t_105_35" style="position: absolute; left: 13.82%; top:81.73%;" class="c_105_3">
+		Imagine that you just moved from Virginia to another state.<span class="c_105_4"> Refer to page 97 to determine</span>
+	</div>
+
+	<div id="t_105_36" style="position: absolute; left: 12.50%; top: 84.03%;" class="c_105_1">
+		the areas that are within a state&rsquo;s control. Create a checklist that illustrates what laws you
+	</div>
+
+	<div id="t_105_37" style="position: absolute; left: 12.50%; top: 85.92%;" class="c_105_1">
+		should be aware of and steps you need to take to be a productive citizen of your new state.
+	</div>
+
+	<div id="t_105_38" style="position: absolute; left: 93.19%; top:95.14%;" class="c_105_11">
+		105
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_105_apply_your_learning.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 38%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_105_the_expansion.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 81%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_105_imagine_that_you_just_moved.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_104_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_105_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_104_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="104.html?page=right"; onclick="goto('104.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="106.html"; onclick="goto('106.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="106.html"; onclick="goto('106.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

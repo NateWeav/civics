@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_76.css">
+                <link rel="stylesheet" href="css/civics_77.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="74.html?page=right"; onclick="goto('74.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="76.html"; onclick="goto('76.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="74.html?page=right"; onclick="goto('74.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_76_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_77_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_76_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="76.html?page=right"; onclick="goto('76.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="78.html"; onclick="goto('78.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="78.html"; onclick="goto('78.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="74.html?page=right"; onclick="goto('74.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="76.html"; onclick="goto('76.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="74.html?page=right"; onclick="goto('74.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_76">
+                                                                                                <div class="pageData">
+
+	<div id="t_76_0" style="position: absolute; left: 54.31%; top:6.42%;" class="c_76_0">
+		THE STATE DEPARTMENT
+	</div>
+
+	<div id="t_76_1" style="position: absolute; left: 62.04%; top:8.59%;" class="c_76_1">
+		ESTABLISHED 1789
+	</div>
+
+	<div id="t_76_2" style="position: absolute; left: 46.72%; top:10.20%;" class="c_76_2">
+		Mission&ndash;&ndash;<span class="c_76_3">&ldquo;To shape and sustain a peaceful, prosperous,</span>
+	</div>
+
+	<div id="t_76_3" style="position: absolute; left: 46.71%; top: 11.75%; letter-spacing: 0.01em;" class="c_76_4">
+		just, and democratic world and foster conditions for stability
+	</div>
+
+	<div id="t_76_4" style="position: absolute; left: 46.71%; top: 13.40%; letter-spacing: 0.01em;" class="c_76_4">
+		and progress for the benefit of the American
+	</div>
+
+	<div id="t_76_5" style="position: absolute; left: 46.71%; top: 15.04%; letter-spacing: 0.01em;" class="c_76_4">
+		people and people everywhere&rdquo;
+	</div>
+
+	<div id="t_76_6" style="position: absolute; left: 47.15%; top: 17.35%;" class="c_76_5">
+		It really could be called the
+	</div>
+
+	<div id="t_76_7" style="position: absolute; left: 24.62%; top:22.76%;" class="c_76_0">
+		THE DEFENSE
+	</div>
+
+	<div id="t_76_8" style="position: absolute; left: 24.17%; top:24.78%;" class="c_76_0">
+		DEPARTMENT
+	</div>
+
+	<div id="t_76_9" style="position: absolute; left: 24.51%; top:27.13%;" class="c_76_1">
+		ESTABLISHED 1789
+	</div>
+
+	<div id="t_76_10" style="position: absolute; left: 17.80%; top:29.07%;" class="c_76_2">
+		Mission&ndash;&ndash;<span class="c_76_3">&ldquo;To provide the military</span>
+	</div>
+
+	<div id="t_76_11" style="position: absolute; left: 17.79%; top: 30.75%; letter-spacing: 0.01em;" class="c_76_4">
+		forces needed to deter war and to
+	</div>
+
+	<div id="t_76_12" style="position: absolute; left: 17.79%; top: 32.26%; letter-spacing: 0.01em;" class="c_76_4">
+		protect the security of our country&rdquo;
+	</div>
+
+	<div id="t_76_13" style="position: absolute; left: 17.79%; top: 34.58%;" class="c_76_5">
+		Originally called the War
+	</div>
+
+	<div id="t_76_14" style="position: absolute; left: 15.66%; top: 36.47%;" class="c_76_5">
+		Department, this is the biggest
+	</div>
+
+	<div id="t_76_15" style="position: absolute; left: 15.66%; top: 38.37%;" class="c_76_5">
+		department. The secretary of defense
+	</div>
+
+	<div id="t_76_16" style="position: absolute; left: 15.66%; top: 40.26%;" class="c_76_5">
+		manages all the armed forces of the
+	</div>
+
+	<div id="t_76_17" style="position: absolute; left: 15.66%; top: 42.15%;" class="c_76_5">
+		United States, including the <span class="c_76_6">joint chiefs</span>
+	</div>
+
+	<div id="t_76_18" style="position: absolute; left: 7.13%; top:43.75%;" class="c_76_7">
+		of staff<span class="c_76_8"> &mdash; senior uniformed officers who advise the</span>
+	</div>
+
+	<div id="t_76_19" style="position: absolute; left: 7.13%; top: 45.54%;" class="c_76_5">
+		president on military matters.
+	</div>
+
+	<div id="t_76_20" style="position: absolute; left: 50.53%; top: 19.24%;" class="c_76_5">
+		Department of Foreign Affairs!
+	</div>
+
+	<div id="t_76_21" style="position: absolute; left: 50.53%; top: 21.14%;" class="c_76_5">
+		When trouble brews in far-
+	</div>
+
+	<div id="t_76_22" style="position: absolute; left: 50.53%; top: 23.03%;" class="c_76_5">
+		away places, the secretary
+	</div>
+
+	<div id="t_76_23" style="position: absolute; left: 50.53%; top: 24.93%;" class="c_76_5">
+		of state will work for peace
+	</div>
+
+	<div id="t_76_24" style="position: absolute; left: 50.53%; top: 26.82%;" class="c_76_5">
+		or, sometimes, prepare for war.
+	</div>
+
+	<div id="t_76_25" style="position: absolute; left: 50.53%; top: 28.72%;" class="c_76_5">
+		This is one of the most
+	</div>
+
+	<div id="t_76_26" style="position: absolute; left: 50.53%; top: 30.61%;" class="c_76_5">
+		important Cabinet positions.
+	</div>
+
+	<div id="t_76_27" style="position: absolute; left: 53.62%; top:33.12%;" class="c_76_0">
+		THE TREASURY DEPARTMENT
+	</div>
+
+	<div id="t_76_28" style="position: absolute; left: 63.96%; top:35.30%;" class="c_76_1">
+		ESTABLISHED 1789
+	</div>
+
+	<div id="t_76_29" style="position: absolute; left: 50.56%; top:36.65%;" class="c_76_2">
+		Mission&ndash;&ndash;<span class="c_76_3">To promote economic prosperity and</span>
+	</div>
+
+	<div id="t_76_30" style="position: absolute; left: 50.55%; top: 38.21%; letter-spacing: 0.01em;" class="c_76_4">
+		ensure the financial security of the United States
+	</div>
+
+	<div id="t_76_31" style="position: absolute; left: 66.81%; top: 40.52%;" class="c_76_5">
+		From printing money and
+	</div>
+
+	<div id="t_76_32" style="position: absolute; left: 66.81%; top: 42.41%;" class="c_76_5">
+		collecting taxes to going after
+	</div>
+
+	<div id="t_76_33" style="position: absolute; left: 66.81%; top: 44.31%;" class="c_76_5">
+		forgers, this Cabinet
+	</div>
+
+	<div id="t_76_34" style="position: absolute; left: 66.81%; top: 46.2%;" class="c_76_5">
+		department is in charge of
+	</div>
+
+	<div id="t_76_35" style="position: absolute; left: 66.81%; top: 48.1%;" class="c_76_5">
+		managing federal finances.
+	</div>
+
+	<div id="t_76_36" style="position: absolute; left: 32.84%; top:50.74%;" class="c_76_0">
+		THE JUSTICE DEPARTMENT
+	</div>
+
+	<div id="t_76_37" style="position: absolute; left: 41.12%; top:52.78%;" class="c_76_1">
+		ESTABLISHED 1870
+	</div>
+
+	<div id="t_76_38" style="position: absolute; left: 19.06%; top:54.64%;" class="c_76_2">
+		Mission&ndash;&ndash;<span class="c_76_3">To enforce the law and defend the United States, to ensure public</span>
+	</div>
+
+	<div id="t_76_39" style="position: absolute; left: 19.05%; top: 56.20%; letter-spacing: 0.01em;" class="c_76_4">
+		safety against threats foreign and domestic, to prevent and control crime, to
+	</div>
+
+	<div id="t_76_40" style="position: absolute; left: 19.05%; top: 57.84%; letter-spacing: 0.01em;" class="c_76_4">
+		seek just punishment for those guilty of unlawful behavior, and to ensure
+	</div>
+
+	<div id="t_76_41" style="position: absolute; left: 19.05%; top: 59.48%; letter-spacing: 0.01em;" class="c_76_4">
+		justice for all Americans
+	</div>
+
+	<div id="t_76_42" style="position: absolute; left: 20.36%; top: 61.79%;" class="c_76_5">
+		The attorney general heads this department, which oversees the FBI,
+	</div>
+
+	<div id="t_76_43" style="position: absolute; left: 19.05%; top: 63.69%;" class="c_76_5">
+		the U.S. Marshals Service, the U.S. Attorneys, and many more divisions.
+	</div>
+
+	<div id="t_76_44" style="position: absolute; left: 24.44%; top:67.50%;" class="c_76_0">
+		THE AGRICULTURE
+	</div>
+
+	<div id="t_76_45" style="position: absolute; left: 27.20%; top:69.52%;" class="c_76_0">
+		DEPARTMENT
+	</div>
+
+	<div id="t_76_46" style="position: absolute; left: 28.39%; top:71.69%;" class="c_76_1">
+		ESTABLISHED 1862
+	</div>
+
+	<div id="t_76_47" style="position: absolute; left: 18.74%; top:73.17%;" class="c_76_2">
+		Mission&ndash;&ndash;<span class="c_76_3">To provide leadership on food,</span>
+	</div>
+
+	<div id="t_76_48" style="position: absolute; left: 18.70%; top: 74.86%; letter-spacing: 0.01em;" class="c_76_4">
+		agriculture, natural resources, rural
+	</div>
+
+	<div id="t_76_49" style="position: absolute; left: 18.70%; top: 76.50%; letter-spacing: 0.01em;" class="c_76_4">
+		development, nutrition, and more
+	</div>
+
+	<div id="t_76_50" style="position: absolute; left: 27.36%; top: 78.68%;" class="c_76_5">
+		Safe, dependable
+	</div>
+
+	<div id="t_76_51" style="position: absolute; left: 31.33%; top: 80.58%;" class="c_76_5">
+		food is a must
+	</div>
+
+	<div id="t_76_52" style="position: absolute; left: 32.66%; top: 82.47%;" class="c_76_5">
+		for national
+	</div>
+
+	<div id="t_76_53" style="position: absolute; left: 33.00%; top: 84.37%;" class="c_76_5">
+		security. The
+	</div>
+
+	<div id="t_76_54" style="position: absolute; left: 32.87%; top: 86.26%;" class="c_76_5">
+		USDA monitors
+	</div>
+
+	<div id="t_76_55" style="position: absolute; left: 31.92%; top: 88.16%;" class="c_76_5">
+		this.
+	</div>
+
+	<div id="t_76_56" style="position: absolute; left: 5.54%; top: 93.08%;" class="c_76_9">
+		76
+	</div>
+
+	<div id="t_76_57" style="position: absolute; left: 68.51%; top:69.74%;" class="c_76_0">
+		INTERIOR
+	</div>
+
+	<div id="t_76_58" style="position: absolute; left: 67.14%; top:71.91%;" class="c_76_1">
+		ESTABLISHED 1849
+	</div>
+
+	<div id="t_76_59" style="position: absolute; left: 55.91%; top:73.52%;" class="c_76_2">
+		Mission&ndash;&ndash;<span class="c_76_3">To protect America&rsquo;s natural</span>
+	</div>
+
+	<div id="t_76_60" style="position: absolute; left: 58.78%; top:67.72%;" class="c_76_0">
+		THE DEPARTMENT OF THE
+	</div>
+
+	<div id="t_76_61" style="position: absolute; left: 61.00%; top: 75.20%; letter-spacing: 0.01em;" class="c_76_4">
+		resources and heritage, honor our cultures
+	</div>
+
+	<div id="t_76_62" style="position: absolute; left: 61.00%; top: 76.84%; letter-spacing: 0.01em;" class="c_76_4">
+		and tribal communities, and supply the
+	</div>
+
+	<div id="t_76_63" style="position: absolute; left: 61.00%; top: 78.48%; letter-spacing: 0.01em;" class="c_76_4">
+		energy to power our future
+	</div>
+
+	<div id="t_76_64" style="position: absolute; left: 61.00%; top: 80.67%;" class="c_76_5">
+		First established to try to improve our
+	</div>
+
+	<div id="t_76_65" style="position: absolute; left: 61.00%; top: 82.56%;" class="c_76_5">
+		nation&rsquo;s terrible treatment of America&rsquo;s
+	</div>
+
+	<div id="t_76_66" style="position: absolute; left: 61.00%; top: 84.46%;" class="c_76_5">
+		first peoples, now it also works to
+	</div>
+
+	<div id="t_76_67" style="position: absolute; left: 61.00%; top: 86.35%;" class="c_76_5">
+		preserve our cherished natural
+	</div>
+
+	<div id="t_76_68" style="position: absolute; left: 61.00%; top: 88.24%;" class="c_76_5">
+		wonders.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 11%; top: 5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_cabinet_dossier.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 6%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_state.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 47%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_treasury.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 23%; top: 50%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_justice.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 17%; top: 68%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_agriculture.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 52%; top: 69%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_interior.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 17%; top: 24%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_76_defense.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_77">
+                                                                                                <div class="pageData">
+
+	<div id="t_77_0" style="position: absolute; left: 14.75%; top:5.41%;" class="c_77_0">
+		VETERANS AFFAIRS
+	</div>
+
+	<div id="t_77_1" style="position: absolute; left: 12.01%; top:7.96%;" class="c_77_1">
+		BECAME A CABINET POSITION IN 1989
+	</div>
+
+	<div id="t_77_2" style="position: absolute; left: 10.69%; top:9.44%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To fulfill President</span>
+	</div>
+
+	<div id="t_77_3" style="position: absolute; left: 10.65%; top: 10.99%; letter-spacing: 0.01em;" class="c_77_4">
+		Lincoln&rsquo;s promise &ldquo;to care for him who
+	</div>
+
+	<div id="t_77_4" style="position: absolute; left: 10.65%; top: 12.64%; letter-spacing: 0.01em;" class="c_77_4">
+		shall have borne the battle, and for his
+	</div>
+
+	<div id="t_77_5" style="position: absolute; left: 10.65%; top: 14.28%; letter-spacing: 0.01em;" class="c_77_4">
+		widow and his orphan&rdquo; by serving and
+	</div>
+
+	<div id="t_77_6" style="position: absolute; left: 10.65%; top: 15.92%; letter-spacing: 0.01em;" class="c_77_4">
+		honoring the men and women who are
+	</div>
+
+	<div id="t_77_7" style="position: absolute; left: 10.65%; top: 17.56%; letter-spacing: 0.01em;" class="c_77_4">
+		America&rsquo;s veterans
+	</div>
+
+	<div id="t_77_8" style="position: absolute; left: 23.69%; top: 20.25%;" class="c_77_5">
+		Caring for the people
+	</div>
+
+	<div id="t_77_9" style="position: absolute; left: 23.69%; top: 22.15%;" class="c_77_5">
+		who have served
+	</div>
+
+	<div id="t_77_10" style="position: absolute; left: 23.69%; top: 24.04%;" class="c_77_5">
+		their country is a top
+	</div>
+
+	<div id="t_77_11" style="position: absolute; left: 23.69%; top: 25.93%;" class="c_77_5">
+		priority. This agency
+	</div>
+
+	<div id="t_77_12" style="position: absolute; left: 23.69%; top: 27.83%;" class="c_77_5">
+		provides everything
+	</div>
+
+	<div id="t_77_13" style="position: absolute; left: 23.69%; top: 29.72%;" class="c_77_5">
+		from medical care
+	</div>
+
+	<div id="t_77_14" style="position: absolute; left: 23.69%; top: 31.62%;" class="c_77_5">
+		to home loans to
+	</div>
+
+	<div id="t_77_15" style="position: absolute; left: 23.69%; top: 33.51%;" class="c_77_5">
+		education.
+	</div>
+
+	<div id="t_77_16" style="position: absolute; left: 46.43%; top:11.53%;" class="c_77_0">
+		THE COMMERCE DEPARTMENT
+	</div>
+
+	<div id="t_77_17" style="position: absolute; left: 57.51%; top:13.58%;" class="c_77_6">
+		ESTABLISHED 1903
+	</div>
+
+	<div id="t_77_18" style="position: absolute; left: 44.55%; top:15.06%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To create jobs, promote economic</span>
+	</div>
+
+	<div id="t_77_19" style="position: absolute; left: 44.54%; top: 16.74%; letter-spacing: 0.01em;" class="c_77_4">
+		growth, and improve the standard of living
+	</div>
+
+	<div id="t_77_20" style="position: absolute; left: 44.54%; top: 18.93%;" class="c_77_5">
+		Business is front and center here. It includes the
+	</div>
+
+	<div id="t_77_21" style="position: absolute; left: 44.54%; top: 20.82%;" class="c_77_5">
+		Patent Office, the Census Bureau, and more.
+	</div>
+
+	<div id="t_77_22" style="position: absolute; left: 58.24%; top:26.56%;" class="c_77_6">
+		ESTABLISHED 1913
+	</div>
+
+	<div id="t_77_23" style="position: absolute; left: 44.61%; top:24.51%;" class="c_77_0">
+		THE LABOR DEPARTMENT
+	</div>
+
+	<div id="t_77_24" style="position: absolute; left: 44.63%; top:27.90%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To improve working</span>
+	</div>
+
+	<div id="t_77_25" style="position: absolute; left: 44.61%; top: 29.59%; letter-spacing: 0.01em;" class="c_77_4">
+		conditions and opportunities for jobs
+	</div>
+
+	<div id="t_77_26" style="position: absolute; left: 44.61%; top: 31.9%;" class="c_77_5">
+		Minimum wage issues, protecting against job site
+	</div>
+
+	<div id="t_77_27" style="position: absolute; left: 44.61%; top: 33.8%;" class="c_77_5">
+		abuses, and job training for new technologies.
+	</div>
+
+	<div id="t_77_28" style="position: absolute; left: 21.34%; top:37.50%;" class="c_77_0">
+		HEALTH AND HUMAN SERVICES
+	</div>
+
+	<div id="t_77_29" style="position: absolute; left: 33.31%; top:39.67%;" class="c_77_6">
+		ESTABLISHED 1953
+	</div>
+
+	<div id="t_77_30" style="position: absolute; left: 11.15%; top:41.19%;" class="c_77_7">
+		(ORIGINALLY HEALTH, EDUCATION, AND WELFARE. EDUCATION WAS SPLIT OFF IN 1979.)
+	</div>
+
+	<div id="t_77_31" style="position: absolute; left: 10.12%; top:42.55%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To protect the health of all Americans and provide essential</span>
+	</div>
+
+	<div id="t_77_32" style="position: absolute; left: 10.10%; top: 44.22%; letter-spacing: 0.01em;" class="c_77_4">
+		services, especially for those who are least able to help themselves
+	</div>
+
+	<div id="t_77_33" style="position: absolute; left: 10.10%; top: 46.54%;" class="c_77_5">
+		Between Medicare, Medicaid, and funds for health research, this huge
+	</div>
+
+	<div id="t_77_34" style="position: absolute; left: 10.10%; top: 48.43%;" class="c_77_5">
+		department is responsible for about one-quarter of the federal budget.
+	</div>
+
+	<div id="t_77_35" style="position: absolute; left: 14.10%; top:52.34%;" class="c_77_0">
+		HOUSING AND
+	</div>
+
+	<div id="t_77_36" style="position: absolute; left: 18.39%; top:54.37%;" class="c_77_0">
+		URBAN
+	</div>
+
+	<div id="t_77_37" style="position: absolute; left: 13.76%; top:56.39%;" class="c_77_0">
+		DEVELOPMENT
+	</div>
+
+	<div id="t_77_38" style="position: absolute; left: 19.51%; top:58.43%;" class="c_77_6">
+		ESTABLISHED 1965
+	</div>
+
+	<div id="t_77_39" style="position: absolute; left: 19.80%; top:60.17%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To help</span>
+	</div>
+
+	<div id="t_77_40" style="position: absolute; left: 19.75%; top: 61.85%; letter-spacing: 0.01em;" class="c_77_4">
+		Americans with
+	</div>
+
+	<div id="t_77_41" style="position: absolute; left: 19.75%; top: 63.49%; letter-spacing: 0.01em;" class="c_77_4">
+		their housing needs,
+	</div>
+
+	<div id="t_77_42" style="position: absolute; left: 19.75%; top: 65.13%; letter-spacing: 0.01em;" class="c_77_4">
+		including affordable
+	</div>
+
+	<div id="t_77_43" style="position: absolute; left: 19.75%; top: 66.77%; letter-spacing: 0.01em;" class="c_77_4">
+		homes
+	</div>
+
+	<div id="t_77_44" style="position: absolute; left: 10.21%; top: 69.08%;" class="c_77_5">
+		A safe place to live is a basic
+	</div>
+
+	<div id="t_77_45" style="position: absolute; left: 10.21%; top: 70.98%;" class="c_77_5">
+		human necessity. This agency
+	</div>
+
+	<div id="t_77_46" style="position: absolute; left: 10.21%; top: 72.87%;" class="c_77_5">
+		tries to help.
+	</div>
+
+	<div id="t_77_47" style="position: absolute; left: 39.12%; top:52.34%;" class="c_77_0">
+		DEPARTMENT OF
+	</div>
+
+	<div id="t_77_48" style="position: absolute; left: 42.16%; top:54.36%;" class="c_77_0">
+		EDUCATION
+	</div>
+
+	<div id="t_77_49" style="position: absolute; left: 42.21%; top:56.41%;" class="c_77_6">
+		ESTABLISHED 1979
+	</div>
+
+	<div id="t_77_50" style="position: absolute; left: 37.85%; top:58.14%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To serve</span>
+	</div>
+
+	<div id="t_77_51" style="position: absolute; left: 37.81%; top: 59.82%; letter-spacing: 0.01em;" class="c_77_4">
+		America&rsquo;s students and foster
+	</div>
+
+	<div id="t_77_52" style="position: absolute; left: 37.81%; top: 61.46%; letter-spacing: 0.01em;" class="c_77_4">
+		educational excellence
+	</div>
+
+	<div id="t_77_53" style="position: absolute; left: 37.81%; top: 63.4%;" class="c_77_5">
+		America&rsquo;s schools are the
+	</div>
+
+	<div id="t_77_54" style="position: absolute; left: 37.81%; top: 65.16%;" class="c_77_5">
+		key to our future.
+	</div>
+
+	<div id="t_77_55" style="position: absolute; left: 63.67%; top:52.18%;" class="c_77_0">
+		DEPARTMENT OF
+	</div>
+
+	<div id="t_77_56" style="position: absolute; left: 62.82%; top:54.20%;" class="c_77_0">
+		TRANSPORTATION
+	</div>
+
+	<div id="t_77_57" style="position: absolute; left: 62.19%; top:56.24%;" class="c_77_6">
+		ESTABLISHED 1966
+	</div>
+
+	<div id="t_77_58" style="position: absolute; left: 62.20%; top:57.99%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To</span>
+	</div>
+
+	<div id="t_77_59" style="position: absolute; left: 62.19%; top: 59.66%; letter-spacing: 0.01em;" class="c_77_4">
+		ensure fast, safe,
+	</div>
+
+	<div id="t_77_60" style="position: absolute; left: 62.19%; top: 61.30%; letter-spacing: 0.01em;" class="c_77_4">
+		efficient, accessible
+	</div>
+
+	<div id="t_77_61" style="position: absolute; left: 62.19%; top: 62.94%; letter-spacing: 0.01em;" class="c_77_4">
+		transportation
+	</div>
+
+	<div id="t_77_62" style="position: absolute; left: 62.19%; top: 65.13%;" class="c_77_5">
+		This is a big country
+	</div>
+
+	<div id="t_77_63" style="position: absolute; left: 62.19%; top: 67.02%;" class="c_77_5">
+		and it needs dependable
+	</div>
+
+	<div id="t_77_64" style="position: absolute; left: 62.19%; top: 68.92%;" class="c_77_5">
+		ways to move people and
+	</div>
+
+	<div id="t_77_65" style="position: absolute; left: 62.19%; top: 70.81%;" class="c_77_5">
+		goods.
+	</div>
+
+	<div id="t_77_66" style="position: absolute; left: 12.03%; top:75.28%;" class="c_77_0">
+		DEPARTMENT OF ENERGY
+	</div>
+
+	<div id="t_77_67" style="position: absolute; left: 22.94%; top:77.33%;" class="c_77_6">
+		ESTABLISHED 1977
+	</div>
+
+	<div id="t_77_68" style="position: absolute; left: 9.91%; top:79.07%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_3">To advance the energy</span>
+	</div>
+
+	<div id="t_77_69" style="position: absolute; left: 9.90%; top: 80.74%; letter-spacing: 0.01em;" class="c_77_4">
+		security of the nation, develop new
+	</div>
+
+	<div id="t_77_70" style="position: absolute; left: 9.90%; top: 82.38%; letter-spacing: 0.01em;" class="c_77_4">
+		sources of energy, and monitor our
+	</div>
+
+	<div id="t_77_71" style="position: absolute; left: 9.90%; top: 84.02%; letter-spacing: 0.01em;" class="c_77_4">
+		nuclear weapons
+	</div>
+
+	<div id="t_77_72" style="position: absolute; left: 9.90%; top: 86.08%;" class="c_77_5">
+		A critical part of our national security!
+	</div>
+
+	<div id="t_77_73" style="position: absolute; left: 9.90%; top: 87.85%;" class="c_77_5">
+		We need our own dependable,
+	</div>
+
+	<div id="t_77_74" style="position: absolute; left: 9.90%; top: 89.62%;" class="c_77_5">
+		affordable energy sources.
+	</div>
+
+	<div id="t_77_75" style="position: absolute; left: 57.38%; top:75.17%;" class="c_77_0">
+		HOMELAND SECURITY
+	</div>
+
+	<div id="t_77_76" style="position: absolute; left: 63.23%; top:77.21%;" class="c_77_6">
+		ESTABLISHED  2002
+	</div>
+
+	<div id="t_77_77" style="position: absolute; left: 53.58%; top:79.20%;" class="c_77_2">
+		Mission&ndash;&ndash;<span class="c_77_8">To protect the United States and</span>
+	</div>
+
+	<div id="t_77_78" style="position: absolute; left: 53.55%; top:80.87%;" class="c_77_9">
+		its territories and respond to terrorist attacks,
+	</div>
+
+	<div id="t_77_79" style="position: absolute; left: 53.55%; top:82.51%;" class="c_77_9">
+		man-made accidents, and natural disasters
+	</div>
+
+	<div id="t_77_80" style="position: absolute; left: 53.55%; top: 84.46%;" class="c_77_5">
+		Our newest Cabinet
+	</div>
+
+	<div id="t_77_81" style="position: absolute; left: 53.55%; top: 86.35%;" class="c_77_5">
+		department was created
+	</div>
+
+	<div id="t_77_82" style="position: absolute; left: 53.55%; top: 88.25%;" class="c_77_5">
+		in response to the 9/11
+	</div>
+
+	<div id="t_77_83" style="position: absolute; left: 53.55%; top: 90.14%;" class="c_77_5">
+		attacks on New York&rsquo;s
+	</div>
+
+	<div id="t_77_84" style="position: absolute; left: 53.55%; top: 92.04%;" class="c_77_5">
+		World Trade Center and
+	</div>
+
+	<div id="t_77_85" style="position: absolute; left: 53.55%; top: 93.93%;" class="c_77_5">
+		the Pentagon in Virginia.
+	</div>
+
+	<div id="t_77_86" style="position: absolute; left: 93.99%; top: 93.08%;" class="c_77_10">
+		77
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 8%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_veterans_affairs.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 41%; top: 10%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_commerce.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 40%; top: 25%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_labor.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 8%; top: 37%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_health_and_human_services.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 7%; top: 53%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_housing_and_urban_development.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 34%; top: 54%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_education.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 58.5%; top: 50%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_transportation.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_energy.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 74%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_77_homeland_security.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_76_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_77_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_76_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="76.html?page=right"; onclick="goto('76.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="78.html"; onclick="goto('78.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="78.html"; onclick="goto('78.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

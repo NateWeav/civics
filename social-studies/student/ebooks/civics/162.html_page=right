@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_162.css">
+                <link rel="stylesheet" href="css/civics_163.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="160.html?page=right"; onclick="goto('160.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="162.html"; onclick="goto('162.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="160.html?page=right"; onclick="goto('160.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_162_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_163_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_162_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="162.html?page=right"; onclick="goto('162.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="164.html"; onclick="goto('164.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="164.html"; onclick="goto('164.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="160.html?page=right"; onclick="goto('160.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="162.html"; onclick="goto('162.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="160.html?page=right"; onclick="goto('160.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_162">
+                                                                                                <div class="pageData">
+
+	<div id="t_162_0" style="position: absolute; left: 6.54%; top:4.79%;" class="c_162_0">
+		Resources, goods and services, and money flow
+	</div>
+
+	<div id="t_162_1" style="position: absolute; left: 6.54%; top:6.55%;" class="c_162_0">
+		continuously among households, businesses, and
+	</div>
+
+	<div id="t_162_2" style="position: absolute; left: 6.54%; top:8.32%;" class="c_162_0">
+		markets in the United States economy.
+	</div>
+
+	<div id="t_162_3" style="position: absolute; left: 8.33%; top:11.60%;" class="c_162_1">
+		THE CIRCLE OF ECONOMIC LIFE
+	</div>
+
+	<div id="t_162_4" style="position: absolute; left: 8.98%; top: 14.07%;" class="c_162_2">
+		Using land, labor, capital, and entrepreneurial
+	</div>
+
+	<div id="t_162_5" style="position: absolute; left: 7.66%; top: 15.96%;" class="c_162_2">
+		resources, businesses make products or
+	</div>
+
+	<div id="t_162_6" style="position: absolute; left: 7.66%; top: 17.85%;" class="c_162_2">
+		provide services. Those products and services
+	</div>
+
+	<div id="t_162_7" style="position: absolute; left: 7.66%; top: 19.75%;" class="c_162_2">
+		are then purchased by the people who
+	</div>
+
+	<div id="t_162_8" style="position: absolute; left: 7.66%; top: 21.64%;" class="c_162_2">
+		provided the resources in the first place. This
+	</div>
+
+	<div id="t_162_9" style="position: absolute; left: 7.66%; top: 23.54%;" class="c_162_2">
+		is how our economy moves. Let&rsquo;s follow the
+	</div>
+
+	<div id="t_162_10" style="position: absolute; left: 7.66%; top: 25.43%;" class="c_162_2">
+		flow of cupcakes as an example.
+	</div>
+
+	<div id="t_162_11" style="position: absolute; left: 13.97%; top: 33.23%; letter-spacing: 0.01em;" class="c_162_3">
+		People pay for cupcakes.
+	</div>
+
+	<div id="t_162_12" style="position: absolute; left: 17.65%; top: 38.04%; letter-spacing: 0.01em;" class="c_162_4">
+		People bring home the cupcakes
+	</div>
+
+	<div id="t_162_13" style="position: absolute; left: 17.65%; top: 39.81%; letter-spacing: 0.01em;" class="c_162_4">
+		they have paid for.
+	</div>
+
+	<div id="t_162_14" style="position: absolute; left: 48.40%; top: 4.12%; letter-spacing: -0.02em;" class="c_162_5">
+		Economic Flow
+	</div>
+
+	<div id="t_162_15" style="position: absolute; left: 48.66%; top: 10.73%; letter-spacing: 0.01em;" class="c_162_6">
+		A circular flow diagram is a way to visualize
+	</div>
+
+	<div id="t_162_16" style="position: absolute; left: 48.66%; top: 12.62%; letter-spacing: 0.01em;" class="c_162_6">
+		and categorize activity within an economy.
+	</div>
+
+	<div id="t_162_17" style="position: absolute; left: 48.66%; top: 14.52%; letter-spacing: 0.01em;" class="c_162_6">
+		Goods, services, and resources flow in one
+	</div>
+
+	<div id="t_162_18" style="position: absolute; left: 48.66%; top: 16.41%; letter-spacing: 0.01em;" class="c_162_6">
+		direction. Money flows in the
+	</div>
+
+	<div id="t_162_19" style="position: absolute; left: 48.66%; top: 18.30%; letter-spacing: 0.01em;" class="c_162_6">
+		opposite direction. Follow the path
+	</div>
+
+	<div id="t_162_20" style="position: absolute; left: 48.66%; top: 20.20%; letter-spacing: 0.01em;" class="c_162_6">
+		of the dollar bill to see how it
+	</div>
+
+	<div id="t_162_21" style="position: absolute; left: 48.66%; top: 22.09%; letter-spacing: 0.01em;" class="c_162_6">
+		all works.
+	</div>
+
+	<div id="t_162_22" style="position: absolute; left: 51.44%; top:26.53%;" class="c_162_7">
+		THE PRODUCT
+	</div>
+
+	<div id="t_162_23" style="position: absolute; left: 55.46%; top:28.68%;" class="c_162_7">
+		MARKET
+	</div>
+
+	<div id="t_162_24" style="position: absolute; left: 55.76%; top: 31.41%; letter-spacing: 0.01em;" class="c_162_8">
+		The place where
+	</div>
+
+	<div id="t_162_25" style="position: absolute; left: 55.76%; top: 33.18%; letter-spacing: 0.01em;" class="c_162_8">
+		the end products&mdash;in this case, cupcakes&mdash;
+	</div>
+
+	<div id="t_162_26" style="position: absolute; left: 55.76%; top: 34.95%; letter-spacing: 0.01em;" class="c_162_8">
+		are sold and households can buy them.
+	</div>
+
+	<div id="t_162_27" style="position: absolute; left: 52.00%; top:42.83%;" class="c_162_7">
+		PLUS:
+	</div>
+
+	<div id="t_162_28" style="position: absolute; left: 59.59%; top:52.13%;" class="c_162_7">
+		GOVERNMENT
+	</div>
+
+	<div id="t_162_29" style="position: absolute; left: 51.88%; top: 54.62%; letter-spacing: 0.01em;" class="c_162_8">
+		The government spends money, adding to the
+	</div>
+
+	<div id="t_162_30" style="position: absolute; left: 52.98%; top: 56.39%; letter-spacing: 0.01em;" class="c_162_8">
+		flow. It collects taxes from households and
+	</div>
+
+	<div id="t_162_31" style="position: absolute; left: 54.63%; top: 58.15%; letter-spacing: 0.01em;" class="c_162_8">
+		businesses, subtracting from the flow.
+	</div>
+
+	<div id="t_162_32" style="position: absolute; left: 50.97%; top:61.11%;" class="c_162_7">
+		INVESTMENT &amp;SAVING
+	</div>
+
+	<div id="t_162_33" style="position: absolute; left: 57.80%; top: 63.66%; letter-spacing: 0.01em;" class="c_162_8">
+		Investment adds to the flow.
+	</div>
+
+	<div id="t_162_34" style="position: absolute; left: 56.71%; top: 65.42%; letter-spacing: 0.01em;" class="c_162_8">
+		Saving subtracts from the flow.
+	</div>
+
+	<div id="t_162_35" style="position: absolute; left: 11.87%; top:55.14%;" class="c_162_7">
+		HOUSEHOLDS
+	</div>
+
+	<div id="t_162_36" style="position: absolute; left: 5.36%; top: 57.87%; letter-spacing: 0.01em;" class="c_162_9">
+		&bull; <span class="c_162_10">Households (also called individuals) own</span>
+	</div>
+
+	<div id="t_162_37" style="position: absolute; left: 5.36%; top: 59.64%; letter-spacing: 0.01em;" class="c_162_8">
+		and sell the resources used in production.
+	</div>
+
+	<div id="t_162_38" style="position: absolute; left: 24.03%; top: 61.67%; letter-spacing: 0.01em;" class="c_162_9">
+		&bull; <span class="c_162_10">They use the</span>
+	</div>
+
+	<div id="t_162_39" style="position: absolute; left: 24.03%; top: 63.44%; letter-spacing: 0.01em;" class="c_162_8">
+		income they earn to
+	</div>
+
+	<div id="t_162_40" style="position: absolute; left: 24.03%; top: 65.21%; letter-spacing: 0.01em;" class="c_162_8">
+		buy goods and
+	</div>
+
+	<div id="t_162_41" style="position: absolute; left: 24.03%; top: 66.98%; letter-spacing: 0.01em;" class="c_162_8">
+		services.
+	</div>
+
+	<div id="t_162_42" style="position: absolute; left: 16.80%; top: 78.03%; letter-spacing: 0.01em;" class="c_162_4">
+		In return for payments that create
+	</div>
+
+	<div id="t_162_43" style="position: absolute; left: 16.80%; top: 79.80%; letter-spacing: 0.01em;" class="c_162_4">
+		their incomes, people sell their
+	</div>
+
+	<div id="t_162_44" style="position: absolute; left: 16.80%; top: 81.57%; letter-spacing: 0.01em;" class="c_162_4">
+		resources to businesses.
+	</div>
+
+	<div id="t_162_45" style="position: absolute; left: 11.76%; top: 86.03%; letter-spacing: 0.01em;" class="c_162_11">
+		Individuals are paid for the
+	</div>
+
+	<div id="t_162_46" style="position: absolute; left: 11.76%; top: 87.80%; letter-spacing: 0.01em;" class="c_162_11">
+		resources they provide, including
+	</div>
+
+	<div id="t_162_47" style="position: absolute; left: 11.76%; top: 89.57%; letter-spacing: 0.01em;" class="c_162_11">
+		labor.
+	</div>
+
+	<div id="t_162_48" style="position: absolute; left: 4.81%; top: 94.87%; letter-spacing: -0.15em;" class="c_162_12">
+		162
+	</div>
+
+	<div id="t_162_49" style="position: absolute; left: 56.22%; top:68.80%;" class="c_162_7">
+		FOREIGN MARKETS
+	</div>
+
+	<div id="t_162_50" style="position: absolute; left: 52.24%; top: 71.48%; letter-spacing: 0.01em;" class="c_162_8">
+		We sell goods and services to countries overseas,
+	</div>
+
+	<div id="t_162_51" style="position: absolute; left: 53.16%; top: 73.25%; letter-spacing: 0.01em;" class="c_162_8">
+		which adds to the flow. We import items from
+	</div>
+
+	<div id="t_162_52" style="position: absolute; left: 55.82%; top: 75.02%; letter-spacing: 0.01em;" class="c_162_8">
+		abroad, which subtracts from the flow.
+	</div>
+
+	<div id="t_162_53" style="position: absolute; left: 55.34%; top:86.14%;" class="c_162_7">
+		THE RESOURCES
+	</div>
+
+	<div id="t_162_54" style="position: absolute; left: 60.54%; top:88.16%;" class="c_162_7">
+		MARKET
+	</div>
+
+	<div id="t_162_55" style="position: absolute; left: 54.54%; top: 90.99%; letter-spacing: 0.01em;" class="c_162_8">
+		The place where natural, human, and
+	</div>
+
+	<div id="t_162_56" style="position: absolute; left: 54.54%; top: 92.75%; letter-spacing: 0.01em;" class="c_162_8">
+		entrepreneurial resources are exchanged.
+	</div>
+
+	<div id="t_162_57" style="position: absolute; left: 54.54%; top: 94.52%; letter-spacing: 0.01em;" class="c_162_8">
+		Households sell and manufacturers buy.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_162_resources_goods_and_services.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_162_the_circle_of.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 44%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_162_economic_life.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+
+
+                    </div><!-- No whitespace
+             --><div class="rightPage page_163">
+                                                                                                <div class="pageData">
+
+	<div id="t_163_0" style="position: absolute; left: 13.86%; top:4.60%;" class="c_163_0">
+		Betty&rsquo;s
+	</div>
+
+	<div id="t_163_1" style="position: absolute; left: 13.42%; top:10.03%;" class="c_163_0">
+		Bakery
+	</div>
+
+	<div id="t_163_2" style="position: absolute; left: 16.72%; top:17.86%;" class="c_163_1">
+		A CASE STUDY
+	</div>
+
+	<div id="t_163_3" style="position: absolute; left: 6.01%; top: 24.18%; letter-spacing: 0.01em;" class="c_163_2">
+		Money paid by cupcake buyers flows to
+	</div>
+
+	<div id="t_163_4" style="position: absolute; left: 6.01%; top: 25.95%; letter-spacing: 0.01em;" class="c_163_2">
+		the cupcake bakery.
+	</div>
+
+	<div id="t_163_5" style="position: absolute; left: 7.83%; top: 33.26%; letter-spacing: 0.01em;" class="c_163_3">
+		Cupcake makers take their
+	</div>
+
+	<div id="t_163_6" style="position: absolute; left: 7.83%; top: 35.03%; letter-spacing: 0.01em;" class="c_163_3">
+		cupcakes to the product
+	</div>
+
+	<div id="t_163_7" style="position: absolute; left: 7.83%; top: 36.79%; letter-spacing: 0.01em;" class="c_163_3">
+		market to sell them.
+	</div>
+
+	<div id="t_163_8" style="position: absolute; left: 49.13%; top:25.17%;" class="c_163_4">
+		A TALE OF A CUPCAKE
+	</div>
+
+	<div id="t_163_9" style="position: absolute; left: 48.83%; top: 27.64%;" class="c_163_5">
+		Betty&rsquo;s Bakery makes the best
+	</div>
+
+	<div id="t_163_10" style="position: absolute; left: 47.52%; top: 29.53%;" class="c_163_5">
+		cupcakes in town. What does she
+	</div>
+
+	<div id="t_163_11" style="position: absolute; left: 47.52%; top: 31.43%;" class="c_163_5">
+		need to run her business? Betty
+	</div>
+
+	<div id="t_163_12" style="position: absolute; left: 47.52%; top: 33.32%;" class="c_163_5">
+		needs ingredients&mdash;flour, eggs,
+	</div>
+
+	<div id="t_163_13" style="position: absolute; left: 47.52%; top: 35.22%;" class="c_163_5">
+		milk, sugar, chocolate. She will buy
+	</div>
+
+	<div id="t_163_14" style="position: absolute; left: 47.52%; top: 37.11%;" class="c_163_5">
+		those from households. She will also need helpers.
+	</div>
+
+	<div id="t_163_15" style="position: absolute; left: 50.15%; top: 39.01%;" class="c_163_5">
+		People are an important resource. Of course, she
+	</div>
+
+	<div id="t_163_16" style="position: absolute; left: 55.65%; top: 40.9%;" class="c_163_5">
+		also must have a workspace and equipment.
+	</div>
+
+	<div id="t_163_17" style="position: absolute; left: 12.07%; top:47.34%;" class="c_163_6">
+		BUSINESSES
+	</div>
+
+	<div id="t_163_18" style="position: absolute; left: 8.82%; top: 49.82%; letter-spacing: 0.01em;" class="c_163_7">
+		&bull; <span class="c_163_8">Businesses like Betty&rsquo;s</span>
+	</div>
+
+	<div id="t_163_19" style="position: absolute; left: 8.82%; top: 51.59%; letter-spacing: 0.01em;" class="c_163_9">
+		Bakery buy resources, such as
+	</div>
+
+	<div id="t_163_20" style="position: absolute; left: 8.82%; top: 53.36%; letter-spacing: 0.01em;" class="c_163_9">
+		flour, sugar, and labor.
+	</div>
+
+	<div id="t_163_21" style="position: absolute; left: 8.82%; top: 55.13%; letter-spacing: 0.01em;" class="c_163_7">
+		&bull; <span class="c_163_8">Includes all businesses, large and small, from</span>
+	</div>
+
+	<div id="t_163_22" style="position: absolute; left: 8.82%; top: 56.90%; letter-spacing: 0.01em;" class="c_163_9">
+		airplane builders to zinc mining.
+	</div>
+
+	<div id="t_163_23" style="position: absolute; left: 62.13%; top:42.97%;" class="c_163_4">
+		RESOURCE SOURCES
+	</div>
+
+	<div id="t_163_24" style="position: absolute; left: 56.53%; top: 45.44%;" class="c_163_5">
+		In the story of our cupcake there is a farmer
+	</div>
+
+	<div id="t_163_25" style="position: absolute; left: 55.65%; top: 47.34%;" class="c_163_5">
+		who owns land and grows wheat. Another
+	</div>
+
+	<div id="t_163_26" style="position: absolute; left: 53.27%; top: 49.23%;" class="c_163_5">
+		raises chickens and cows for eggs and milk. Still
+	</div>
+
+	<div id="t_163_27" style="position: absolute; left: 53.27%; top: 51.13%;" class="c_163_5">
+		another owns a factory that processes sugar. A
+	</div>
+
+	<div id="t_163_28" style="position: absolute; left: 53.27%; top: 53.02%;" class="c_163_5">
+		truck driver delivers all these goods to Betty&rsquo;s
+	</div>
+
+	<div id="t_163_29" style="position: absolute; left: 53.27%; top: 54.91%;" class="c_163_5">
+		shop where her master baker, Bobbie, will
+	</div>
+
+	<div id="t_163_30" style="position: absolute; left: 53.27%; top: 56.81%;" class="c_163_5">
+		squeeze out the batter.
+	</div>
+
+	<div id="t_163_31" style="position: absolute; left: 7.87%; top: 80.57%; letter-spacing: 0.01em;" class="c_163_10">
+		Resources flow to businesses
+	</div>
+
+	<div id="t_163_32" style="position: absolute; left: 7.87%; top: 82.34%; letter-spacing: 0.01em;" class="c_163_10">
+		like Betty&rsquo;s Bakery.
+	</div>
+
+	<div id="t_163_33" style="position: absolute; left: 8.09%; top: 86.90%; letter-spacing: 0.01em;" class="c_163_11">
+		Betty must buy natural, human, and
+	</div>
+
+	<div id="t_163_34" style="position: absolute; left: 8.09%; top: 88.67%; letter-spacing: 0.01em;" class="c_163_11">
+		capital resources.
+	</div>
+
+	<div id="t_163_35" style="position: absolute; left: 59.29%; top:58.88%;" class="c_163_4">
+		THE MONEY GOES OUT
+	</div>
+
+	<div id="t_163_36" style="position: absolute; left: 48.83%; top: 61.35%;" class="c_163_5">
+		Betty has to pay for her goods and services. She also
+	</div>
+
+	<div id="t_163_37" style="position: absolute; left: 47.52%; top: 63.25%;" class="c_163_5">
+		has to pay taxes to stay in business. Governments use
+	</div>
+
+	<div id="t_163_38" style="position: absolute; left: 47.52%; top: 65.14%;" class="c_163_5">
+		revenues to offer services vital to Betty and everyone
+	</div>
+
+	<div id="t_163_39" style="position: absolute; left: 47.52%; top: 67.03%;" class="c_163_5">
+		else, such as providing fire and police protection. And
+	</div>
+
+	<div id="t_163_40" style="position: absolute; left: 47.52%; top: 68.93%;" class="c_163_5">
+		kids who come up through the public school system
+	</div>
+
+	<div id="t_163_41" style="position: absolute; left: 47.52%; top: 70.82%;" class="c_163_5">
+		can use their educations to get good jobs and buy lots
+	</div>
+
+	<div id="t_163_42" style="position: absolute; left: 47.52%; top: 72.72%;" class="c_163_5">
+		of cupcakes.
+	</div>
+
+	<div id="t_163_43" style="position: absolute; left: 56.62%; top:74.79%;" class="c_163_4">
+		THE MONEY COMES IN
+	</div>
+
+	<div id="t_163_44" style="position: absolute; left: 48.83%; top: 77.26%;" class="c_163_5">
+		Betty&rsquo;s cupcakes are so good that a long line forms
+	</div>
+
+	<div id="t_163_45" style="position: absolute; left: 47.52%; top: 79.15%;" class="c_163_5">
+		every day. People in the area flock to her bakery, and
+	</div>
+
+	<div id="t_163_46" style="position: absolute; left: 47.52%; top: 81.05%;" class="c_163_5">
+		her business is thriving. Her money flowed out as she
+	</div>
+
+	<div id="t_163_47" style="position: absolute; left: 47.52%; top: 82.94%;" class="c_163_5">
+		paid her resource providers, but money is flowing in as
+	</div>
+
+	<div id="t_163_48" style="position: absolute; left: 47.52%; top: 84.84%;" class="c_163_5">
+		people clamor for more cupcakes.
+	</div>
+
+	<div id="t_163_49" style="position: absolute; left: 48.83%; top: 86.73%;" class="c_163_5">
+		Now Betty would like to open a second bakery. She
+	</div>
+
+	<div id="t_163_50" style="position: absolute; left: 47.52%; top: 88.63%;" class="c_163_5">
+		has been saving some of the money from her profits to
+	</div>
+
+	<div id="t_163_51" style="position: absolute; left: 47.52%; top: 90.52%;" class="c_163_5">
+		expand, and an investor has stepped in with more
+	</div>
+
+	<div id="t_163_52" style="position: absolute; left: 47.52%; top: 92.42%;" class="c_163_5">
+		money. Out the money goes, into the great circle of
+	</div>
+
+	<div id="t_163_53" style="position: absolute; left: 47.52%; top: 94.31%;" class="c_163_5">
+		economic flow, and the cycle begins again!
+	</div>
+
+	<div id="t_163_54" style="position: absolute; left: 93.29%; top: 94.72%; letter-spacing: -0.15em;" class="c_163_12">
+		163
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 9%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_163_bettys_bakery.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 51%; top: 42%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_163_resource_sources.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 48%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_163_the_money_goes_out.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 42%; top: 74%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_163_the_money_comes_in.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_162_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_163_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_162_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="162.html?page=right"; onclick="goto('162.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="164.html"; onclick="goto('164.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="164.html"; onclick="goto('164.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

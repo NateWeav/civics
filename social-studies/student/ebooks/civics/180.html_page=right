@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_180.css">
+                <link rel="stylesheet" href="css/civics_181.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="178.html?page=right"; onclick="goto('178.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="180.html"; onclick="goto('180.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="178.html?page=right"; onclick="goto('178.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_180_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_181_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_180_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="180.html?page=right"; onclick="goto('180.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="182.html"; onclick="goto('182.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="182.html"; onclick="goto('182.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="178.html?page=right"; onclick="goto('178.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="180.html"; onclick="goto('180.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="178.html?page=right"; onclick="goto('178.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_180">
+                                                                                                <div class="pageData">
+
+	<div id="t_180_0" style="position: absolute; left: 5.95%; top:4.61%;" class="c_180_0">
+		The Federal Reserve
+	</div>
+
+	<div id="t_180_1" style="position: absolute; left: 5.95%; top:6.37%;" class="c_180_0">
+		System is our nation&rsquo;s
+	</div>
+
+	<div id="t_180_2" style="position: absolute; left: 5.95%; top:8.14%;" class="c_180_0">
+		central bank.
+	</div>
+
+	<div id="t_180_3" style="position: absolute; left: 66.38%; top:5.38%;" class="c_180_1">
+		Where does the government go
+	</div>
+
+	<div id="t_180_4" style="position: absolute; left: 66.38%; top:7.02%;" class="c_180_1">
+		to do its banking?
+	</div>
+
+	<div id="t_180_5" style="position: absolute; left: 66.10%; top: 31.87%; letter-spacing: -0.02em;" class="c_180_2">
+		The
+	</div>
+
+	<div id="t_180_6" style="position: absolute; left: 50.94%; top: 37.17%; letter-spacing: -0.02em;" class="c_180_2">
+		Federal Reserve
+	</div>
+
+	<div id="t_180_7" style="position: absolute; left: 45.80%; top: 44.09%;" class="c_180_3">
+		For anyone who complains about the state of the
+	</div>
+
+	<div id="t_180_8" style="position: absolute; left: 44.48%; top: 45.98%;" class="c_180_3">
+		economy today, remind them that before the Federal
+	</div>
+
+	<div id="t_180_9" style="position: absolute; left: 44.48%; top: 47.88%;" class="c_180_3">
+		Reserve was created in 1913, there were financial panics
+	</div>
+
+	<div id="t_180_10" style="position: absolute; left: 44.48%; top: 49.77%;" class="c_180_3">
+		all the time. Banks could close without any warning, and
+	</div>
+
+	<div id="t_180_11" style="position: absolute; left: 44.48%; top: 51.67%;" class="c_180_3">
+		there were over 30,000 different kinds of currency floating
+	</div>
+
+	<div id="t_180_12" style="position: absolute; left: 44.48%; top: 53.56%;" class="c_180_3">
+		around the country.
+	</div>
+
+	<div id="t_180_13" style="position: absolute; left: 45.80%; top: 55.46%;" class="c_180_3">
+		The story of banking in this country is very complicated,
+	</div>
+
+	<div id="t_180_14" style="position: absolute; left: 44.48%; top: 57.35%;" class="c_180_3">
+		but it would <span class="c_180_4">not</span><span class="c_180_5"> be an overstatement to say that a hodge-</span>
+	</div>
+
+	<div id="t_180_15" style="position: absolute; left: 44.48%; top: 59.24%;" class="c_180_3">
+		podge of banks, each run by its own rules, did not serve
+	</div>
+
+	<div id="t_180_16" style="position: absolute; left: 44.48%; top: 61.14%;" class="c_180_3">
+		the nation well. In an attempt to bring some financial
+	</div>
+
+	<div id="t_180_17" style="position: absolute; left: 44.48%; top: 63.03%;" class="c_180_3">
+		stability to the nation, Congress stepped in.
+	</div>
+
+	<div id="t_180_18" style="position: absolute; left: 58.24%; top:65.43%;" class="c_180_6">
+		MEET THE &ldquo;FED&rdquo;
+	</div>
+
+	<div id="t_180_19" style="position: absolute; left: 45.95%; top: 67.9%;" class="c_180_3">
+		The Federal Reserve System is the central bank of the
+	</div>
+
+	<div id="t_180_20" style="position: absolute; left: 44.63%; top: 69.79%;" class="c_180_3">
+		United States. It consists of a Board of Governors and 12
+	</div>
+
+	<div id="t_180_21" style="position: absolute; left: 44.63%; top: 71.69%;" class="c_180_3">
+		Federal Reserve Banks all across the country. A chair-
+	</div>
+
+	<div id="t_180_22" style="position: absolute; left: 44.63%; top: 73.58%;" class="c_180_3">
+		person, appointed by the president and approved by the
+	</div>
+
+	<div id="t_180_23" style="position: absolute; left: 44.63%; top: 75.48%;" class="c_180_3">
+		Senate, oversees all 12 banks. Its most important jobs
+	</div>
+
+	<div id="t_180_24" style="position: absolute; left: 44.63%; top: 77.37%;" class="c_180_3">
+		are these:
+	</div>
+
+	<div id="t_180_25" style="position: absolute; left: 44.63%; top:79.88%;" class="c_180_7">
+		1. <span class="c_180_8">The Fed keeps a close watch on the nation&rsquo;s money</span>
+	</div>
+
+	<div id="t_180_26" style="position: absolute; left: 44.63%; top: 81.95%;" class="c_180_3">
+		supply and monitors national interest rates to keep
+	</div>
+
+	<div id="t_180_27" style="position: absolute; left: 44.63%; top:83.97%;" class="c_180_9">
+		inflation <span class="c_180_5">low and stable. Inflation occurs when there is too</span>
+	</div>
+
+	<div id="t_180_28" style="position: absolute; left: 44.63%; top: 85.96%;" class="c_180_3">
+		much money in circulation and its value drops.
+	</div>
+
+	<div id="t_180_29" style="position: absolute; left: 44.63%; top:88.72%;" class="c_180_7">
+		2. <span class="c_180_8">The Fed keeps a watchful eye on all the private banks in</span>
+	</div>
+
+	<div id="t_180_30" style="position: absolute; left: 44.63%; top: 91.01%;" class="c_180_3">
+		the nation, overseeing their operations to help make sure
+	</div>
+
+	<div id="t_180_31" style="position: absolute; left: 44.63%; top: 92.91%;" class="c_180_3">
+		they are financially sound.
+	</div>
+
+	<div id="t_180_32" style="position: absolute; left: 8.82%; top: 52.88%; letter-spacing: 0.01em;" class="c_180_10">
+        The Federal Reserve is a two-part system.
+	</div>
+
+	<div id="t_180_33" style="position: absolute; left: 8.82%; top: 54.64%; letter-spacing: 0.01em;" class="c_180_10">
+        A Board of Governors, appointed by the
+	</div>
+
+	<div id="t_180_34" style="position: absolute; left: 8.82%; top: 56.41%; letter-spacing: 0.01em;" class="c_180_10">
+        president, meets inWashington, D.C.,
+	</div>
+
+	<div id="t_180_35" style="position: absolute; left: 8.82%; top: 58.18%; letter-spacing: 0.01em;" class="c_180_10">
+        and makes decisions about interest rates.
+	</div>
+
+	<div id="t_180_36" style="position: absolute; left: 8.82%; top: 59.95%; letter-spacing: 0.01em;" class="c_180_10">
+        Twelve regional offices put these decisions
+	</div>
+
+	<div id="t_180_37" style="position: absolute; left: 8.82%; top: 61.72%; letter-spacing: 0.01em;" class="c_180_10">
+        into action.
+	</div>
+
+	<div id="t_180_38" style="position: absolute; left: 9.56%; top:86.54%;" class="c_180_1">
+        Before the creation of the
+	</div>
+
+	<div id="t_180_39" style="position: absolute; left: 9.56%; top:88.09%;" class="c_180_1">
+        Federal Reserve, any
+	</div>
+
+	<div id="t_180_40" style="position: absolute; left: 9.56%; top:89.73%;" class="c_180_1">
+        business could be a &ldquo;bank&rdquo;
+	</div>
+
+	<div id="t_180_41" style="position: absolute; left: 9.56%; top:91.37%;" class="c_180_1">
+        and issue currency.
+	</div>
+
+	<div id="t_180_42" style="position: absolute; left: 4.87%; top: 95.1%; letter-spacing: -0.15em;" class="c_180_11">
+		180
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_180_the_federal_reserve_system.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 60%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_180_where_does_the_government.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 54%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_180_the_federal_reserve_header.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 56%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_180_the_fed_is_a_two_part.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 39%; top: 65%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_180_meet_the_fed.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 82%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_180_before_the_creation.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_181">
+                                                                                                <div class="pageData">
+
+	<div id="t_181_0" style="position: absolute; left: 15.63%; top:5.33%;" class="c_181_0">
+		TRICKS OF THE TRADE
+	</div>
+
+	<div id="t_181_1" style="position: absolute; left: 10.14%; top: 7.8%;" class="c_181_1">
+		By raising and lowering interest rates, the Fed
+	</div>
+
+	<div id="t_181_2" style="position: absolute; left: 8.82%; top: 9.69%;" class="c_181_1">
+		can either perk up or slow down the economy.
+	</div>
+
+	<div id="t_181_3" style="position: absolute; left: 8.82%; top: 11.59%;" class="c_181_1">
+		When interest rates are high, people tend to buy
+	</div>
+
+	<div id="t_181_4" style="position: absolute; left: 8.82%; top: 13.48%;" class="c_181_1">
+		fewer homes or new cars. Low interest rates let
+	</div>
+
+	<div id="t_181_5" style="position: absolute; left: 8.82%; top: 15.38%;" class="c_181_1">
+		us borrow more easily. The Fed&rsquo;s aims are to keep
+	</div>
+
+	<div id="t_181_6" style="position: absolute; left: 8.82%; top: 17.27%;" class="c_181_1">
+		the value of the dollar stable
+	</div>
+
+	<div id="t_181_7" style="position: absolute; left: 8.82%; top: 19.17%;" class="c_181_1">
+		and to make sure there are
+	</div>
+
+	<div id="t_181_8" style="position: absolute; left: 8.82%; top: 21.06%;" class="c_181_1">
+		plenty of jobs. A strong
+	</div>
+
+	<div id="t_181_9" style="position: absolute; left: 8.82%; top: 22.95%;" class="c_181_1">
+		economy allows companies to
+	</div>
+
+	<div id="t_181_10" style="position: absolute; left: 8.82%; top: 24.85%;" class="c_181_1">
+		grow&mdash;to make lots of great
+	</div>
+
+	<div id="t_181_11" style="position: absolute; left: 8.82%; top: 26.74%;" class="c_181_1">
+		products for us to buy.
+	</div>
+
+	<div id="t_181_12" style="position: absolute; left: 36.78%; top:17.39%;" class="c_181_2">
+		The Fed
+	</div>
+
+	<div id="t_181_13" style="position: absolute; left: 37.72%; top:22.82%;" class="c_181_2">
+		at Work
+	</div>
+
+	<div id="t_181_14" style="position: absolute; left: 60.78%; top:5.53%;" class="c_181_0">
+		FINANCIAL TROUBLES
+	</div>
+
+	<div id="t_181_15" style="position: absolute; left: 55.36%; top: 8%;" class="c_181_1">
+		Sometimes, this delicate balance gets out of
+	</div>
+
+	<div id="t_181_16" style="position: absolute; left: 54.05%; top: 9.89%;" class="c_181_1">
+		whack. Something happens to make people
+	</div>
+
+	<div id="t_181_17" style="position: absolute; left: 54.05%; top: 11.79%;" class="c_181_1">
+		reduce their spending. With less spending,
+	</div>
+
+	<div id="t_181_18" style="position: absolute; left: 54.05%; top: 13.68%;" class="c_181_1">
+		factories and businesses have less work, and so
+	</div>
+
+	<div id="t_181_19" style="position: absolute; left: 54.05%; top: 15.57%;" class="c_181_1">
+		they must lay people off. People who are not
+	</div>
+
+	<div id="t_181_20" style="position: absolute; left: 66.45%; top: 17.47%;" class="c_181_1">
+		working are not shopping for
+	</div>
+
+	<div id="t_181_21" style="position: absolute; left: 66.45%; top: 19.36%;" class="c_181_1">
+		goods and services. The country
+	</div>
+
+	<div id="t_181_22" style="position: absolute; left: 66.45%; top: 21.26%;" class="c_181_1">
+		falls into a <span class="c_181_3">recession,</span><span class="c_181_4"> and it can</span>
+	</div>
+
+	<div id="t_181_23" style="position: absolute; left: 66.45%; top: 23.15%;" class="c_181_1">
+		be difficult to get out of this rut.
+	</div>
+
+	<div id="t_181_24" style="position: absolute; left: 66.45%; top: 25.05%;" class="c_181_1">
+		The Fed will step in to help.
+	</div>
+
+	<div id="t_181_25" style="position: absolute; left: 28.46%; top:31.43%;" class="c_181_5">
+		4<span class="c_181_6">%</span>
+	</div>
+
+	<div id="t_181_26" style="position: absolute; left: 26.85%; top:35.19%;" class="c_181_7">
+		2<span class="c_181_8">.</span><span class="c_181_9">6</span><span class="c_181_10">%</span>
+	</div>
+
+	<div id="t_181_27" style="position: absolute; left: 10.15%; top:35.44%;" class="c_181_11">
+		77<span class="c_181_12">%%</span>
+	</div>
+
+	<div id="t_181_28" style="position: absolute; left: 11.22%; top:43.71%;" class="c_181_13">
+		MORE LENDING
+	</div>
+
+	<div id="t_181_29" style="position: absolute; left: 35.24%; top:30.43%;" class="c_181_14">
+		BALANCING THE ECONOMY
+	</div>
+
+	<div id="t_181_30" style="position: absolute; left: 36.55%; top:35.25%;" class="c_181_13">
+		LOW INTEREST RATES
+	</div>
+
+	<div id="t_181_31" style="position: absolute; left: 34.65%; top:39.30%;" class="c_181_15">
+		Short-term interest rates are the ones that
+	</div>
+
+	<div id="t_181_32" style="position: absolute; left: 34.65%; top:40.94%;" class="c_181_15">
+		affect consumers the most. If it does not cost
+	</div>
+
+	<div id="t_181_33" style="position: absolute; left: 34.65%; top:42.58%;" class="c_181_15">
+		much to borrow, people will take advantage
+	</div>
+
+	<div id="t_181_34" style="position: absolute; left: 34.65%; top:44.22%;" class="c_181_15">
+		of low rates and make more purchases.
+	</div>
+
+	<div id="t_181_35" style="position: absolute; left: 72.95%; top:44.68%;" class="c_181_13">
+		MORE JOBS
+	</div>
+
+	<div id="t_181_36" style="position: absolute; left: 77.16%; top:52.16%;" class="c_181_15">
+		More demand
+	</div>
+
+	<div id="t_181_37" style="position: absolute; left: 76.73%; top:53.80%;" class="c_181_15">
+		leads to more
+	</div>
+
+	<div id="t_181_38" style="position: absolute; left: 76.73%; top:55.44%;" class="c_181_15">
+		production.
+	</div>
+
+	<div id="t_181_39" style="position: absolute; left: 9.42%; top:62.66%;" class="c_181_13">
+		MORE BORROWING
+	</div>
+
+	<div id="t_181_40" style="position: absolute; left: 8.82%; top:72.33%;" class="c_181_16">
+		Words to Know
+	</div>
+
+	<div id="t_181_41" style="position: absolute; left: 10.82%; top:75.53%;" class="c_181_17">
+		<span class="c_181_18">inflation</span>
+	</div>
+
+	<div id="t_181_42" style="position: absolute; left: 8.42%; top:73.78%; font-size: 2.5em;" class="c_181_17">&#8227;</div>
+	<div id="t_181_43" style="position: absolute; left: 10.72%; top:77.61%;" class="c_181_19">
+		(<span class="c_181_20">in-flay-shun</span><span class="c_181_21">)</span>
+	</div>
+
+	<div id="t_181_44" style="position: absolute; left: 8.82%; top:79.62%;" class="c_181_22">
+		A time when prices quickly
+	</div>
+
+	<div id="t_181_45" style="position: absolute; left: 8.82%; top:81.51%;" class="c_181_22">
+		keep going up and up
+	</div>
+
+	<div id="t_181_46" style="position: absolute; left: 10.82%; top:84.37%;" class="c_181_17">
+		<span class="c_181_18">recession</span>
+	</div>
+
+	<div id="t_181_47" style="position: absolute; left: 8.42%; top:82.62%; font-size: 2.5em;" class="c_181_17">&#8227;</div>
+	<div id="t_181_48" style="position: absolute; left: 10.72%; top:86.45%;" class="c_181_19">
+		(<span class="c_181_20">re-seh-shun</span><span class="c_181_21">)</span>
+	</div>
+
+	<div id="t_181_49" style="position: absolute; left: 8.82%; top:88.46%;" class="c_181_22">
+		A time of economic decline.
+	</div>
+
+	<div id="t_181_50" style="position: absolute; left: 8.82%; top:90.35%;" class="c_181_22">
+		Trade and manufacturing
+	</div>
+
+	<div id="t_181_51" style="position: absolute; left: 8.82%; top:92.25%;" class="c_181_22">
+		drop off, and jobs are lost.
+	</div>
+
+	<div id="t_181_52" style="position: absolute; left: 36.34%; top:74.02%;" class="c_181_13">
+		MORE SPENDING
+	</div>
+
+	<div id="t_181_53" style="position: absolute; left: 73.07%; top:69.68%;" class="c_181_13">
+		MORE DEMAND
+	</div>
+
+	<div id="t_181_54" style="position: absolute; left: 62.45%; top:76.77%;" class="c_181_0">
+		CASH ON HAND
+	</div>
+
+	<div id="t_181_55" style="position: absolute; left: 52.20%; top: 79.24%;" class="c_181_1">
+		The U.S. Mint and the Bureau of Engraving and
+	</div>
+
+	<div id="t_181_56" style="position: absolute; left: 50.89%; top: 81.14%;" class="c_181_1">
+		Printing produce our coins and paper currency, but
+	</div>
+
+	<div id="t_181_57" style="position: absolute; left: 50.89%; top: 83.03%;" class="c_181_1">
+		the Fed distributes it and keeps an eye on the
+	</div>
+
+	<div id="t_181_58" style="position: absolute; left: 50.89%; top: 84.93%;" class="c_181_1">
+		condition of the money. If bills or coins are worn, the
+	</div>
+
+	<div id="t_181_59" style="position: absolute; left: 50.89%; top: 86.82%;" class="c_181_1">
+		Fed destroys them. Banks can order more money to
+	</div>
+
+	<div id="t_181_60" style="position: absolute; left: 50.89%; top: 88.72%;" class="c_181_1">
+		meet their customers&rsquo; demands, such as during the
+	</div>
+
+	<div id="t_181_61" style="position: absolute; left: 50.89%; top: 90.61%;" class="c_181_1">
+		winter holiday season when people need more cash.
+	</div>
+
+	<div id="t_181_62" style="position: absolute; left: 50.89%; top: 92.5%;" class="c_181_1">
+		That extra currency is stored at the Reserve Banks.
+	</div>
+
+	<div id="t_181_63" style="position: absolute; left: 92.86%; top: 94.45%; letter-spacing: -0.15em;" class="c_181_23">
+		181
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 8%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_181_tricks_of_the_trade.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 54%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_181_financial_troubles.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 19%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_181_the_fed_at_work.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_181_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 57%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_181_cash_on_hand.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_180_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_181_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_180_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="180.html?page=right"; onclick="goto('180.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="182.html"; onclick="goto('182.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="182.html"; onclick="goto('182.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

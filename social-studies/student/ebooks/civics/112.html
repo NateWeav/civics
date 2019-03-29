@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_112.css">
+                <link rel="stylesheet" href="css/civics_113.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="110.html?page=right"; onclick="goto('110.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="112.html"; onclick="goto('112.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="110.html?page=right"; onclick="goto('110.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_112_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_113_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_112_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="112.html?page=right"; onclick="goto('112.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="114.html"; onclick="goto('114.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="114.html"; onclick="goto('114.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="110.html?page=right"; onclick="goto('110.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="112.html"; onclick="goto('112.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="110.html?page=right"; onclick="goto('110.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_112">
+                                                                                                <div class="pageData">
+
+	<div id="t_112_0" style="position: absolute; left: 5.68%; top:3.70%;" class="c_112_0">
+		State courts have
+	</div>
+
+	<div id="t_112_1" style="position: absolute; left: 5.68%; top:5.47%;" class="c_112_0">
+		jurisdiction over state laws.
+	</div>
+
+	<div id="t_112_2" style="position: absolute; left: 15.46%; top: 10.14%; letter-spacing: 0.01em;" class="c_112_1">
+		From speeding tickets to serious crimes,
+	</div>
+
+	<div id="t_112_3" style="position: absolute; left: 16.25%; top: 12.03%; letter-spacing: 0.01em;" class="c_112_1">
+		there is plenty of drama in our state&rsquo;s
+	</div>
+
+	<div id="t_112_4" style="position: absolute; left: 25.67%; top: 13.92%; letter-spacing: 0.01em;" class="c_112_1">
+		courtrooms.
+	</div>
+
+	<div id="t_112_5" style="position: absolute; left: 19.15%; top: 15.93%; letter-spacing: -0.02em;" class="c_112_2">
+		Virginia&rsquo;s
+	</div>
+
+	<div id="t_112_6" style="position: absolute; left: 13.23%; top: 21.61%; letter-spacing: -0.02em;" class="c_112_2">
+		Court System
+	</div>
+
+	<div id="t_112_7" style="position: absolute; left: 49.40%; top: 40.11%;" class="c_112_3">
+		A stolen handbag taken at knifepoint. A stop sign
+	</div>
+
+	<div id="t_112_8" style="position: absolute; left: 48.87%; top: 42.01%;" class="c_112_3">
+		ignored. Underage drinking. A dispute over shoddy
+	</div>
+
+	<div id="t_112_9" style="position: absolute; left: 49.51%; top: 43.9%;" class="c_112_3">
+		workmanship. Trespassing. Disorderly conduct.
+	</div>
+
+	<div id="t_112_10" style="position: absolute; left: 50.15%; top: 45.8%;" class="c_112_3">
+		All across Virginia there are state courts where
+	</div>
+
+	<div id="t_112_11" style="position: absolute; left: 50.79%; top: 47.69%;" class="c_112_3">
+		judicial disputes of all kinds will be heard.
+	</div>
+
+	<div id="t_112_12" style="position: absolute; left: 51.73%; top:49.78%;" class="c_112_4">
+		CIRCUIT COURTS=BIGGER CASES
+	</div>
+
+	<div id="t_112_13" style="position: absolute; left: 53.04%; top: 52.11%;" class="c_112_3">
+		Some cases go to trial. That means that a jury
+	</div>
+
+	<div id="t_112_14" style="position: absolute; left: 48.74%; top: 54%;" class="c_112_3">
+		can be called to sit in judgment. The Virginia circuit
+	</div>
+
+	<div id="t_112_15" style="position: absolute; left: 48.08%; top: 55.9%;" class="c_112_3">
+		courts are the trial courts for the state. Judges that
+	</div>
+
+	<div id="t_112_16" style="position: absolute; left: 48.08%; top: 57.79%;" class="c_112_3">
+		sit &ldquo;on the bench&rdquo; in Virginia&rsquo;s circuit courts hear all
+	</div>
+
+	<div id="t_112_17" style="position: absolute; left: 48.08%; top: 59.68%;" class="c_112_3">
+		sorts of cases. It might be a <span class="c_112_5">civil suit</span><span class="c_112_6"> that involves a</span>
+	</div>
+
+	<div id="t_112_18" style="position: absolute; left: 48.08%; top: 61.58%;" class="c_112_3">
+		large amount of money, or a <span class="c_112_5">felony</span><span class="c_112_6">, such as a</span>
+	</div>
+
+	<div id="t_112_19" style="position: absolute; left: 48.08%; top: 63.47%;" class="c_112_3">
+		robbery. Sometimes <span class="c_112_5">misdemeanors</span><span class="c_112_6"> are tried in</span>
+	</div>
+
+	<div id="t_112_20" style="position: absolute; left: 48.08%; top: 65.37%;" class="c_112_3">
+		these courts as well. The judges that hear the cases
+	</div>
+
+	<div id="t_112_21" style="position: absolute; left: 48.08%; top: 67.26%;" class="c_112_3">
+		are appointed to their seats by the legislature and
+	</div>
+
+	<div id="t_112_22" style="position: absolute; left: 48.08%; top: 69.16%;" class="c_112_3">
+		serve an eight-year term.
+	</div>
+
+	<div id="t_112_23" style="position: absolute; left: 47.10%; top:71.66%;" class="c_112_4">
+		DISTRICT COURTS=SMALLER CASES
+	</div>
+
+	<div id="t_112_24" style="position: absolute; left: 46.79%; top: 73.98%;" class="c_112_3">
+		There is a General District Court in each city and
+	</div>
+
+	<div id="t_112_25" style="position: absolute; left: 45.47%; top: 75.87%;" class="c_112_3">
+		county in Virginia. General District Courts handle things
+	</div>
+
+	<div id="t_112_26" style="position: absolute; left: 45.47%; top: 77.77%;" class="c_112_3">
+		like traffic violations, misdemeanors, and civil suits with
+	</div>
+
+	<div id="t_112_27" style="position: absolute; left: 45.47%; top: 79.66%;" class="c_112_3">
+        claims of $4,500 or less&mdash;perhaps a tenant suing a
+	</div>
+
+	<div id="t_112_28" style="position: absolute; left: 45.47%; top: 81.56%;" class="c_112_3">
+		landlord for payment of medical bills because the front
+	</div>
+
+	<div id="t_112_29" style="position: absolute; left: 45.47%; top: 83.45%;" class="c_112_3">
+		walk was not shoveled after a snowstorm and a fall led
+	</div>
+
+	<div id="t_112_30" style="position: absolute; left: 45.47%; top: 85.35%;" class="c_112_3">
+		to a broken arm. Circuit courts <span class="c_112_7">only</span> <span class="c_112_6">deal with larger</span>
+	</div>
+
+	<div id="t_112_31" style="position: absolute; left: 45.47%; top: 87.24%;" class="c_112_3">
+		sums of money. Sometimes a General District Court
+	</div>
+
+	<div id="t_112_32" style="position: absolute; left: 45.47%; top: 89.13%;" class="c_112_3">
+		judge will hold the first hearings for more serious
+	</div>
+
+	<div id="t_112_33" style="position: absolute; left: 45.47%; top: 91.03%;" class="c_112_3">
+		criminal cases that will then be tried in a circuit court.
+	</div>
+
+	<div id="t_112_34" style="position: absolute; left: 29.00%; top:61.80%;" class="c_112_8">
+		&ldquo;License and
+	</div>
+
+	<div id="t_112_35" style="position: absolute; left: 29.00%; top:63.44%;" class="c_112_8">
+		registration, please.&rdquo;
+	</div>
+
+	<div id="t_112_36" style="position: absolute; left: 29.00%; top:65.08%;" class="c_112_8">
+		This woman is going to
+	</div>
+
+	<div id="t_112_37" style="position: absolute; left: 29.00%; top:66.73%;" class="c_112_8">
+		end up in district court.
+	</div>
+
+	<div id="t_112_38" style="position: absolute; left: 8.01%; top:68.79%;" class="c_112_9">
+		Words to Know
+	</div>
+
+	<div id="t_112_39" style="position: absolute; left: 8.01%; top:71.99%;" class="c_112_10">
+		<span class="c_112_11">&nbsp;&nbsp;&nbsp; civil suit</span>
+	</div>
+
+	<div id="t_112_40" style="position: absolute; left: 7.61%; top:70.24%; font-size: 2.5em;" class="c_112_10">&#8227;</div>
+	<div id="t_112_41" style="position: absolute; left: 8.01%; top:74.18%;" class="c_112_12">
+		One person suing another person or business
+	</div>
+
+	<div id="t_112_42" style="position: absolute; left: 8.01%; top:76.08%;" class="c_112_12">
+		in hopes of getting a financial settlement to
+	</div>
+
+	<div id="t_112_43" style="position: absolute; left: 8.01%; top:77.97%;" class="c_112_12">
+		pay for damages
+	</div>
+
+	<div id="t_112_44" style="position: absolute; left: 8.01%; top:80.83%;" class="c_112_10">
+		<span class="c_112_11">&nbsp;&nbsp;&nbsp; felony</span>
+	</div>
+
+	<div id="t_112_45" style="position: absolute; left: 7.61%; top:79.08%; font-size: 2.5em;" class="c_112_10">&#8227;</div>
+	<div id="t_112_46" style="position: absolute; left: 15.85%; top:80.95%;" class="c_112_13">
+		(fell-uh-nee)
+	</div>
+
+	<div id="t_112_47" style="position: absolute; left: 8.01%; top:83.02%;" class="c_112_12">
+		A very serious crime
+	</div>
+
+	<div id="t_112_48" style="position: absolute; left: 8.01%; top:85.88%;" class="c_112_10">
+		<span class="c_112_11">&nbsp;&nbsp;&nbsp; misdemeanors</span>
+	</div>
+
+	<div id="t_112_49" style="position: absolute; left: 7.61%; top:84.13%; font-size: 2.5em;" class="c_112_10">&#8227;</div>
+	<div id="t_112_50" style="position: absolute; left: 23.69%; top:86.00%;" class="c_112_14">
+		(<span class="c_112_15">miss-duh-mean-urz</span><span class="c_112_16">)</span>
+	</div>
+
+	<div id="t_112_51" style="position: absolute; left: 8.01%; top:88.07%;" class="c_112_12">
+		Small crimes that often result in the payment
+	</div>
+
+	<div id="t_112_52" style="position: absolute; left: 8.01%; top:89.97%;" class="c_112_12">
+		of a fine rather than jail time
+	</div>
+
+	<div id="t_112_53" style="position: absolute; left: 4.73%; top:94.39%;" class="c_112_17">
+		112
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 0.5%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_112_state_courts.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 12%; top: 15%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_112_virginias_court_system.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 45%; top: 49%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_112_circuit_courts.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 24.5%; top: 58.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_112_license_and_registration.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 69%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_112_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 41%; top: 70%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_112_district_courts.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_113">
+                                                                                                <div class="pageData">
+
+	<div id="t_113_0" style="position: absolute; left: 18.05%; top:5.43%;" class="c_113_0">
+		SMALL CLAIMS COURT=
+	</div>
+
+	<div id="t_113_1" style="position: absolute; left: 13.31%; top:7.32%;" class="c_113_0">
+		SETTLING FINANCIAL QUARRELS
+	</div>
+
+	<div id="t_113_2" style="position: absolute; left: 12.72%; top: 9.65%;" class="c_113_1">
+		Suppose an appliance repairperson comes to fix
+	</div>
+
+	<div id="t_113_3" style="position: absolute; left: 11.41%; top: 11.54%;" class="c_113_1">
+		your broken washing machine. You are charged $40,
+	</div>
+
+	<div id="t_113_4" style="position: absolute; left: 11.41%; top: 13.44%;" class="c_113_1">
+		but when you put in your next load of laundry,
+	</div>
+
+	<div id="t_113_5" style="position: absolute; left: 11.41%; top: 15.33%;" class="c_113_1">
+		disaster strikes! You call to complain only to hear,
+	</div>
+
+	<div id="t_113_6" style="position: absolute; left: 11.41%; top: 17.22%;" class="c_113_1">
+		&ldquo;Too bad! It worked when I left. You must have
+	</div>
+
+	<div id="t_113_7" style="position: absolute; left: 11.41%; top: 19.12%;" class="c_113_1">
+		broken it again.&rdquo; What can you do?
+	</div>
+
+	<div id="t_113_8" style="position: absolute; left: 13.16%; top: 21.01%;" class="c_113_1">
+		Every dispute between people over money
+	</div>
+
+	<div id="t_113_9" style="position: absolute; left: 11.41%; top: 22.91%;" class="c_113_1">
+		deserves the attention of a court, should the injured
+	</div>
+
+	<div id="t_113_10" style="position: absolute; left: 11.41%; top: 24.8%;" class="c_113_1">
+		party wish it. For disputes over money up to $5,000,
+	</div>
+
+	<div id="t_113_11" style="position: absolute; left: 11.41%; top: 26.6%;" class="c_113_1">
+		many people go to <span class="c_113_2">small claims court</span><span class="c_113_3">. Small claims</span>
+	</div>
+
+	<div id="t_113_12" style="position: absolute; left: 11.41%; top: 28.59%;" class="c_113_1">
+		court judges try to help settle these conflicts. They might start by
+	</div>
+
+	<div id="t_113_13" style="position: absolute; left: 11.41%; top: 30.49%;" class="c_113_1">
+		suggesting mediation. During this process, both parties will meet
+	</div>
+
+	<div id="t_113_14" style="position: absolute; left: 11.41%; top: 32.38%;" class="c_113_1">
+		with a trained mediator in an effort to work things out. If they
+	</div>
+
+	<div id="t_113_15" style="position: absolute; left: 11.41%; top: 34.27%;" class="c_113_1">
+		cannot reach an agreement, the case will go to trial.
+	</div>
+
+	<div id="t_113_16" style="position: absolute; left: 62.22%; top:19.25%;" class="c_113_4">
+		Who is at fault?
+	</div>
+
+	<div id="t_113_17" style="position: absolute; left: 62.22%; top:20.89%;" class="c_113_4">
+		A small claims court
+	</div>
+
+	<div id="t_113_18" style="position: absolute; left: 62.22%; top:22.54%;" class="c_113_4">
+		judge will decide.
+	</div>
+
+	<div id="t_113_19" style="position: absolute; left: 74.95%; top: 26.51%; letter-spacing: 0.01em;" class="c_113_5">
+		Learn more about
+	</div>
+
+	<div id="t_113_20" style="position: absolute; left: 69.81%; top: 28.15%; letter-spacing: 0.01em;" class="c_113_5">
+		the law! See Chapter 8 for an
+	</div>
+
+	<div id="t_113_21" style="position: absolute; left: 70.42%; top: 29.79%; letter-spacing: 0.01em;" class="c_113_5">
+		in-depth look at our nation&rsquo;s
+	</div>
+
+	<div id="t_113_22" style="position: absolute; left: 76.19%; top: 31.43%; letter-spacing: 0.01em;" class="c_113_5">
+		legal system.
+	</div>
+
+	<div id="t_113_23" style="position: absolute; left: 19.12%; top:38.03%;" class="c_113_6">
+		Young
+	</div>
+
+	<div id="t_113_24" style="position: absolute; left: 14.26%; top:43.46%;" class="c_113_6">
+		People in
+	</div>
+
+	<div id="t_113_25" style="position: absolute; left: 16.70%; top:48.89%;" class="c_113_6">
+		Trouble
+	</div>
+
+	<div id="t_113_26" style="position: absolute; left: 19.34%; top:56.42%;" class="c_113_7">
+		JUVENILE JUSTICE
+	</div>
+
+	<div id="t_113_27" style="position: absolute; left: 11.93%; top:60.32%;" class="c_113_8">
+		&bull; <span class="c_113_9">If you are under 18 and charged with a crime,</span>
+	</div>
+
+	<div id="t_113_28" style="position: absolute; left: 11.93%; top:61.97%;" class="c_113_4">
+		you will usually be tried in a special court.
+	</div>
+
+	<div id="t_113_29" style="position: absolute; left: 13.08%; top: 64.40%;" class="c_113_1">
+		There is a <span class="c_113_2">juvenile and domestic</span>
+	</div>
+
+	<div id="t_113_30" style="position: absolute; left: 11.76%; top:66.38%;" class="c_113_10">
+		relations district court <span class="c_113_3">in each Virginia city and</span>
+	</div>
+
+	<div id="t_113_31" style="position: absolute; left: 11.76%; top: 68.34%;" class="c_113_1">
+		county. This court hears cases involving young
+	</div>
+
+	<div id="t_113_32" style="position: absolute; left: 11.76%; top: 70.23%;" class="c_113_1">
+		people charged with a criminal or traffic offense. If
+	</div>
+
+	<div id="t_113_33" style="position: absolute; left: 11.76%; top: 72.13%;" class="c_113_1">
+		a 16-year-old is caught with alcohol, he or she will
+	</div>
+
+	<div id="t_113_34" style="position: absolute; left: 11.76%; top: 74.02%;" class="c_113_1">
+		end up here, charged with something called a <span class="c_113_11">status</span>
+	</div>
+
+	<div id="t_113_35" style="position: absolute; left: 11.76%; top:75.52%;" class="c_113_12">
+		offense<span class="c_113_13">. These events are unlawful only because</span>
+	</div>
+
+	<div id="t_113_36" style="position: absolute; left: 11.76%; top: 77.81%;" class="c_113_1">
+		the persons who committed them are under age 18.
+	</div>
+
+	<div id="t_113_37" style="position: absolute; left: 13.08%; top: 79.71%;" class="c_113_1">
+		This court also handles family issues. When
+	</div>
+
+	<div id="t_113_38" style="position: absolute; left: 11.76%; top: 81.6%;" class="c_113_1">
+		parents divorce, shared custody of the children or
+	</div>
+
+	<div id="t_113_39" style="position: absolute; left: 11.76%; top: 83.5%;" class="c_113_1">
+		visitation rights will be resolved here. Any charge
+	</div>
+
+	<div id="t_113_40" style="position: absolute; left: 11.76%; top: 85.39%;" class="c_113_1">
+		involving family matters will be dealt with in this
+	</div>
+
+	<div id="t_113_41" style="position: absolute; left: 11.76%; top: 87.28%;" class="c_113_1">
+		kind of city or county court. Because these courts
+	</div>
+
+	<div id="t_113_42" style="position: absolute; left: 11.76%; top: 89.18%;" class="c_113_1">
+		often deal with frightened youngsters, the
+	</div>
+
+	<div id="t_113_43" style="position: absolute; left: 11.76%; top: 91.07%;" class="c_113_1">
+		atmosphere is more informal than the procedures
+	</div>
+
+	<div id="t_113_44" style="position: absolute; left: 11.76%; top: 92.97%;" class="c_113_1">
+		at a circuit or district court.
+	</div>
+
+	<div id="t_113_45" style="position: absolute; left: 68.50%; top:39.01%;" class="c_113_14">
+		Word to Know
+	</div>
+
+	<div id="t_113_46" style="position: absolute; left: 68.50%; top:42.46%;" class="c_113_15">
+		<span class="c_113_16">&nbsp;&nbsp;&nbsp;&nbsp; juvenile</span>
+	</div>
+
+	<div id="t_113_47" style="position: absolute; left: 68.10%; top:40.71%; font-size: 2.5em;" class="c_113_15">&#8227;</div>
+	<div id="t_113_48" style="position: absolute; left: 70.66%; top:44.79%;" class="c_113_17">
+		(joo-vin-ile)
+	</div>
+
+	<div id="t_113_49" style="position: absolute; left: 68.50%; top:47.31%;" class="c_113_18">
+		In legal terms, a person
+	</div>
+
+	<div id="t_113_50" style="position: absolute; left: 68.50%; top:49.21%;" class="c_113_18">
+		under the age of 18
+	</div>
+
+	<div id="t_113_51" style="position: absolute; left: 70.26%; top:53.96%;" class="c_113_19">
+        On a day when school is
+	</div>
+
+	<div id="t_113_52" style="position: absolute; left: 70.26%; top:55.60%;" class="c_113_19">
+        closed, but the courts are
+	</div>
+
+	<div id="t_113_53" style="position: absolute; left: 70.26%; top:57.24%;" class="c_113_19">
+        open, ask an adult to take
+	</div>
+
+	<div id="t_113_54" style="position: absolute; left: 70.26%; top:58.88%;" class="c_113_19">
+        you to attend a district court
+	</div>
+
+	<div id="t_113_55" style="position: absolute; left: 70.26%; top:60.53%;" class="c_113_19">
+        session. Afterwards, write
+	</div>
+
+	<div id="t_113_56" style="position: absolute; left: 70.26%; top:62.17%;" class="c_113_19">
+        about your experience.
+	</div>
+
+	<div id="t_113_57" style="position: absolute; left: 92.88%; top:93.74%;" class="c_113_20">
+		113
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 10%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_113_small_claims_court.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 56%; top: 17%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_113_who_is_at_fault.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 64%; top: 26%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_113_learn_more_about.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 9%; top: 37%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_113_young_people.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 63%; top: 37%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_113_word_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 66%; top: 51%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_113_on_a_day.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_112_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_113_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_112_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="112.html?page=right"; onclick="goto('112.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="114.html"; onclick="goto('114.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="114.html"; onclick="goto('114.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

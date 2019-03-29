@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_166.css">
+                <link rel="stylesheet" href="css/civics_167.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="164.html?page=right"; onclick="goto('164.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="166.html"; onclick="goto('166.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="164.html?page=right"; onclick="goto('164.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_166_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_167_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_166_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="166.html?page=right"; onclick="goto('166.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="168.html"; onclick="goto('168.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="168.html"; onclick="goto('168.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="164.html?page=right"; onclick="goto('164.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="166.html"; onclick="goto('166.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="164.html?page=right"; onclick="goto('164.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_166">
+                                                                                                <div class="pageData">
+
+	<div id="t_166_0" style="position: absolute; left: 6.44%; top:4.10%;" class="c_166_0">
+		Virginia and the United States
+	</div>
+
+	<div id="t_166_1" style="position: absolute; left: 6.44%; top:5.87%;" class="c_166_0">
+		pursue international trade in
+	</div>
+
+	<div id="t_166_2" style="position: absolute; left: 6.44%; top:7.64%;" class="c_166_0">
+		order to increase wealth.
+	</div>
+
+	<div id="t_166_3" style="position: absolute; left: 30.74%; top:5.06%;" class="c_166_1">
+		China, Russia, Morocco, Israel, and
+	</div>
+
+	<div id="t_166_4" style="position: absolute; left: 38.34%; top:6.70%;" class="c_166_1">
+		Thailand embrace American-
+	</div>
+
+	<div id="t_166_5" style="position: absolute; left: 39.19%; top:8.35%;" class="c_166_1">
+		style food.
+	</div>
+
+	<div id="t_166_6" style="position: absolute; left: 41.46%; top: 20.84%; letter-spacing: -0.02em;" class="c_166_2">
+		Our Global Links
+	</div>
+
+	<div id="t_166_7" style="position: absolute; left: 32.58%; top: 27.62%; letter-spacing: 0.01em;" class="c_166_3">
+		Do you recognize these golden arches? They represent one American company
+	</div>
+
+	<div id="t_166_8" style="position: absolute; left: 34.88%; top: 29.38%; letter-spacing: 0.01em;" class="c_166_3">
+		serving a global marketplace and linking nations together in a new way.
+	</div>
+
+	<div id="t_166_9" style="position: absolute; left: 33.12%; top: 31.91%;" class="c_166_4">
+		Welcome to the <span class="c_166_5">global economy</span><span class="c_166_6">! It is a worldwide market where people,</span>
+	</div>
+
+	<div id="t_166_10" style="position: absolute; left: 31.80%; top: 33.8%;" class="c_166_4">
+		nations, and businesses from all over buy and sell goods and services.
+	</div>
+
+	<div id="t_166_11" style="position: absolute; left: 31.80%; top: 35.7%;" class="c_166_4">
+		Why do we need to trade with other nations? Often they have natural
+	</div>
+
+	<div id="t_166_12" style="position: absolute; left: 31.80%; top: 37.59%;" class="c_166_4">
+		resources that we do not. For example, it is difficult to grow cacao beans in
+	</div>
+
+	<div id="t_166_13" style="position: absolute; left: 31.80%; top: 39.49%;" class="c_166_4">
+		the continental United States. Only Hawaii has the right climate, but they
+	</div>
+
+	<div id="t_166_14" style="position: absolute; left: 31.80%; top: 41.38%;" class="c_166_4">
+		grow very little. If you want to manufacture chocolate bars or a hot cocoa
+	</div>
+
+	<div id="t_166_15" style="position: absolute; left: 31.80%; top: 43.28%;" class="c_166_4">
+		mix, you will most likely have to <span class="c_166_5">import</span> <span class="c_166_6">chocolate from another country.</span>
+	</div>
+
+	<div id="t_166_16" style="position: absolute; left: 43.43%; top:45.47%;" class="c_166_7">
+		ARE YOU BUYING OR SELLING?
+	</div>
+
+	<div id="t_166_17" style="position: absolute; left: 33.12%; top: 47.95%;" class="c_166_4">
+		International trade is a two-way street. We <span class="c_166_5">export</span><span class="c_166_6"> the things we make</span>
+	</div>
+
+	<div id="t_166_18" style="position: absolute; left: 31.80%; top: 49.84%;" class="c_166_4">
+		here to grow American businesses and create more jobs. We import to get
+	</div>
+
+	<div id="t_166_19" style="position: absolute; left: 31.80%; top: 51.73%;" class="c_166_4">
+		goods and services at lower opportunity costs because, in many cases,
+	</div>
+
+	<div id="t_166_20" style="position: absolute; left: 31.80%; top: 53.63%;" class="c_166_4">
+		imported goods cost less. Workers in many foreign countries are paid far
+	</div>
+
+	<div id="t_166_21" style="position: absolute; left: 31.80%; top: 55.52%;" class="c_166_4">
+		less than American workers. An astonishing 98 percent of the clothing we
+	</div>
+
+	<div id="t_166_22" style="position: absolute; left: 31.80%; top: 57.42%;" class="c_166_4">
+		buy in this country is made abroad. Lower costs mean lower opportunity
+	</div>
+
+	<div id="t_166_23" style="position: absolute; left: 31.80%; top: 59.31%;" class="c_166_4">
+		costs for us, so perhaps you can buy two T-shirts instead of one. For the
+	</div>
+
+	<div id="t_166_24" style="position: absolute; left: 45.69%; top: 61.21%;" class="c_166_4">
+		workers who make the T-shirts, there is an increase in
+	</div>
+
+	<div id="t_166_25" style="position: absolute; left: 45.69%; top: 63.1%;" class="c_166_4">
+		their economic welfare.
+	</div>
+
+	<div id="t_166_26" style="position: absolute; left: 45.59%; top: 67.92%;" class="c_166_8">
+		&bull; <span class="c_166_9">Virginia exports billions of dollars&rsquo; worth of goods</span>
+	</div>
+
+	<div id="t_166_27" style="position: absolute; left: 45.59%; top: 69.71%; letter-spacing: 0.01em;" class="c_166_3">
+		worldwide every year. <span class="c_166_10">Soybeans are one of our biggest</span>
+	</div>
+
+	<div id="t_166_28" style="position: absolute; left: 45.59%; top: 71.7%;" class="c_166_4">
+		exports, but close behind are electronic circuits and
+	</div>
+
+	<div id="t_166_29" style="position: absolute; left: 45.59%; top: 73.6%;" class="c_166_4">
+		memory cards for computers. Coal and paper products
+	</div>
+
+	<div id="t_166_30" style="position: absolute; left: 45.59%; top: 75.49%;" class="c_166_4">
+		are also very profitable Virginia exports.
+	</div>
+
+	<div id="t_166_31" style="position: absolute; left: 72.07%; top: 77.85%;" class="c_166_4">
+		Do you know anyone
+	</div>
+
+	<div id="t_166_32" style="position: absolute; left: 72.60%; top: 79.74%;" class="c_166_4">
+		who works in these
+	</div>
+
+	<div id="t_166_33" style="position: absolute; left: 73.13%; top: 81.64%;" class="c_166_4">
+		industries or in the
+	</div>
+
+	<div id="t_166_34" style="position: absolute; left: 73.66%; top: 83.53%;" class="c_166_4">
+		shipping trades that
+	</div>
+
+	<div id="t_166_35" style="position: absolute; left: 74.19%; top: 85.42%;" class="c_166_4">
+		make our export
+	</div>
+
+	<div id="t_166_36" style="position: absolute; left: 74.72%; top: 87.32%;" class="c_166_4">
+		trade so
+	</div>
+
+	<div id="t_166_37" style="position: absolute; left: 75.25%; top: 89.21%;" class="c_166_4">
+		strong?
+	</div>
+
+	<div id="t_166_38" style="position: absolute; left: 7.85%; top:41.72%;" class="c_166_11">
+		Words to Know
+	</div>
+
+	<div id="t_166_39" style="position: absolute; left: 9.85%; top:45.17%;" class="c_166_12">
+		<span class="c_166_13">import</span>
+	</div>
+
+	<div id="t_166_40" style="position: absolute; left: 7.45%; top:43.42%; font-size: 2.5em;" class="c_166_12">&#8227;</div>
+	<div id="t_166_41" style="position: absolute; left: 7.85%; top:47.62%;" class="c_166_14">
+		Purchase goods or services
+	</div>
+
+	<div id="t_166_42" style="position: absolute; left: 7.85%; top:49.76%;" class="c_166_14">
+		from a foreign country
+	</div>
+
+	<div id="t_166_43" style="position: absolute; left: 9.85%; top:52.24%;" class="c_166_12">
+		<span class="c_166_13">export</span>
+	</div>
+
+	<div id="t_166_44" style="position: absolute; left: 7.45%; top:50.49%; font-size: 2.5em;" class="c_166_12">&#8227;</div>
+	<div id="t_166_45" style="position: absolute; left: 7.85%; top:54.69%;" class="c_166_14">
+		Sell goods or services to a
+	</div>
+
+	<div id="t_166_46" style="position: absolute; left: 7.85%; top:56.84%;" class="c_166_14">
+		foreign country
+	</div>
+
+	<div id="t_166_47" style="position: absolute; left: 14.56%; top:61.48%;" class="c_166_15">
+		Virginia
+	</div>
+
+	<div id="t_166_48" style="position: absolute; left: 14.68%; top:66.91%;" class="c_166_15">
+		Exports
+	</div>
+
+	<div id="t_166_49" style="position: absolute; left: 10.88%; top:74.96%;" class="c_166_16">
+		ITEMS WE SELL TO THE WORLD
+	</div>
+
+	<div id="t_166_50" style="position: absolute; left: 4.65%; top: 94.71%; letter-spacing: -0.15em;" class="c_166_17">
+		166
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_166_virginia_and_the_us.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 29%; top: 7%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_166_china_russia_morocco.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 34%; top: 22%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_166_our_global_links.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 43%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_166_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 28%; top: 45%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_166_are_you_buying.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 7%; top: 61%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_166_virginia_exports.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_167">
+                                                                                                <div class="pageData">
+
+	<div id="t_167_0" style="position: absolute; left: 47.08%; top:21.84%;" class="c_167_0">
+		WHAT ARE WE BEST AT?
+	</div>
+
+	<div id="t_167_1" style="position: absolute; left: 37.44%; top: 24.31%;" class="c_167_1">
+		Our nation specializes in the production of certain goods and
+	</div>
+
+	<div id="t_167_2" style="position: absolute; left: 37.86%; top: 26.2%;" class="c_167_1">
+		services. One of our greatest strengths is in the field of technology
+	</div>
+
+	<div id="t_167_3" style="position: absolute; left: 39.60%; top: 28.1%;" class="c_167_1">
+		and innovation, especially here in Virginia. America is a nation of
+	</div>
+
+	<div id="t_167_4" style="position: absolute; left: 41.34%; top: 29.99%;" class="c_167_1">
+		entrepreneurs, and we excel at figuring out how to do things
+	</div>
+
+	<div id="t_167_5" style="position: absolute; left: 43.07%; top: 31.89%;" class="c_167_1">
+		efficiently. However, other countries can often produce our
+	</div>
+
+	<div id="t_167_6" style="position: absolute; left: 44.81%; top: 33.78%;" class="c_167_1">
+		creations even more efficiently. This can be a good thing.
+	</div>
+
+	<div id="t_167_7" style="position: absolute; left: 45.10%; top: 35.68%;" class="c_167_1">
+		Jobs are created by this exchange of ideas and
+	</div>
+
+	<div id="t_167_8" style="position: absolute; left: 43.81%; top: 37.57%;" class="c_167_1">
+		merchandise, which leads to more stable economies abroad.
+	</div>
+
+	<div id="t_167_9" style="position: absolute; left: 42.52%; top: 39.46%;" class="c_167_1">
+		As we become more interconnected through trade, it helps to
+	</div>
+
+	<div id="t_167_10" style="position: absolute; left: 42.20%; top: 41.36%;" class="c_167_1">
+		make the world a more peaceful place.
+	</div>
+
+	<div id="t_167_11" style="position: absolute; left: 49.16%; top:43.43%;" class="c_167_0">
+		TECHNOLOGY AND THE WORLD
+	</div>
+
+	<div id="t_167_12" style="position: absolute; left: 45.33%; top: 45.9%;" class="c_167_1">
+		Things have changed enormously since those long-ago
+	</div>
+
+	<div id="t_167_13" style="position: absolute; left: 42.93%; top: 47.79%;" class="c_167_1">
+		days in the early 1600s when a struggling Virginia colony
+	</div>
+
+	<div id="t_167_14" style="position: absolute; left: 39.48%; top: 49.69%;" class="c_167_1">
+		exported boatloads of tobacco and lumber to England. The impact
+	</div>
+
+	<div id="t_167_15" style="position: absolute; left: 35.17%; top: 51.58%;" class="c_167_1">
+		of technological innovations, especially with the Internet, now allows a
+	</div>
+
+	<div id="t_167_16" style="position: absolute; left: 30.74%; top: 53.48%;" class="c_167_1">
+		craftsperson in Kenya or
+	</div>
+
+	<div id="t_167_17" style="position: absolute; left: 30.74%; top: 55.37%;" class="c_167_1">
+		Honduras to sell his or her
+	</div>
+
+	<div id="t_167_18" style="position: absolute; left: 30.74%; top: 57.27%;" class="c_167_1">
+		wares to a homeowner in
+	</div>
+
+	<div id="t_167_19" style="position: absolute; left: 30.74%; top: 59.16%;" class="c_167_1">
+		Virginia Beach. Technology has
+	</div>
+
+	<div id="t_167_20" style="position: absolute; left: 30.74%; top: 61.06%;" class="c_167_1">
+		brought us closer together,
+	</div>
+
+	<div id="t_167_21" style="position: absolute; left: 30.74%; top: 62.95%;" class="c_167_1">
+		and it has also enabled us to
+	</div>
+
+	<div id="t_167_22" style="position: absolute; left: 30.74%; top: 64.84%;" class="c_167_1">
+		manufacture things more
+	</div>
+
+	<div id="t_167_23" style="position: absolute; left: 30.74%; top: 66.74%;" class="c_167_1">
+		quickly and at lower costs. It is
+	</div>
+
+	<div id="t_167_24" style="position: absolute; left: 30.74%; top: 68.63%;" class="c_167_1">
+		indeed a small world, after all.
+	</div>
+
+	<div id="t_167_25" style="position: absolute; left: 77.94%; top:55.29%;" class="c_167_2">
+		A website helps this
+	</div>
+
+	<div id="t_167_26" style="position: absolute; left: 77.94%; top:56.93%;" class="c_167_2">
+		man sell his batiks
+	</div>
+
+	<div id="t_167_27" style="position: absolute; left: 77.94%; top:58.57%;" class="c_167_2">
+		worldwide.
+	</div>
+
+	<div id="t_167_28" style="position: absolute; left: 10.19%; top:38.71%;" class="c_167_2">
+		Blue jeans are an all-
+	</div>
+
+	<div id="t_167_29" style="position: absolute; left: 10.19%; top:40.35%;" class="c_167_2">
+		American invention, but
+	</div>
+
+	<div id="t_167_30" style="position: absolute; left: 10.19%; top:41.99%;" class="c_167_2">
+		most are now made
+	</div>
+
+	<div id="t_167_31" style="position: absolute; left: 10.19%; top:43.63%;" class="c_167_2">
+		abroad. <span class="c_167_3">Go through your</span>
+	</div>
+
+	<div id="t_167_32" style="position: absolute; left: 10.19%; top:45.27%;" class="c_167_2">
+		closet and read the labels
+	</div>
+
+	<div id="t_167_33" style="position: absolute; left: 10.19%; top:46.91%;" class="c_167_2">
+		in your clothing. How
+	</div>
+
+	<div id="t_167_34" style="position: absolute; left: 10.19%; top:48.56%;" class="c_167_2">
+		much of it was made
+	</div>
+
+	<div id="t_167_35" style="position: absolute; left: 10.19%; top:50.20%;" class="c_167_2">
+		abroad? Make a list of all
+	</div>
+
+	<div id="t_167_36" style="position: absolute; left: 10.19%; top:51.84%;" class="c_167_2">
+		the different countries.
+	</div>
+
+	<div id="t_167_37" style="position: absolute; left: 10.19%; top:53.48%;" class="c_167_2">
+		Do you own anything
+	</div>
+
+	<div id="t_167_38" style="position: absolute; left: 10.19%; top:55.12%;" class="c_167_2">
+		made in the U.S.A.?
+	</div>
+
+	<div id="t_167_39" style="position: absolute; left: 8.82%; top:67.10%;" class="c_167_4">
+		Virginia&rsquo;s ports are
+	</div>
+
+	<div id="t_167_40" style="position: absolute; left: 8.82%; top:68.74%;" class="c_167_4">
+		some of the busiest in
+	</div>
+
+	<div id="t_167_41" style="position: absolute; left: 8.82%; top:70.38%;" class="c_167_4">
+		the United
+	</div>
+
+	<div id="t_167_42" style="position: absolute; left: 8.82%; top:72.02%;" class="c_167_4">
+		States with
+	</div>
+
+	<div id="t_167_43" style="position: absolute; left: 8.82%; top:73.66%;" class="c_167_4">
+		direct service
+	</div>
+
+	<div id="t_167_44" style="position: absolute; left: 8.82%; top:75.31%;" class="c_167_4">
+		to 45
+	</div>
+
+	<div id="t_167_45" style="position: absolute; left: 8.82%; top:76.95%;" class="c_167_4">
+		different
+	</div>
+
+	<div id="t_167_46" style="position: absolute; left: 8.82%; top:78.59%;" class="c_167_4">
+		countries.
+	</div>
+
+	<div id="t_167_47" style="position: absolute; left: 93.12%; top: 94.56%; letter-spacing: -0.15em;" class="c_167_5">
+		167
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 40%; top: 20%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_167_what_are_we_best.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 35.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_167_blue_jeans.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 38%; top: 43%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_167_technology_and.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 72%; top: 54%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_167_a_website_helps.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 68%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_167_virginias_ports.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_166_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_167_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_166_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="166.html?page=right"; onclick="goto('166.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="168.html"; onclick="goto('168.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="168.html"; onclick="goto('168.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

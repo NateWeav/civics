@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_82.css">
+                <link rel="stylesheet" href="css/civics_83.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="80.html?page=right"; onclick="goto('80.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="82.html"; onclick="goto('82.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="80.html?page=right"; onclick="goto('80.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_82_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_83_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_82_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="82.html?page=right"; onclick="goto('82.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="84.html"; onclick="goto('84.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="84.html"; onclick="goto('84.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="80.html?page=right"; onclick="goto('80.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="82.html"; onclick="goto('82.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="80.html?page=right"; onclick="goto('80.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_82">
+                                                                                                <div class="pageData">
+
+	<div id="t_82_0" style="position: absolute; left: 58.77%; top:5.60%;" class="c_82_0">
+		The Constitution of the United States
+	</div>
+
+	<div id="t_82_1" style="position: absolute; left: 58.77%; top:7.36%;" class="c_82_0">
+		defines the structure and powers of the
+	</div>
+
+	<div id="t_82_2" style="position: absolute; left: 58.77%; top:9.13%;" class="c_82_0">
+		national government.
+	</div>
+
+	<div id="t_82_3" style="position: absolute; left: 64.31%; top:12.85%;" class="c_82_1">
+		&ldquo;If the provisions of the
+	</div>
+
+	<div id="t_82_4" style="position: absolute; left: 64.32%; top:15.75%;" class="c_82_1">
+		Constitution be not
+	</div>
+
+	<div id="t_82_5" style="position: absolute; left: 64.32%; top:18.66%;" class="c_82_1">
+		upheld when they pinch
+	</div>
+
+	<div id="t_82_6" style="position: absolute; left: 64.32%; top:21.56%;" class="c_82_1">
+		as well as when they
+	</div>
+
+	<div id="t_82_7" style="position: absolute; left: 64.32%; top:24.47%; letter-spacing:-0.025em;" class="c_82_1">
+		comfort, they may as well
+	</div>
+
+	<div id="t_82_8" style="position: absolute; left: 64.32%; top:27.37%;" class="c_82_1">
+		be abandoned.&rdquo;
+	</div>
+
+	<div id="t_82_9" style="position: absolute; left: 64.32%; top:30.15%;" class="c_82_1">
+		&ndash;<span class="c_82_2">Charles Evans Hughes</span>
+	</div>
+
+	<div id="t_82_10" style="position: absolute; left: 67.75%; top:32.89%;" class="c_82_3">
+		Chief  Justice of the U.S. Supreme
+	</div>
+
+	<div id="t_82_11" style="position: absolute; left: 84.69%; top:34.53%;" class="c_82_3">
+		Court
+	</div>
+
+	<div id="t_82_12" style="position: absolute; left: 7.68%; top: 29.02%; letter-spacing: -0.02em;" class="c_82_4">
+		The Judicial Branch
+	</div>
+
+	<div id="t_82_13" style="position: absolute; left: 8.09%; top: 35.61%; letter-spacing: 0.01em;" class="c_82_5">
+		Walk under this carved marble portico and you will enter the
+	</div>
+
+	<div id="t_82_14" style="position: absolute; left: 8.09%; top: 37.50%; letter-spacing: 0.01em;" class="c_82_5">
+		chambers of the U.S. Supreme Court&mdash;the highest court in the land.
+	</div>
+
+	<div id="t_82_15" style="position: absolute; left: 8.09%; top: 39.40%; letter-spacing: 0.01em;" class="c_82_5">
+		It is a place where the upholding of the Constitution in ever-changing
+	</div>
+
+	<div id="t_82_16" style="position: absolute; left: 8.09%; top: 41.29%; letter-spacing: 0.01em;" class="c_82_5">
+		times is all that matters.
+	</div>
+
+	<div id="t_82_17" style="position: absolute; left: 18.64%; top:43.83%;" class="c_82_6">
+		THE FEDERAL COURT SYSTEM
+	</div>
+
+	<div id="t_82_18" style="position: absolute; left: 10.14%; top: 46.06%;" class="c_82_7">
+		You do not go to a federal court to deal with a speeding ticket or
+	</div>
+
+	<div id="t_82_19" style="position: absolute; left: 8.82%; top: 47.95%;" class="c_82_7">
+		to sue a neighbor with a nasty dog. Federal courts are different
+	</div>
+
+	<div id="t_82_20" style="position: absolute; left: 8.82%; top: 49.85%;" class="c_82_7">
+		from state courts. Federal courts can only hear cases that involve
+	</div>
+
+	<div id="t_82_21" style="position: absolute; left: 8.82%; top: 51.74%;" class="c_82_7">
+		the U.S. government, the Constitution, federal laws, and cases involving two
+	</div>
+
+	<div id="t_82_22" style="position: absolute; left: 8.82%; top: 53.64%;" class="c_82_7">
+		parties not from the same state or country. There are two kinds of cases. In a
+	</div>
+
+	<div id="t_82_23" style="position: absolute; left: 8.82%; top: 55.53%;" class="c_82_7">
+		criminal lawsuit, the government brings the charge: for example, a hacker
+	</div>
+
+	<div id="t_82_24" style="position: absolute; left: 8.82%; top: 57.42%;" class="c_82_7">
+		has stolen credit card numbers. In a civil lawsuit, any person can claim
+	</div>
+
+	<div id="t_82_25" style="position: absolute; left: 8.82%; top: 59.32%;" class="c_82_7">
+		wrongdoing: for example, you bought a bike from a company in another state
+	</div>
+
+	<div id="t_82_26" style="position: absolute; left: 8.82%; top: 61.21%;" class="c_82_7">
+		and it fell apart while you were riding it, leading to a back injury.
+	</div>
+
+	<div id="t_82_27" style="position: absolute; left: 21.34%; top:63.48%;" class="c_82_6">
+		THE FEDERAL DISTRICT COURT
+	</div>
+
+	<div id="t_82_28" style="position: absolute; left: 9.00%; top: 65.71%;" class="c_82_7">
+		If you&rsquo;ve ever seen a movie with a courtroom scene, the action in a federal
+	</div>
+
+	<div id="t_82_29" style="position: absolute; left: 7.68%; top: 67.6%;" class="c_82_7">
+		district court will seem familiar to you. Each district has at least one district
+	</div>
+
+	<div id="t_82_30" style="position: absolute; left: 7.68%; top: 69.5%;" class="c_82_7">
+		judge, appointed by the president and confirmed by the Senate for a life term.
+	</div>
+
+	<div id="t_82_31" style="position: absolute; left: 7.68%; top: 71.39%;" class="c_82_7">
+		Lawyers from the U.S. Attorney&rsquo;s office present the government&rsquo;s side of the
+	</div>
+
+	<div id="t_82_32" style="position: absolute; left: 7.68%; top: 73.28%;" class="c_82_7">
+		case. Sometimes the losing side in federal district court will ask a federal Court
+	</div>
+
+	<div id="t_82_33" style="position: absolute; left: 7.68%; top: 75.18%;" class="c_82_7">
+		of Appeals to review the decision. If that happens, it goes to a higher court.
+	</div>
+
+	<div id="t_82_34" style="position: absolute; left: 20.00%; top:77.63%;" class="c_82_6">
+		THE CIRCUIT COURT OF APPEALS
+	</div>
+
+	<div id="t_82_35" style="position: absolute; left: 9.00%; top: 79.85%;" class="c_82_7">
+		There are 13 federal circuits: 12 federal circuits that divide the country into
+	</div>
+
+	<div id="t_82_36" style="position: absolute; left: 7.68%; top: 81.74%;" class="c_82_7">
+		different regions and a Court of Appeals for the Federal Circuit in the District of
+	</div>
+
+	<div id="t_82_37" style="position: absolute; left: 7.68%; top: 83.64%;" class="c_82_7">
+		Columbia. Virginia is in the Fourth Circuit, along with Maryland, North and
+	</div>
+
+	<div id="t_82_38" style="position: absolute; left: 7.68%; top: 85.53%;" class="c_82_7">
+		South Carolina, and West Virginia. Cases on <span class="c_82_8">appeal</span><span class="c_82_9"> from the district courts of</span>
+	</div>
+
+	<div id="t_82_39" style="position: absolute; left: 7.68%; top: 87.43%;" class="c_82_7">
+		those states all end up in Richmond. Each circuit court has multiple judges,
+	</div>
+
+	<div id="t_82_40" style="position: absolute; left: 7.68%; top: 89.32%;" class="c_82_7">
+		anywhere from 6 to 29. These courts hear death penalty appeals from states
+	</div>
+
+	<div id="t_82_41" style="position: absolute; left: 7.68%; top: 91.22%;" class="c_82_7">
+		with a death penalty, as well as appeals from people who believe they were
+	</div>
+
+	<div id="t_82_42" style="position: absolute; left: 7.68%; top: 93.11%;" class="c_82_7">
+		wrongly convicted. If <span class="c_82_10">their</span> <span class="c_82_9">decision is appealed, it goes to&hellip;</span>
+	</div>
+
+	<div id="t_82_43" style="position: absolute; left: 5.08%; top: 94.42%;" class="c_82_11">
+		82
+	</div>
+
+	<div id="t_82_44" style="position: absolute; left: 73.86%; top:58.87%;" class="c_82_12">
+		Word to Know
+	</div>
+
+	<div id="t_82_45" style="position: absolute; left: 73.86%; top:61.75%;" class="c_82_13">
+		<span class="c_82_14">&nbsp;&nbsp;&nbsp;&nbsp;appeal</span>
+	</div>
+
+	<div id="t_82_46" style="position: absolute; left: 73.46%; top:60.00%; font-size: 2.5em;" class="c_82_13">&#8227;</div>
+	<div id="t_82_47" style="position: absolute; left: 73.53%; top:64.08%;" class="c_82_15">
+		(<span class="c_82_16">uh-peel)</span>
+	</div>
+
+	<div id="t_82_48" style="position: absolute; left: 73.86%; top:66.60%;" class="c_82_17">
+		Ask a higher court
+	</div>
+
+	<div id="t_82_49" style="position: absolute; left: 73.86%; top:68.49%;" class="c_82_17">
+		to reverse a decision
+	</div>
+
+	<div id="t_82_50" style="position: absolute; left: 73.86%; top:70.38%;" class="c_82_17">
+		of a lower court
+	</div>
+
+	<div id="t_82_51" style="position: absolute; left: 74.06%; top:88.39%;" class="c_82_18">
+		The U.S. Court of
+	</div>
+
+	<div id="t_82_52" style="position: absolute; left: 74.06%; top:90.04%;" class="c_82_18">
+		Appeals in Richmond,
+	</div>
+
+	<div id="t_82_53" style="position: absolute; left: 74.06%; top:91.68%;" class="c_82_18">
+		Virginia
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 54%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_the_constitution.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 59%; top: 13%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_if_the_provisions.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 30%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_the_judicial_branch.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 44%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_the_federal_court_system.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 63%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_the_federal_district_court.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 77%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_the_circuit_court.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 67%; top: 61%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_word_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 68%; top: 88%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_82_the_us_court.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_83">
+                                                                                                <div class="pageData">
+
+	<div id="t_83_0" style="position: absolute; left: 17.41%; top:5.83%;" class="c_83_0">
+		THE SUPREME COURT
+	</div>
+
+	<div id="t_83_1" style="position: absolute; left: 10.14%; top: 7.8%;" class="c_83_1">
+		The men and women of the U.S. Supreme Court, led
+	</div>
+
+	<div id="t_83_2" style="position: absolute; left: 8.82%; top: 9.7%;" class="c_83_1">
+		by a chief justice, make up the highest court in the
+	</div>
+
+	<div id="t_83_3" style="position: absolute; left: 8.82%; top: 11.59%;" class="c_83_1">
+		land. Some say they have the most powerful jobs a
+	</div>
+
+	<div id="t_83_4" style="position: absolute; left: 8.82%; top: 13.48%;" class="c_83_1">
+		U.S. citizen can have. Appointed by the president and
+	</div>
+
+	<div id="t_83_5" style="position: absolute; left: 8.82%; top: 15.38%;" class="c_83_1">
+		confirmed by the Senate for a life term, they never
+	</div>
+
+	<div id="t_83_6" style="position: absolute; left: 8.82%; top: 17.27%;" class="c_83_1">
+		have to run for re-election and can be removed from
+	</div>
+
+	<div id="t_83_7" style="position: absolute; left: 8.82%; top: 19.17%;" class="c_83_1">
+		office only under extraordinary circumstances.
+	</div>
+
+	<div id="t_83_8" style="position: absolute; left: 10.14%; top: 21.06%;" class="c_83_1">
+		The &ldquo;Nine,&rdquo; as they are sometimes called, have a lot
+	</div>
+
+	<div id="t_83_9" style="position: absolute; left: 8.82%; top: 22.96%;" class="c_83_1">
+		to say about how this country is run because the
+	</div>
+
+	<div id="t_83_10" style="position: absolute; left: 8.82%; top: 24.85%;" class="c_83_1">
+		court exercises the power of <span class="c_83_2">judicial review</span><span class="c_83_3">. That</span>
+	</div>
+
+	<div id="t_83_11" style="position: absolute; left: 8.82%; top: 26.75%;" class="c_83_1">
+		means that something that the executive or
+	</div>
+
+	<div id="t_83_12" style="position: absolute; left: 8.82%; top: 28.64%;" class="c_83_1">
+		legislative branch does can be overturned by the
+	</div>
+
+	<div id="t_83_13" style="position: absolute; left: 8.82%; top: 30.53%;" class="c_83_1">
+		judicial branch. That is a lot of power to have!
+	</div>
+
+	<div id="t_83_14" style="position: absolute; left: 15.85%; top:32.85%;" class="c_83_0">
+		THE POWER OF DISSENT
+	</div>
+
+	<div id="t_83_15" style="position: absolute; left: 10.14%; top: 35.07%;" class="c_83_1">
+		The Supreme Court has made some controversial
+	</div>
+
+	<div id="t_83_16" style="position: absolute; left: 8.82%; top: 36.97%;" class="c_83_1">
+		decisions, but each justice gets to justify his or her
+	</div>
+
+	<div id="t_83_17" style="position: absolute; left: 8.82%; top: 38.86%;" class="c_83_1">
+		opinion after every vote. And sometimes, even when
+	</div>
+
+	<div id="t_83_18" style="position: absolute; left: 8.82%; top: 40.76%;" class="c_83_1">
+		things don&rsquo;t go their way, their voices still are heard.
+	</div>
+
+	<div id="t_83_19" style="position: absolute; left: 8.82%; top:42.71%;" class="c_83_1">
+		<i>"Dissents speak to a future age. It's not simply to say,</i>
+	</div>
+
+	<div id="t_83_20" style="position: absolute; left: 8.82%; top:44.61%;" class="c_83_1">
+		<i>My colleagues are wrong and I would do it this way.</i>
+	</div>
+
+	<div id="t_83_21" style="position: absolute; left: 8.82%; top:46.49%;" class="c_83_1">
+		<i>But the greatest dissents do become court opinions and</i>
+	</div>
+
+	<div id="t_83_22" style="position: absolute; left: 8.82%; top:48.40%;" class="c_83_1">
+		<i>gradually, over time, their views become the dominant</i>
+	</div>
+
+	<div id="t_83_23" style="position: absolute; left: 8.82%; top:50.29%;" class="c_83_1">
+		<i>view. So that's the dissenter's hope: that they are</i>
+	</div>
+
+	<div id="t_83_24" style="position: absolute; left: 8.82%; top:52.12%;" class="c_83_1">
+		<i>writing not for today but for tomorrow."</i> 
+	</div>
+
+	<div id="t_83_25" style="position: absolute; left: 8.82%; top: 54.02%;" class="c_83_1">
+		So wrote Supreme Court justice Ruth Bader Ginsburg.
+	</div>
+
+	<div id="t_83_26" style="position: absolute; left: 10.58%; top: 55.91%;" class="c_83_1">
+		A justice of the Supreme Court is supposed to be
+	</div>
+
+	<div id="t_83_27" style="position: absolute; left: 8.82%; top: 57.81%;" class="c_83_1">
+		above political party allegiances, but as someone
+	</div>
+
+	<div id="t_83_28" style="position: absolute; left: 8.82%; top: 59.7%;" class="c_83_1">
+		leaves, a new justice will be appointed by the current
+	</div>
+
+	<div id="t_83_29" style="position: absolute; left: 8.82%; top: 61.6%;" class="c_83_1">
+		president. Presidents try to nominate someone who
+	</div>
+
+	<div id="t_83_30" style="position: absolute; left: 8.82%; top: 63.49%;" class="c_83_1">
+		views the Constitution in the same way.  Since
+	</div>
+
+	<div id="t_83_31" style="position: absolute; left: 8.82%; top: 65.39%;" class="c_83_1">
+		Republican and Democratic presidents have different
+	</div>
+
+	<div id="t_83_32" style="position: absolute; left: 8.82%; top: 67.28%;" class="c_83_1">
+		ideas about whom to choose, there is a lot of drama
+	</div>
+
+	<div id="t_83_33" style="position: absolute; left: 8.82%; top: 69.17%;" class="c_83_1">
+		under that &ldquo;Equal Justice Under Law&rdquo; portico!
+	</div>
+
+	<div id="t_83_34" style="position: absolute; left: 59.32%; top:3.36%;" class="c_83_8">
+		Landmark
+	</div>
+
+	<div id="t_83_35" style="position: absolute; left: 60.48%; top:9.17%;" class="c_83_8">
+		Decisions
+	</div>
+
+	<div id="t_83_36" style="position: absolute; left: 68.88%; top:16.53%;" class="c_83_9">
+		UPHOLDING
+	</div>
+
+	<div id="t_83_37" style="position: absolute; left: 65.31%; top:18.50%;" class="c_83_9">
+		THE CONSTITUTION
+	</div>
+
+	<div id="t_83_38" style="position: absolute; left: 61.57%; top: 22.31%; letter-spacing: 0.01em;" class="c_83_10">
+		Some Supreme Court decisions have
+	</div>
+
+	<div id="t_83_39" style="position: absolute; left: 61.59%; top: 23.95%; letter-spacing: 0.01em;" class="c_83_10">
+		had a huge impact on American life.
+	</div>
+
+	<div id="t_83_40" style="position: absolute; left: 69.18%; top: 25.59%; letter-spacing: 0.01em;" class="c_83_10">
+		Here are three:
+	</div>
+
+	<div id="t_83_41" style="position: absolute; left: 62.23%; top:27.65%;" class="c_83_11">
+		MARBURY v. MADISON <span class="c_83_12">(1803)</span>
+	</div>
+
+	<div id="t_83_42" style="position: absolute; left: 57.42%; top: 29.64%;" class="c_83_1">
+		This important decision established the
+	</div>
+
+	<div id="t_83_43" style="position: absolute; left: 56.10%; top: 31.54%;" class="c_83_1">
+		Supreme Court&rsquo;s authority&mdash;some even say its
+	</div>
+
+	<div id="t_83_44" style="position: absolute; left: 56.10%; top: 33.43%;" class="c_83_1">
+		obligation&mdash;to review any acts of Congress to
+	</div>
+
+	<div id="t_83_45" style="position: absolute; left: 56.10%; top: 35.33%;" class="c_83_1">
+		make sure they do not go against the U.S.
+	</div>
+
+	<div id="t_83_46" style="position: absolute; left: 56.10%; top: 37.22%;" class="c_83_1">
+		Constitution. <span class="c_83_13">Read more on page 136.</span>
+	</div>
+
+	<div id="t_83_47" style="position: absolute; left: 61.06%; top:39.52%;" class="c_83_11">
+		PLESSY v. FERGUSON<span class="c_83_12"> (1896) AND</span>
+	</div>
+
+	<div id="t_83_48" style="position: absolute; left: 57.84%; top:41.16%;" class="c_83_11">
+		BROWN v. BOARD OF EDUCATION<span class="c_83_12"> (1954)</span>
+	</div>
+
+	<div id="t_83_49" style="position: absolute; left: 57.42%; top: 43.16%;" class="c_83_1">
+		In <span class="c_83_5">Plessy</span> <span class="c_83_2">v</span><span class="c_83_5">. Ferguson</span> <span class="c_83_3">the court had ruled in</span>
+	</div>
+
+	<div id="t_83_50" style="position: absolute; left: 56.10%; top: 45.05%;" class="c_83_1">
+		favor of the terrible doctrine of &ldquo;separate but
+	</div>
+
+	<div id="t_83_51" style="position: absolute; left: 56.10%; top: 46.95%;" class="c_83_1">
+		equal.&rdquo; The reality was that African Americans
+	</div>
+
+	<div id="t_83_52" style="position: absolute; left: 56.10%; top: 48.84%;" class="c_83_1">
+		were forced into underfunded schools and in
+	</div>
+
+	<div id="t_83_53" style="position: absolute; left: 56.10%; top: 50.73%;" class="c_83_1">
+		many places kept out of public parks.
+	</div>
+
+	<div id="t_83_54" style="position: absolute; left: 57.42%; top: 52.63%;" class="c_83_1">
+		By the 1950s, it was very clear that separate
+	</div>
+
+	<div id="t_83_55" style="position: absolute; left: 56.10%; top: 54.52%;" class="c_83_1">
+		schools were NOT equal. A civil rights group,
+	</div>
+
+	<div id="t_83_56" style="position: absolute; left: 56.10%; top: 56.42%;" class="c_83_1">
+		the NAACP (National Association for the
+	</div>
+
+	<div id="t_83_57" style="position: absolute; left: 56.10%; top: 58.31%;" class="c_83_1">
+		Advancement of Colored People), challenged
+	</div>
+
+	<div id="t_83_58" style="position: absolute; left: 56.10%; top: 60.21%;" class="c_83_1">
+		the constitutionality of segregation, naming the
+	</div>
+
+	<div id="t_83_59" style="position: absolute; left: 56.10%; top: 62.1%;" class="c_83_1">
+		Topeka, Kansas, school system as an example.
+	</div>
+
+	<div id="t_83_60" style="position: absolute; left: 56.10%; top: 64%;" class="c_83_1">
+		In 1954 the court reversed its Plessy decision,
+	</div>
+
+	<div id="t_83_61" style="position: absolute; left: 56.10%; top: 65.89%;" class="c_83_1">
+		declaring that separate schools are &ldquo;inherently
+	</div>
+
+	<div id="t_83_62" style="position: absolute; left: 56.10%; top: 67.78%;" class="c_83_1">
+		unequal.&rdquo; It was a major victory for equality,
+	</div>
+
+	<div id="t_83_63" style="position: absolute; left: 56.10%; top: 69.68%;" class="c_83_1">
+		although the promise of truly integrated
+	</div>
+
+	<div id="t_83_64" style="position: absolute; left: 56.10%; top: 71.57%;" class="c_83_1">
+		schools took many more years to achieve.
+	</div>
+
+	<div id="t_83_65" style="position: absolute; left: 56.40%; top:77.54%;" class="c_83_14">
+		Thurgood Marshall,
+	</div>
+
+	<div id="t_83_66" style="position: absolute; left: 56.40%; top:79.18%;" class="c_83_14">
+		Sandra Day O&rsquo;Connor,
+	</div>
+
+	<div id="t_83_67" style="position: absolute; left: 56.40%; top:80.82%;" class="c_83_14">
+		and Sonia Sotomayor
+	</div>
+
+	<div id="t_83_68" style="position: absolute; left: 56.40%; top:82.46%;" class="c_83_14">
+		are all trailblazers.
+	</div>
+
+	<div id="t_83_69" style="position: absolute; left: 56.40%; top:84.10%;" class="c_83_14">
+		As the first African
+	</div>
+
+	<div id="t_83_70" style="position: absolute; left: 56.40%; top:85.74%;" class="c_83_14">
+		American justice, the
+	</div>
+
+	<div id="t_83_71" style="position: absolute; left: 56.40%; top:87.39%;" class="c_83_14">
+		first woman justice,
+	</div>
+
+	<div id="t_83_72" style="position: absolute; left: 56.40%; top:89.03%;" class="c_83_14">
+		and the first Latina
+	</div>
+
+	<div id="t_83_73" style="position: absolute; left: 56.40%; top:90.67%;" class="c_83_14">
+		justice, they brought
+	</div>
+
+	<div id="t_83_74" style="position: absolute; left: 56.40%; top:92.31%;" class="c_83_14">
+		much-needed diversity
+	</div>
+
+	<div id="t_83_75" style="position: absolute; left: 56.40%; top:93.95%;" class="c_83_14">
+		to the Supreme Court.
+	</div>
+
+	<div id="t_83_76" style="position: absolute; left: 93.42%; top: 94.34%;" class="c_83_15">
+		83
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_83_the_supreme_court.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 32%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_83_the_power_of_dissent.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 53%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_83_landmark_decisions.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 52%; top: 74%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_83_thurgood_marshall.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_82_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_83_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_82_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="82.html?page=right"; onclick="goto('82.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="84.html"; onclick="goto('84.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="84.html"; onclick="goto('84.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

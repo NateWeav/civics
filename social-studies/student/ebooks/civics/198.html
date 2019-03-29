@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_198.css">
+                <link rel="stylesheet" href="css/civics_199.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="196.html?page=right"; onclick="goto('196.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="198.html"; onclick="goto('198.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="196.html?page=right"; onclick="goto('196.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="200.html"; onclick="goto('200.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="200.html"; onclick="goto('200.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="196.html?page=right"; onclick="goto('196.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="198.html"; onclick="goto('198.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="196.html?page=right"; onclick="goto('196.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_198">
+                                                                                                <div class="pageData">
+
+	<div id="t_198_0" style="position: absolute; left: 34.27%; top:6.56%;" class="c_198_0">
+		They too have been deaf to the voice of justice and of consanguinity. We must,
+	</div>
+
+	<div id="t_198_1" style="position: absolute; left: 34.27%; top:8.07%;" class="c_198_0">
+		therefore, acquiesce in the necessity, which denounces our Separation, and hold
+	</div>
+
+	<div id="t_198_2" style="position: absolute; left: 34.27%; top:9.59%;" class="c_198_0">
+		them, as we hold the rest of mankind, Enemies in War, in Peace Friends.
+	</div>
+
+	<div id="t_198_3" style="position: absolute; left: 35.73%; top:11.10%;" class="c_198_0">
+		We, therefore, the Representatives of the United States of America, in General
+	</div>
+
+	<div id="t_198_4" style="position: absolute; left: 34.27%; top:12.62%;" class="c_198_0">
+		Congress, Assembled, appealing to the Supreme Judge of the world for the
+	</div>
+
+	<div id="t_198_5" style="position: absolute; left: 34.27%; top:14.13%;" class="c_198_0">
+		rectitude of our intentions, do, in the Name, and by Authority of the good People
+	</div>
+
+	<div id="t_198_6" style="position: absolute; left: 34.27%; top:15.65%;" class="c_198_0">
+		of these Colonies, solemnly publish and declare, That these United Colonies are,
+	</div>
+
+	<div id="t_198_7" style="position: absolute; left: 34.27%; top:17.16%;" class="c_198_0">
+		and of Right ought to be Free and Independent States; that they are Absolved
+	</div>
+
+	<div id="t_198_8" style="position: absolute; left: 34.27%; top:18.68%;" class="c_198_0">
+		from all Allegiance to the British Crown, and that all political connection between
+	</div>
+
+	<div id="t_198_9" style="position: absolute; left: 34.27%; top:20.19%;" class="c_198_0">
+		them and the State of Great Britain, is and ought to be totally dissolved; and that
+	</div>
+
+	<div id="t_198_10" style="position: absolute; left: 34.27%; top:21.71%;" class="c_198_0">
+		as Free and Independent States, they have full Power to levy War, conclude Peace,
+	</div>
+
+	<div id="t_198_11" style="position: absolute; left: 34.27%; top:23.22%;" class="c_198_0">
+		contract Alliances, establish Commerce, and to do all other Acts and Things
+	</div>
+
+	<div id="t_198_12" style="position: absolute; left: 34.27%; top:24.74%;" class="c_198_0">
+		which Independent States may of right do. And for the support of this
+	</div>
+
+	<div id="t_198_13" style="position: absolute; left: 34.27%; top:26.25%;" class="c_198_0">
+		Declaration, with a firm reliance on the protection of divine Providence, we
+	</div>
+
+	<div id="t_198_14" style="position: absolute; left: 34.27%; top:27.77%;" class="c_198_0">
+		mutually pledge to each other our Lives, our Fortunes and our sacred Honor.
+	</div>
+
+	<div id="t_198_15" style="position: absolute; left: 71.35%; top:37.26%;" class="c_198_1">
+		&ldquo;We must all
+	</div>
+
+	<div id="t_198_16" style="position: absolute; left: 68.31%; top:39.53%;" class="c_198_1">
+		hang together, or
+	</div>
+
+	<div id="t_198_17" style="position: absolute; left: 67.57%; top:41.80%;" class="c_198_1">
+		assuredly we shall
+	</div>
+
+	<div id="t_198_18" style="position: absolute; left: 66.76%; top:31.18%;" class="c_198_2">
+		Fifty-six Americans signed the
+	</div>
+
+	<div id="t_198_19" style="position: absolute; left: 66.76%; top:32.69%;" class="c_198_2">
+		Declaration of Independence.
+	</div>
+
+	<div id="t_198_20" style="position: absolute; left: 66.76%; top:34.21%;" class="c_198_2">
+		Benjamin Franklin said it best when
+	</div>
+
+	<div id="t_198_21" style="position: absolute; left: 66.76%; top:35.72%;" class="c_198_2">
+		he described that event.
+	</div>
+
+	<div id="t_198_22" style="position: absolute; left: 73.99%; top:44.08%;" class="c_198_1">
+		all hang
+	</div>
+
+	<div id="t_198_23" style="position: absolute; left: 72.72%; top:46.35%;" class="c_198_1">
+		separately.&rdquo;
+	</div>
+
+	<div id="t_198_24" style="position: absolute; left: 69.12%; top:49.92%;" class="c_198_3">
+		John Hancock proudly signs
+	</div>
+
+	<div id="t_198_25" style="position: absolute; left: 69.12%; top:51.56%;" class="c_198_3">
+		his name in big letters. Can
+	</div>
+
+	<div id="t_198_26" style="position: absolute; left: 69.12%; top:53.20%;" class="c_198_3">
+		you find his signature below?
+	</div>
+
+	<div id="t_198_27" style="position: absolute; left: 29.39%; top:30.23%;" class="c_198_4">
+		VIRGINIA
+	</div>
+
+	<div id="t_198_28" style="position: absolute; left: 29.39%; top:31.75%;" class="c_198_0">
+		George Wythe
+	</div>
+
+	<div id="t_198_29" style="position: absolute; left: 29.39%; top:33.26%;" class="c_198_0">
+		Richard Henry Lee
+	</div>
+
+	<div id="t_198_30" style="position: absolute; left: 29.39%; top:34.78%;" class="c_198_0">
+		Thomas Jefferson
+	</div>
+
+	<div id="t_198_31" style="position: absolute; left: 29.39%; top:36.29%;" class="c_198_0">
+		Benjamin Harrison
+	</div>
+
+	<div id="t_198_32" style="position: absolute; left: 29.39%; top:37.81%;" class="c_198_0">
+		Thomas Nelson, Jr.
+	</div>
+
+	<div id="t_198_33" style="position: absolute; left: 29.39%; top:39.32%;" class="c_198_0">
+		Francis Lightfoot Lee
+	</div>
+
+	<div id="t_198_34" style="position: absolute; left: 29.39%; top:40.84%;" class="c_198_0">
+		Carter Braxton
+	</div>
+
+	<div id="t_198_35" style="position: absolute; left: 29.39%; top:43.34%;" class="c_198_4">
+		PENNSYLVANIA
+	</div>
+
+	<div id="t_198_36" style="position: absolute; left: 29.39%; top:44.86%;" class="c_198_0">
+		Robert Morris
+	</div>
+
+	<div id="t_198_37" style="position: absolute; left: 29.39%; top:46.37%;" class="c_198_0">
+		Benjamin Rush
+	</div>
+
+	<div id="t_198_38" style="position: absolute; left: 29.39%; top:47.89%;" class="c_198_0">
+		Benjamin Franklin
+	</div>
+
+	<div id="t_198_39" style="position: absolute; left: 29.39%; top:49.40%;" class="c_198_0">
+		John Morton
+	</div>
+
+	<div id="t_198_40" style="position: absolute; left: 29.39%; top:50.92%;" class="c_198_0">
+		George Clymer
+	</div>
+
+	<div id="t_198_41" style="position: absolute; left: 29.39%; top:52.43%;" class="c_198_0">
+		James Smith
+	</div>
+
+	<div id="t_198_42" style="position: absolute; left: 29.39%; top:53.95%;" class="c_198_0">
+		George Taylor
+	</div>
+
+	<div id="t_198_43" style="position: absolute; left: 29.39%; top:55.46%;" class="c_198_0">
+		James Wilson
+	</div>
+
+	<div id="t_198_44" style="position: absolute; left: 29.39%; top:56.98%;" class="c_198_0">
+		George Ross
+	</div>
+
+	<div id="t_198_45" style="position: absolute; left: 29.39%; top:59.48%;" class="c_198_4">
+		DELAWARE
+	</div>
+
+	<div id="t_198_46" style="position: absolute; left: 29.39%; top:61.00%;" class="c_198_0">
+		Caesar Rodney
+	</div>
+
+	<div id="t_198_47" style="position: absolute; left: 29.39%; top:62.52%;" class="c_198_0">
+		George Read
+	</div>
+
+	<div id="t_198_48" style="position: absolute; left: 29.39%; top:64.03%;" class="c_198_0">
+		Thomas McKean
+	</div>
+
+	<div id="t_198_49" style="position: absolute; left: 49.95%; top:30.23%;" class="c_198_4">
+		NEW YORK
+	</div>
+
+	<div id="t_198_50" style="position: absolute; left: 49.95%; top:31.75%;" class="c_198_0">
+		William Floyd
+	</div>
+
+	<div id="t_198_51" style="position: absolute; left: 49.95%; top:33.26%;" class="c_198_0">
+		Philip Livingston
+	</div>
+
+	<div id="t_198_52" style="position: absolute; left: 49.95%; top:34.78%;" class="c_198_0">
+		Francis Lewis
+	</div>
+
+	<div id="t_198_53" style="position: absolute; left: 49.95%; top:36.29%;" class="c_198_0">
+		Lewis Morris
+	</div>
+
+	<div id="t_198_54" style="position: absolute; left: 49.95%; top:38.79%;" class="c_198_4">
+		NEW JERSEY
+	</div>
+
+	<div id="t_198_55" style="position: absolute; left: 49.95%; top:40.31%;" class="c_198_0">
+		Richard Stockton
+	</div>
+
+	<div id="t_198_56" style="position: absolute; left: 49.95%; top:41.83%;" class="c_198_0">
+		John Witherspoon
+	</div>
+
+	<div id="t_198_57" style="position: absolute; left: 49.95%; top:43.34%;" class="c_198_0">
+		Francis Hopkinson
+	</div>
+
+	<div id="t_198_58" style="position: absolute; left: 49.95%; top:44.86%;" class="c_198_0">
+		John Hart
+	</div>
+
+	<div id="t_198_59" style="position: absolute; left: 49.95%; top:46.37%;" class="c_198_0">
+		Abraham Clark
+	</div>
+
+	<div id="t_198_60" style="position: absolute; left: 49.95%; top:48.88%;" class="c_198_4">
+		NEW HAMPSHIRE
+	</div>
+
+	<div id="t_198_61" style="position: absolute; left: 49.95%; top:50.40%;" class="c_198_0">
+		Josiah Bartlett
+	</div>
+
+	<div id="t_198_62" style="position: absolute; left: 49.95%; top:51.91%;" class="c_198_0">
+		William Whipple
+	</div>
+
+	<div id="t_198_63" style="position: absolute; left: 49.95%; top:53.43%;" class="c_198_0">
+		Matthew Thornton
+	</div>
+
+	<div id="t_198_64" style="position: absolute; left: 49.95%; top:55.93%;" class="c_198_4">
+		RHODE ISLAND
+	</div>
+
+	<div id="t_198_65" style="position: absolute; left: 49.95%; top:57.45%;" class="c_198_0">
+		Stephen Hopkins
+	</div>
+
+	<div id="t_198_66" style="position: absolute; left: 49.95%; top:58.96%;" class="c_198_0">
+		William Ellery
+	</div>
+
+	<div id="t_198_67" style="position: absolute; left: 49.95%; top:61.46%;" class="c_198_4">
+		CONNECTICUT
+	</div>
+
+	<div id="t_198_68" style="position: absolute; left: 49.95%; top:62.98%;" class="c_198_0">
+		Roger Sherman
+	</div>
+
+	<div id="t_198_69" style="position: absolute; left: 49.95%; top:64.50%;" class="c_198_0">
+		Samuel Huntington
+	</div>
+
+	<div id="t_198_70" style="position: absolute; left: 49.95%; top:66.01%;" class="c_198_0">
+		William Williams
+	</div>
+
+	<div id="t_198_71" style="position: absolute; left: 49.95%; top:67.53%;" class="c_198_0">
+		Oliver Wolcott
+	</div>
+
+	<div id="t_198_72" style="position: absolute; left: 6.94%; top:7.83%;" class="c_198_5">
+		With no other choice,
+	</div>
+
+	<div id="t_198_73" style="position: absolute; left: 6.94%; top:9.34%;" class="c_198_5">
+		America breaks away.
+	</div>
+
+	<div id="t_198_74" style="position: absolute; left: 6.94%; top:11.09%;" class="c_198_6">
+		Therefore, we are
+	</div>
+
+	<div id="t_198_75" style="position: absolute; left: 6.94%; top:12.61%;" class="c_198_6">
+		breaking away from
+	</div>
+
+	<div id="t_198_76" style="position: absolute; left: 6.94%; top:14.12%;" class="c_198_6">
+		England and choosing to
+	</div>
+
+	<div id="t_198_77" style="position: absolute; left: 6.94%; top:15.64%;" class="c_198_6">
+		become an independent
+	</div>
+
+	<div id="t_198_78" style="position: absolute; left: 6.94%; top:17.15%;" class="c_198_6">
+		country. We will govern
+	</div>
+
+	<div id="t_198_79" style="position: absolute; left: 6.94%; top:18.67%;" class="c_198_6">
+		ourselves!
+	</div>
+
+	<div id="t_198_80" style="position: absolute; left: 8.82%; top:30.23%;" class="c_198_4">
+		GEORGIA
+	</div>
+
+	<div id="t_198_81" style="position: absolute; left: 8.82%; top:31.74%;" class="c_198_0">
+		Button Gwinnett
+	</div>
+
+	<div id="t_198_82" style="position: absolute; left: 8.82%; top:33.26%;" class="c_198_0">
+		Lyman Hall
+	</div>
+
+	<div id="t_198_83" style="position: absolute; left: 8.82%; top:34.78%;" class="c_198_0">
+		George Walton
+	</div>
+
+	<div id="t_198_84" style="position: absolute; left: 8.82%; top:37.28%;" class="c_198_4">
+		NORTH CAROLINA
+	</div>
+
+	<div id="t_198_85" style="position: absolute; left: 8.82%; top:38.80%;" class="c_198_0">
+		William Hooper
+	</div>
+
+	<div id="t_198_86" style="position: absolute; left: 8.82%; top:40.31%;" class="c_198_0">
+		Joseph Hewes
+	</div>
+
+	<div id="t_198_87" style="position: absolute; left: 8.82%; top:41.83%;" class="c_198_0">
+		John Penn
+	</div>
+
+	<div id="t_198_88" style="position: absolute; left: 8.82%; top:44.33%;" class="c_198_4">
+		SOUTH CAROLINA
+	</div>
+
+	<div id="t_198_89" style="position: absolute; left: 8.82%; top:45.85%;" class="c_198_0">
+		Edward Rutledge
+	</div>
+
+	<div id="t_198_90" style="position: absolute; left: 8.82%; top:47.36%;" class="c_198_0">
+		Thomas Heyward, Jr.
+	</div>
+
+	<div id="t_198_91" style="position: absolute; left: 8.82%; top:48.88%;" class="c_198_0">
+		Thomas Lynch, Jr.
+	</div>
+
+	<div id="t_198_92" style="position: absolute; left: 8.82%; top:50.39%;" class="c_198_0">
+		Arthur Middleton
+	</div>
+
+	<div id="t_198_93" style="position: absolute; left: 8.82%; top:52.90%;" class="c_198_4">
+		MASSACHUSETTS
+	</div>
+
+	<div id="t_198_94" style="position: absolute; left: 8.82%; top:54.42%;" class="c_198_0">
+		John Hancock
+	</div>
+
+	<div id="t_198_95" style="position: absolute; left: 8.82%; top:55.93%;" class="c_198_0">
+		Samuel Adams
+	</div>
+
+	<div id="t_198_96" style="position: absolute; left: 8.82%; top:57.45%;" class="c_198_0">
+		John Adams
+	</div>
+
+	<div id="t_198_97" style="position: absolute; left: 8.82%; top:58.96%;" class="c_198_0">
+		Robert Treat Paine
+	</div>
+
+	<div id="t_198_98" style="position: absolute; left: 8.82%; top:60.48%;" class="c_198_0">
+		Elbridge Gerry
+	</div>
+
+	<div id="t_198_99" style="position: absolute; left: 8.82%; top:62.98%;" class="c_198_4">
+		MARYLAND
+	</div>
+
+	<div id="t_198_100" style="position: absolute; left: 8.82%; top:64.50%;" class="c_198_0">
+		Samuel Chase
+	</div>
+
+	<div id="t_198_101" style="position: absolute; left: 8.82%; top:66.01%;" class="c_198_0">
+		William Paca
+	</div>
+
+	<div id="t_198_102" style="position: absolute; left: 8.82%; top:67.53%;" class="c_198_0">
+		Thomas Stone
+	</div>
+
+	<div id="t_198_103" style="position: absolute; left: 8.82%; top:69.04%;" class="c_198_0">
+		Charles Carroll of
+	</div>
+
+	<div id="t_198_104" style="position: absolute; left: 8.82%; top:70.56%;" class="c_198_0">
+		Carrollton
+	</div>
+
+	<div id="t_198_105" style="position: absolute; left: 4.29%; top: 96.6%; letter-spacing: -0.15em;" class="c_198_7">
+		198
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_199">
+                                                                                                <div class="pageData">
+
+	<div id="t_199_0" style="position: absolute; left: 8.01%; top:3.18%;" class="c_199_0">
+		THE PREAMBLE
+	</div>
+
+	<div id="t_199_1" style="position: absolute; left: 8.01%; top:4.69%;" class="c_199_0">
+		Introduces what the
+	</div>
+
+	<div id="t_199_2" style="position: absolute; left: 8.01%; top:6.21%;" class="c_199_0">
+		framers hope to
+	</div>
+
+	<div id="t_199_3" style="position: absolute; left: 8.01%; top:7.72%;" class="c_199_0">
+		accomplish.
+	</div>
+
+	<div id="t_199_4" style="position: absolute; left: 8.01%; top:9.47%;" class="c_199_1">
+		This plan of government
+	</div>
+
+	<div id="t_199_5" style="position: absolute; left: 8.01%; top:10.99%;" class="c_199_1">
+		will keep people safe and
+	</div>
+
+	<div id="t_199_6" style="position: absolute; left: 8.01%; top:12.50%;" class="c_199_1">
+		their liberties secure. We
+	</div>
+
+	<div id="t_199_7" style="position: absolute; left: 8.01%; top:14.02%;" class="c_199_1">
+		are confident this plan will
+	</div>
+
+	<div id="t_199_8" style="position: absolute; left: 8.01%; top:15.53%;" class="c_199_1">
+		protect our citizens for a
+	</div>
+
+	<div id="t_199_9" style="position: absolute; left: 8.01%; top:17.05%;" class="c_199_1">
+		very long time.
+	</div>
+
+	<div id="t_199_10" style="position: absolute; left: 8.08%; top:21.58%;" class="c_199_0">
+		ARTICLE I. CONGRESS
+	</div>
+
+	<div id="t_199_11" style="position: absolute; left: 8.08%; top:23.10%;" class="c_199_0">
+		Introduces the Congress
+	</div>
+
+	<div id="t_199_12" style="position: absolute; left: 8.08%; top:24.61%;" class="c_199_0">
+		and its power. The fact
+	</div>
+
+	<div id="t_199_13" style="position: absolute; left: 8.08%; top:26.13%;" class="c_199_0">
+		that Congress is
+	</div>
+
+	<div id="t_199_14" style="position: absolute; left: 8.08%; top:27.64%;" class="c_199_0">
+		described first shows
+	</div>
+
+	<div id="t_199_15" style="position: absolute; left: 8.08%; top:29.16%;" class="c_199_0">
+		that the framers wanted
+	</div>
+
+	<div id="t_199_16" style="position: absolute; left: 8.08%; top:30.67%;" class="c_199_0">
+		the people to know it
+	</div>
+
+	<div id="t_199_17" style="position: absolute; left: 8.08%; top:32.19%;" class="c_199_0">
+		was important.
+	</div>
+
+	<div id="t_199_18" style="position: absolute; left: 8.08%; top:33.71%;" class="c_199_1">
+		Government will have a
+	</div>
+
+	<div id="t_199_19" style="position: absolute; left: 8.08%; top:35.22%;" class="c_199_1">
+		Congress made up of a
+	</div>
+
+	<div id="t_199_20" style="position: absolute; left: 8.08%; top:36.74%;" class="c_199_1">
+		House of Representatives and
+	</div>
+
+	<div id="t_199_21" style="position: absolute; left: 8.08%; top:38.25%;" class="c_199_1">
+		a Senate. House members
+	</div>
+
+	<div id="t_199_22" style="position: absolute; left: 8.08%; top:39.77%;" class="c_199_1">
+		will serve for two years and
+	</div>
+
+	<div id="t_199_23" style="position: absolute; left: 8.08%; top:41.28%;" class="c_199_1">
+		are elected by the people.
+	</div>
+
+	<div id="t_199_24" style="position: absolute; left: 8.08%; top:42.80%;" class="c_199_1">
+		Senate members will serve
+	</div>
+
+	<div id="t_199_25" style="position: absolute; left: 8.08%; top:44.31%;" class="c_199_1">
+		for six years and are chosen
+	</div>
+
+	<div id="t_199_26" style="position: absolute; left: 8.08%; top:45.83%;" class="c_199_1">
+		by state leaders<span class="c_199_2"> (changed by</span>
+	</div>
+
+	<div id="t_199_27" style="position: absolute; left: 8.08%; top:47.34%;" class="c_199_3">
+		the 17th Amendment).
+	</div>
+
+	<div id="t_199_28" style="position: absolute; left: 36.26%; top:3.70%;" class="c_199_4">
+		We the People of the United States, in Order to form a more perfect Union,
+	</div>
+
+	<div id="t_199_29" style="position: absolute; left: 36.26%; top:5.46%;" class="c_199_4">
+		establish Justice, insure domestic Tranquility, provide for the common defence,
+	</div>
+
+	<div id="t_199_30" style="position: absolute; left: 36.26%; top:7.23%;" class="c_199_4">
+		promote the general Welfare, and secure the Blessings of Liberty to ourselves
+	</div>
+
+	<div id="t_199_31" style="position: absolute; left: 36.26%; top:9.00%;" class="c_199_4">
+		and our Posterity, do ordain and establish this Constitution for the United
+	</div>
+
+	<div id="t_199_32" style="position: absolute; left: 36.26%; top:10.77%;" class="c_199_4">
+		States of America.
+	</div>
+
+	<div id="t_199_33" style="position: absolute; left: 36.26%; top:13.53%;" class="c_199_5">
+		ARTICLE I. THE LEGISLATIVE BRANCH
+	</div>
+
+	<div id="t_199_34" style="position: absolute; left: 36.26%; top:15.05%;" class="c_199_6">
+		Section 1 - The Legislature
+	</div>
+
+	<div id="t_199_35" style="position: absolute; left: 37.73%; top:16.57%;" class="c_199_7">
+		All legislative Powers herein granted shall be vested in a Congress of the United
+	</div>
+
+	<div id="t_199_36" style="position: absolute; left: 36.26%; top:18.08%;" class="c_199_7">
+		States, which shall consist of a Senate and House of Representatives.
+	</div>
+
+	<div id="t_199_37" style="position: absolute; left: 36.26%; top:20.08%;" class="c_199_6">
+		Section 2 - The House
+	</div>
+
+	<div id="t_199_38" style="position: absolute; left: 37.73%; top:21.60%;" class="c_199_7">
+		The House of Representatives shall be composed of Members chosen every
+	</div>
+
+	<div id="t_199_39" style="position: absolute; left: 36.26%; top:23.11%;" class="c_199_7">
+		second Year by the People of the several States, and the Electors in each State shall
+	</div>
+
+	<div id="t_199_40" style="position: absolute; left: 36.26%; top:24.63%;" class="c_199_7">
+		have the Qualifications requisite for Electors of the most numerous Branch of the
+	</div>
+
+	<div id="t_199_41" style="position: absolute; left: 36.26%; top:26.14%;" class="c_199_7">
+		State Legislature.
+	</div>
+
+	<div id="t_199_42" style="position: absolute; left: 37.73%; top:27.66%;" class="c_199_7">
+		No Person shall be a Representative who shall not have attained to the Age of
+	</div>
+
+	<div id="t_199_43" style="position: absolute; left: 36.26%; top:29.17%;" class="c_199_7">
+		twenty five Years, and been seven Years a Citizen of the United States, and who
+	</div>
+
+	<div id="t_199_44" style="position: absolute; left: 36.26%; top:30.69%;" class="c_199_7">
+		shall not, when elected, be an Inhabitant of that State in which he shall be chosen.
+	</div>
+
+	<div id="t_199_45" style="position: absolute; left: 37.73%; top:32.20%;" class="c_199_7">
+		(Representatives and direct Taxes shall be apportioned among the several States
+	</div>
+
+	<div id="t_199_46" style="position: absolute; left: 36.26%; top:33.72%;" class="c_199_7">
+		which may be included within this Union, according to their respective Numbers,
+	</div>
+
+	<div id="t_199_47" style="position: absolute; left: 36.26%; top:35.23%;" class="c_199_7">
+		which shall be determined by adding to the whole Number of free Persons,
+	</div>
+
+	<div id="t_199_48" style="position: absolute; left: 36.26%; top:36.75%;" class="c_199_7">
+		including those bound to Service for a Term of Years, and excluding Indians not
+	</div>
+
+	<div id="t_199_49" style="position: absolute; left: 36.26%; top:38.27%;" class="c_199_7">
+		taxed, three fifths of all other Persons.)<span class="c_199_8"> (The previous sentence in parentheses was</span>
+	</div>
+
+	<div id="t_199_50" style="position: absolute; left: 36.26%; top:39.78%;" class="c_199_9">
+		modified by the 14th Amendment, section 2.) <span class="c_199_10">The actual Enumeration shall be made</span>
+	</div>
+
+	<div id="t_199_51" style="position: absolute; left: 36.26%; top:41.30%;" class="c_199_7">
+		within three Years after the first Meeting of the Congress of the United States, and
+	</div>
+
+	<div id="t_199_52" style="position: absolute; left: 36.26%; top:42.81%;" class="c_199_7">
+		within every subsequent Term of ten Years, in such Manner as they shall by Law
+	</div>
+
+	<div id="t_199_53" style="position: absolute; left: 36.26%; top:44.33%;" class="c_199_7">
+		direct. The Number of Representatives shall not exceed one for every thirty
+	</div>
+
+	<div id="t_199_54" style="position: absolute; left: 36.26%; top:45.84%;" class="c_199_7">
+		Thousand, but each State shall have at Least one Representative; and until such
+	</div>
+
+	<div id="t_199_55" style="position: absolute; left: 36.26%; top:47.36%;" class="c_199_7">
+		enumeration shall be made, the State of New Hampshire shall be entitled to choose
+	</div>
+
+	<div id="t_199_56" style="position: absolute; left: 36.26%; top:48.87%;" class="c_199_7">
+		three, Massachusetts eight, Rhode Island and Providence Plantations one,
+	</div>
+
+	<div id="t_199_57" style="position: absolute; left: 8.82%; top:50.73%;" class="c_199_11">
+		The Constitution
+	</div>
+
+	<div id="t_199_58" style="position: absolute; left: 8.82%; top:55.78%;" class="c_199_11">
+		of the
+	</div>
+
+	<div id="t_199_59" style="position: absolute; left: 8.82%; top:60.83%;" class="c_199_11">
+		United States
+	</div>
+
+	<div id="t_199_60" style="position: absolute; left: 8.82%; top:66.53%;" class="c_199_12">
+		Framed at the 1787 Constitutional
+	</div>
+
+	<div id="t_199_61" style="position: absolute; left: 8.82%; top:68.50%;" class="c_199_12">
+		Convention and ratified in 1789.
+	</div>
+
+	<div id="t_199_62" style="position: absolute; left: 46.72%; top:50.39%;" class="c_199_7">
+		Connecticut five, New York six, New Jersey four, Pennsylvania eight,
+	</div>
+
+	<div id="t_199_63" style="position: absolute; left: 46.72%; top:51.90%;" class="c_199_7">
+		Delaware one, Maryland six, Virginia ten, North Carolina
+	</div>
+
+	<div id="t_199_64" style="position: absolute; left: 46.72%; top:53.42%;" class="c_199_7">
+		five, South Carolina five and Georgia three.
+	</div>
+
+	<div id="t_199_65" style="position: absolute; left: 48.19%; top:54.93%;" class="c_199_7">
+		When vacancies happen in the Representation from any State, the
+	</div>
+
+	<div id="t_199_66" style="position: absolute; left: 46.72%; top:56.45%;" class="c_199_7">
+		Executive Authority thereof shall issue Writs of Election to fill such
+	</div>
+
+	<div id="t_199_67" style="position: absolute; left: 46.72%; top:57.96%;" class="c_199_7">
+		Vacancies.
+	</div>
+
+	<div id="t_199_68" style="position: absolute; left: 48.19%; top:59.48%;" class="c_199_7">
+		The House of Representatives shall choose their Speaker and other
+	</div>
+
+	<div id="t_199_69" style="position: absolute; left: 46.72%; top:60.99%;" class="c_199_7">
+		Officers; and shall have the sole Power of Impeachment.
+	</div>
+
+	<div id="t_199_70" style="position: absolute; left: 46.72%; top:62.99%;" class="c_199_6">
+		Section 3 - The Senate
+	</div>
+
+	<div id="t_199_71" style="position: absolute; left: 48.19%; top:64.51%;" class="c_199_7">
+		The Senate of the United States shall be composed of two
+	</div>
+
+	<div id="t_199_72" style="position: absolute; left: 46.72%; top:66.02%;" class="c_199_7">
+		Senators from each State, (chosen by the Legislature thereof,)<span class="c_199_8"> (The</span>
+	</div>
+
+	<div id="t_199_73" style="position: absolute; left: 46.72%; top:67.54%;" class="c_199_9">
+		words in parentheses were changed by the 17th Amendment, section
+	</div>
+
+	<div id="t_199_74" style="position: absolute; left: 46.72%; top:69.05%;" class="c_199_9">
+		1.) <span class="c_199_10">for six Years; and each Senator shall have one Vote.</span>
+	</div>
+
+	<div id="t_199_75" style="position: absolute; left: 48.19%; top:70.57%;" class="c_199_7">
+		Immediately after they shall be assembled in Consequence of the
+	</div>
+
+	<div id="t_199_76" style="position: absolute; left: 46.72%; top:72.08%;" class="c_199_7">
+		first Election, they shall be divided as equally as may be into three
+	</div>
+
+	<div id="t_199_77" style="position: absolute; left: 46.72%; top:73.60%;" class="c_199_7">
+		Classes. The Seats of the Senators of the first Class shall be vacated
+	</div>
+
+	<div id="t_199_78" style="position: absolute; left: 38.78%; top:75.11%;" class="c_199_7">
+		at the Expiration of the second Year, of the second Class at the Expiration of the
+	</div>
+
+	<div id="t_199_79" style="position: absolute; left: 38.78%; top:76.63%;" class="c_199_7">
+		fourth Year, and of the third Class at the Expiration of the sixth Year, so that one
+	</div>
+
+	<div id="t_199_80" style="position: absolute; left: 38.78%; top:78.15%;" class="c_199_7">
+		third may be chosen every second Year; (and if Vacancies happen by
+	</div>
+
+	<div id="t_199_81" style="position: absolute; left: 38.78%; top:79.66%;" class="c_199_7">
+		Resignation, or otherwise, during the Recess of the Legislature of any State, the
+	</div>
+
+	<div id="t_199_82" style="position: absolute; left: 38.78%; top:81.18%;" class="c_199_7">
+		Executive thereof may make temporary Appointments until the next Meeting of
+	</div>
+
+	<div id="t_199_83" style="position: absolute; left: 38.78%; top:82.69%;" class="c_199_7">
+		the Legislature, which shall then fill such Vacancies.)<span class="c_199_8"> (The words in parentheses</span>
+	</div>
+
+	<div id="t_199_84" style="position: absolute; left: 38.78%; top:84.21%;" class="c_199_9">
+		were changed by the 17th Amendment, section 2.)
+	</div>
+
+	<div id="t_199_85" style="position: absolute; left: 40.21%; top:85.72%;" class="c_199_7">
+		No person shall be a Senator who shall not have attained to the Age of thirty
+	</div>
+
+	<div id="t_199_86" style="position: absolute; left: 38.78%; top:87.24%;" class="c_199_7">
+		Years, and been nine Years a Citizen of the United States, and who shall not,
+	</div>
+
+	<div id="t_199_87" style="position: absolute; left: 38.78%; top:88.75%;" class="c_199_7">
+		when elected, be an Inhabitant of that State for which he shall be chosen.
+	</div>
+
+	<div id="t_199_88" style="position: absolute; left: 40.17%; top:90.27%;" class="c_199_7">
+		The Vice President of the United States shall be President of the Senate, but shall
+	</div>
+
+	<div id="t_199_89" style="position: absolute; left: 38.78%; top:91.78%;" class="c_199_7">
+		have no Vote, unless they be equally divided.
+	</div>
+
+	<div id="t_199_90" style="position: absolute; left: 92.42%; top: 96.6%; letter-spacing: -0.15em;" class="c_199_13">
+		199
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="198.html?page=right"; onclick="goto('198.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="200.html"; onclick="goto('200.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="200.html"; onclick="goto('200.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

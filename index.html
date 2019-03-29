@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press Student Page</title>
+    <link rel="stylesheet" type="text/css" href="landing.css"/>
+    <link rel="stylesheet" type="text/css" href="fonts.css"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/js.cookie.js"></script>
+    <script src="/common.js?ts=201809161550"></script>
+    <script>
+        function allowBook(item, index) {
+            var classname = "." + item;
+            $(classname).css("display", "inline-block");
+        }
+        $(document).ready(function(){
+
+            // Get user token and show login/logout link
+            var userToken = getUserToken();
+            if (userToken == "") {
+                $("#loginLink").show();
+            } else {
+                $("#logoutLink").show();
+            }
+
+            $("a.contentLink")
+                .each(function() {
+                    this.href = setQueryParam(this.href, "ts", "201809161705");
+                });
+
+            // Get group token and show authorized books - show all if not logged in
+            var groupToken = getGroupToken();
+            if (groupToken == "") {
+                $.get({
+                    url: "/api/groups.php",
+                    data: { site: getSite(), token: userToken},
+                    dataType: "json",
+                    success : function (data) {
+                        groupToken = data;
+                        groupToken.forEach(allowBook);
+                        setGroupToken(groupToken);
+                    }
+                });
+            } else {
+                groupToken.forEach(allowBook);
+            }
+
+        });
+    </script>
+    <style>
+        .startHidden { display: none; }
+        .book {display: none;}
+    </style>
+</head>
+<body>
+<div class="login">
+    <a id="loginLink" class="startHidden contentLink" href="/account/login.html">Login</a>
+    <a id="logoutLink" class="startHidden contentLink" href="/account/logout.html">Logout</a>
+</div>
+<div class="header">
+    <img src="images/logo.png"/>
+</div>
+<div class="intro">
+    Click on any book to start reading. You will be prompted for a username and password.
+</div>
+<div class="content">
+    <div class="grid">
+        <div class="book student_gk silent">
+            <div class="heading">Kindergarten</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/gk/cover.html?audio=silent">
+                <img src="/images/k.jpg"/>
+            </a>
+        </div>
+        <div class="book student_gk audio">
+            <div class="heading">Kindergarten with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/gk/cover.html">
+                <img src="/images/k_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_g1 silent">
+            <div class="heading">Grade 1</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/g1/cover.html?audio=silent">
+                <img src="/images/g1.jpg"/>
+            </a>
+        </div>
+        <div class="book student_g1 audio">
+            <div class="heading">Grade 1 with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/g1/cover.html">
+                <img src="/images/g1_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_g2 silent">
+            <div class="heading">Grade 2</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/g2/cover.html?audio=silent">
+                <img src="/images/g2.jpg"/>
+            </a>
+        </div>
+        <div class="book student_g2 audio">
+            <div class="heading">Grade 2 with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/g2/cover.html">
+                <img src="/images/g2_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_g3 silent">
+            <div class="heading">Grade 3</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/g3/cover.html?audio=silent">
+                <img src="/images/g3.jpg"/>
+            </a>
+        </div>
+        <div class="book student_g3 audio">
+            <div class="heading">Grade 3 with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/g3/cover.html">
+                <img src="/images/g3_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_our_virginia silent">
+            <div class="heading">Virginia Studies</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/our_virginia/cover.html?audio=silent">
+                <img src="/images/virginia.jpg"/>
+            </a>
+        </div>
+        <div class="book student_our_virginia audio">
+            <div class="heading">Virginia Studies with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/our_virginia/cover.html">
+                <img src="/images/virginia_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_us1 silent">
+            <div class="heading">US I</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/us1/cover.html?audio=silent">
+                <img src="/images/us1.jpg"/>
+            </a>
+        </div>
+        <div class="book student_us1 audio">
+            <div class="heading">US I with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/us1/cover.html">
+                <img src="/images/us1_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_us2 silent">
+            <div class="heading">US II</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/us2/cover.html?audio=silent">
+                <img src="/images/us2.jpg"/>
+            </a>
+        </div>
+        <div class="book student_us2 audio">
+            <div class="heading">US II with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/us2/cover.html">
+                <img src="/images/us2_audio.jpg"/>
+            </a>
+        </div>
+        <div class="book student_civics silent">
+            <div class="heading">Civics and Economics</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/civics/cover.html?audio=silent">
+                <img src="/images/civics.jpg"/>
+            </a>
+        </div>
+        <div class="book student_civics audio">
+            <div class="heading">Civics and Economics with audio</div>
+            <a class="student contentLink" href="/social-studies/student/ebooks/civics/cover.html">
+                <img src="/images/civics_audio.jpg"/>
+            </a>
+        </div>
+    </div>
+</div>
+<div class="footer">
+    <a href="email: lisa@fivepondspress.com">For more information: Lisa@fivepondspress.com</a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_174.css">
+                <link rel="stylesheet" href="css/civics_175.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="172.html?page=right"; onclick="goto('172.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="174.html"; onclick="goto('174.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="172.html?page=right"; onclick="goto('172.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_174_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_175_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_174_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="174.html?page=right"; onclick="goto('174.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="176.html"; onclick="goto('176.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="176.html"; onclick="goto('176.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="172.html?page=right"; onclick="goto('172.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="174.html"; onclick="goto('174.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="172.html?page=right"; onclick="goto('172.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_174">
+                                                                                                <div class="pageData">
+
+	<div id="t_174_0" style="position: absolute; left: 5.86%; top:4.49%;" class="c_174_0">
+		The government provides certain
+	</div>
+
+	<div id="t_174_1" style="position: absolute; left: 5.86%; top:6.26%;" class="c_174_0">
+		goods and services that
+	</div>
+
+	<div id="t_174_2" style="position: absolute; left: 5.86%; top:8.02%;" class="c_174_0">
+		individuals and businesses acting
+	</div>
+
+	<div id="t_174_3" style="position: absolute; left: 5.86%; top:9.79%;" class="c_174_0">
+		alone cannot provide efficiently.
+	</div>
+
+	<div id="t_174_4" style="position: absolute; left: 34.80%; top: 5.35%; letter-spacing: -0.02em;" class="c_174_1">
+		Our Nation&rsquo;s Business
+	</div>
+
+	<div id="t_174_5" style="position: absolute; left: 31.25%; top: 41.14%; letter-spacing: 0.01em;" class="c_174_2">
+		Most economic decisions in the United States are made in the marketplace, but
+	</div>
+
+	<div id="t_174_6" style="position: absolute; left: 30.74%; top: 42.91%; letter-spacing: 0.01em;" class="c_174_2">
+		there are some tasks that even the biggest corporation might find overwhelming.
+	</div>
+
+	<div id="t_174_7" style="position: absolute; left: 44.09%; top: 44.68%; letter-spacing: 0.01em;" class="c_174_2">
+		That is where the U.S. government steps in!
+	</div>
+
+	<div id="t_174_8" style="position: absolute; left: 31.87%; top: 47.56%;" class="c_174_3">
+		Think about these numbers: There are 46,876 miles of interstate highway
+	</div>
+
+	<div id="t_174_9" style="position: absolute; left: 30.56%; top: 49.46%;" class="c_174_3">
+		in the United States. Someone has to maintain those roads and repave them
+	</div>
+
+	<div id="t_174_10" style="position: absolute; left: 30.56%; top: 51.35%;" class="c_174_3">
+		when they wear out. Amtrak has 21,300 miles of rail line serving more than
+	</div>
+
+	<div id="t_174_11" style="position: absolute; left: 30.56%; top: 53.24%;" class="c_174_3">
+		500 destinations in 46 states and Canada. Over 31 million people a year
+	</div>
+
+	<div id="t_174_12" style="position: absolute; left: 30.56%; top: 55.14%;" class="c_174_3">
+		depend on those trains. Over 155 billion pieces of mail are processed by the
+	</div>
+
+	<div id="t_174_13" style="position: absolute; left: 30.56%; top: 57.03%;" class="c_174_3">
+		U.S. Postal Service every year&mdash;40 percent of the entire world&rsquo;s mail volume.
+	</div>
+
+	<div id="t_174_14" style="position: absolute; left: 30.56%; top: 58.93%;" class="c_174_3">
+		These are staggering numbers.
+	</div>
+
+	<div id="t_174_15" style="position: absolute; left: 31.87%; top: 60.82%;" class="c_174_3">
+		Our government focuses on providing goods and services for the <span class="c_174_4">entire</span>
+	</div>
+
+	<div id="t_174_16" style="position: absolute; left: 30.56%; top: 62.72%;" class="c_174_3">
+		nation. What makes it different from a privately owned company is this:
+	</div>
+
+	<div id="t_174_17" style="position: absolute; left: 30.56%; top: 64.61%;" class="c_174_3">
+		Even if parts of the business are unprofitable, the government will still
+	</div>
+
+	<div id="t_174_18" style="position: absolute; left: 30.56%; top: 66.51%;" class="c_174_3">
+		continue to provide the goods and services.
+	</div>
+
+	<div id="t_174_19" style="position: absolute; left: 8.82%; top:57.04%;" class="c_174_5">
+		Interstate 95 stretches
+	</div>
+
+	<div id="t_174_20" style="position: absolute; left: 8.82%; top:58.69%;" class="c_174_5">
+		from Florida to the
+	</div>
+
+	<div id="t_174_21" style="position: absolute; left: 8.82%; top:60.33%;" class="c_174_5">
+		Canadian border. It is the
+	</div>
+
+	<div id="t_174_22" style="position: absolute; left: 8.82%; top:61.97%;" class="c_174_5">
+		busiest road in America,
+	</div>
+
+	<div id="t_174_23" style="position: absolute; left: 8.82%; top:63.61%;" class="c_174_5">
+		passing through 15 states
+	</div>
+
+	<div id="t_174_24" style="position: absolute; left: 8.82%; top:65.25%;" class="c_174_5">
+		and Washington, D.C.
+	</div>
+
+	<div id="t_174_25" style="position: absolute; left: 12.10%; top:69.22%;" class="c_174_6">
+		THE GOVERNMENT AT WORK
+	</div>
+
+	<div id="t_174_26" style="position: absolute; left: 10.87%; top: 71.69%;" class="c_174_3">
+		Businesses have to show a profit. The
+	</div>
+
+	<div id="t_174_27" style="position: absolute; left: 9.55%; top: 73.58%;" class="c_174_3">
+		government does not. The sometimes-deadly flu
+	</div>
+
+	<div id="t_174_28" style="position: absolute; left: 9.55%; top: 75.47%;" class="c_174_3">
+		virus is a good example. In most years the flu
+	</div>
+
+	<div id="t_174_29" style="position: absolute; left: 9.55%; top: 77.37%;" class="c_174_3">
+		virus mutates a bit, so the vaccine to protect
+	</div>
+
+	<div id="t_174_30" style="position: absolute; left: 9.55%; top: 79.26%;" class="c_174_3">
+		against it must change, too. Providing widespread
+	</div>
+
+	<div id="t_174_31" style="position: absolute; left: 9.55%; top: 81.16%;" class="c_174_3">
+		vaccinations for this always-changing disease is
+	</div>
+
+	<div id="t_174_32" style="position: absolute; left: 9.55%; top: 83.05%;" class="c_174_3">
+		not profitable, so the government uses subsidies
+	</div>
+
+	<div id="t_174_33" style="position: absolute; left: 9.55%; top: 84.95%;" class="c_174_3">
+		(monies to help communities) and public health
+	</div>
+
+	<div id="t_174_34" style="position: absolute; left: 9.55%; top: 86.84%;" class="c_174_3">
+		departments to increase the vaccination rate.
+	</div>
+
+	<div id="t_174_35" style="position: absolute; left: 9.55%; top: 88.74%;" class="c_174_3">
+		This helps avoid suffering, missed work or school
+	</div>
+
+	<div id="t_174_36" style="position: absolute; left: 9.55%; top: 90.63%;" class="c_174_3">
+		days, and&mdash;for elderly or frail Americans&mdash;helps
+	</div>
+
+	<div id="t_174_37" style="position: absolute; left: 9.55%; top: 92.52%;" class="c_174_3">
+		save their lives.
+	</div>
+
+	<div id="t_174_38" style="position: absolute; left: 4.47%; top: 94.66%; letter-spacing: -0.15em;" class="c_174_7">
+		174
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_174_the_government_provides.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 32%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_174_our_nations_business.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 53%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_174_interstate_95.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 69%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_174_the_government_at_work.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_175">
+                                                                                                <div class="pageData">
+
+	<div id="t_175_0" style="position: absolute; left: 18.34%; top:5.58%;" class="c_175_0">
+		EDUCATION FOR ALL
+	</div>
+
+	<div id="t_175_1" style="position: absolute; left: 8.99%; top: 8.05%;" class="c_175_1">
+		There are almost 100,000 public schools in the United
+	</div>
+
+	<div id="t_175_2" style="position: absolute; left: 7.68%; top: 9.94%;" class="c_175_1">
+		States providing education for over 50 million students.
+	</div>
+
+	<div id="t_175_3" style="position: absolute; left: 7.68%; top: 11.84%;" class="c_175_1">
+		Most of the actual running of the schools falls to the
+	</div>
+
+	<div id="t_175_4" style="position: absolute; left: 7.68%; top: 13.73%;" class="c_175_1">
+		states and local areas, but the U.S. government is
+	</div>
+
+	<div id="t_175_5" style="position: absolute; left: 7.68%; top: 15.63%;" class="c_175_1">
+		definitely involved. The Department of Education
+	</div>
+
+	<div id="t_175_6" style="position: absolute; left: 7.68%; top: 17.52%;" class="c_175_1">
+		offers student loans for higher education, and grants to
+	</div>
+
+	<div id="t_175_7" style="position: absolute; left: 7.68%; top: 19.42%;" class="c_175_1">
+		teachers. &ldquo;Head Start&rdquo; programs offer early childhood help.
+	</div>
+
+	<div id="t_175_8" style="position: absolute; left: 12.95%; top:21.90%;" class="c_175_2">
+		Mission:
+	</div>
+
+	<div id="t_175_9" style="position: absolute; left: 14.12%; top:27.33%;" class="c_175_2">
+		Critical
+	</div>
+
+	<div id="t_175_10" style="position: absolute; left: 12.32%; top:34.82%;" class="c_175_3">
+		OUR NATIONAL DEFENSE
+	</div>
+
+	<div id="t_175_11" style="position: absolute; left: 57.21%; top:21.42%;" class="c_175_0">
+		A HEFTY PRICE TAG
+	</div>
+
+	<div id="t_175_12" style="position: absolute; left: 46.17%; top: 23.89%;" class="c_175_1">
+		All of the public goods and services provided by the
+	</div>
+
+	<div id="t_175_13" style="position: absolute; left: 44.85%; top: 25.79%;" class="c_175_1">
+		government come with a big price tag. Where does the
+	</div>
+
+	<div id="t_175_14" style="position: absolute; left: 44.85%; top: 27.68%;" class="c_175_1">
+		money come from to pay for it all? Most revenue comes
+	</div>
+
+	<div id="t_175_15" style="position: absolute; left: 44.85%; top: 29.57%;" class="c_175_1">
+		from taxes, but, just like a privately held company, the
+	</div>
+
+	<div id="t_175_16" style="position: absolute; left: 44.85%; top: 31.47%;" class="c_175_1">
+		United States borrows money. A small amount of revenue
+	</div>
+
+	<div id="t_175_17" style="position: absolute; left: 44.85%; top: 33.36%;" class="c_175_1">
+		also comes from fees that are collected at places like the
+	</div>
+
+	<div id="t_175_18" style="position: absolute; left: 44.85%; top: 35.26%;" class="c_175_1">
+		national parks. People and businesses sometimes must pay
+	</div>
+
+	<div id="t_175_19" style="position: absolute; left: 44.85%; top: 37.15%;" class="c_175_1">
+		fines for breaking a law, which is another source of income.
+	</div>
+
+	<div id="t_175_20" style="position: absolute; left: 46.17%; top: 39.05%;" class="c_175_1">
+		Since the private market cannot efficiently provide certain
+	</div>
+
+	<div id="t_175_21" style="position: absolute; left: 44.85%; top: 40.94%;" class="c_175_1">
+		goods and services, the government steps in. Some parts of
+	</div>
+
+	<div id="t_175_22" style="position: absolute; left: 44.85%; top: 42.84%;" class="c_175_1">
+		these government-controlled businesses lose money, but
+	</div>
+
+	<div id="t_175_23" style="position: absolute; left: 44.85%; top: 44.73%;" class="c_175_1">
+		without government support, we might not have some
+	</div>
+
+	<div id="t_175_24" style="position: absolute; left: 44.85%; top: 46.62%;" class="c_175_1">
+		important things!
+	</div>
+
+	<div id="t_175_25" style="position: absolute; left: 48.53%; top:57.08%;" class="c_175_4">
+		The Pentagon is one of the
+	</div>
+
+	<div id="t_175_26" style="position: absolute; left: 48.53%; top:58.85%;" class="c_175_4">
+		world&rsquo;s largest office
+	</div>
+
+	<div id="t_175_27" style="position: absolute; left: 48.53%; top:60.62%;" class="c_175_4">
+		buildings. It has 17.5 miles
+	</div>
+
+	<div id="t_175_28" style="position: absolute; left: 48.53%; top:62.38%;" class="c_175_4">
+		of corridors, and yet it
+	</div>
+
+	<div id="t_175_29" style="position: absolute; left: 48.53%; top:64.15%;" class="c_175_4">
+		takes no more than seven
+	</div>
+
+	<div id="t_175_30" style="position: absolute; left: 48.53%; top:65.92%;" class="c_175_4">
+		minutes to walk between
+	</div>
+
+	<div id="t_175_31" style="position: absolute; left: 48.53%; top:67.69%;" class="c_175_4">
+		any two points in the
+	</div>
+
+	<div id="t_175_32" style="position: absolute; left: 48.53%; top:69.46%;" class="c_175_4">
+		building.
+	</div>
+
+	<div id="t_175_33" style="position: absolute; left: 11.03%; top:51.10%;" class="c_175_4">
+		Norfolk, Virginia&rsquo;s Naval Base
+	</div>
+
+	<div id="t_175_34" style="position: absolute; left: 9.87%; top:54.17%;" class="c_175_5">
+		&bull; <span class="c_175_6">There is nothing more important than</span>
+	</div>
+
+	<div id="t_175_35" style="position: absolute; left: 9.87%; top:55.81%;" class="c_175_7">
+		protecting and defending the citizens of the
+	</div>
+
+	<div id="t_175_36" style="position: absolute; left: 9.87%; top:57.45%;" class="c_175_7">
+		United States from harm.
+	</div>
+
+	<div id="t_175_37" style="position: absolute; left: 11.21%; top: 59.87%;" class="c_175_1">
+		The Department of Defense (DOD) is
+	</div>
+
+	<div id="t_175_38" style="position: absolute; left: 9.90%; top: 61.77%;" class="c_175_1">
+		one of the nation&rsquo;s oldest and biggest
+	</div>
+
+	<div id="t_175_39" style="position: absolute; left: 9.90%; top: 63.66%;" class="c_175_1">
+		government agencies. When you add
+	</div>
+
+	<div id="t_175_40" style="position: absolute; left: 9.90%; top: 65.56%;" class="c_175_1">
+		up the over 1.4 million people on active
+	</div>
+
+	<div id="t_175_41" style="position: absolute; left: 9.90%; top: 67.45%;" class="c_175_1">
+		duty, the more than 700,000 civilian
+	</div>
+
+	<div id="t_175_42" style="position: absolute; left: 9.90%; top: 69.35%;" class="c_175_1">
+		personnel, and over a million National
+	</div>
+
+	<div id="t_175_43" style="position: absolute; left: 9.90%; top: 71.24%;" class="c_175_1">
+		Guard and Reserve forces, you have the
+	</div>
+
+	<div id="t_175_44" style="position: absolute; left: 9.90%; top: 73.13%;" class="c_175_1">
+		nation&rsquo;s largest employer, with its staff
+	</div>
+
+	<div id="t_175_45" style="position: absolute; left: 9.90%; top: 75.03%;" class="c_175_1">
+		working 24/7 in every time zone, and
+	</div>
+
+	<div id="t_175_46" style="position: absolute; left: 9.90%; top: 76.92%;" class="c_175_1">
+		from the Arctic to the Equator.
+	</div>
+
+	<div id="t_175_47" style="position: absolute; left: 11.21%; top: 78.82%;" class="c_175_1">
+		Many people work at the Pentagon,
+	</div>
+
+	<div id="t_175_48" style="position: absolute; left: 9.90%; top: 80.71%;" class="c_175_1">
+		but the DOD also has several hundred
+	</div>
+
+	<div id="t_175_49" style="position: absolute; left: 9.90%; top: 82.61%;" class="c_175_1">
+		thousand other buildings in more than
+	</div>
+
+	<div id="t_175_50" style="position: absolute; left: 9.90%; top: 84.5%;" class="c_175_1">
+		5,000 different locations. When all
+	</div>
+
+	<div id="t_175_51" style="position: absolute; left: 9.90%; top: 86.4%;" class="c_175_1">
+		those properties are added up&mdash;
+	</div>
+
+	<div id="t_175_52" style="position: absolute; left: 9.90%; top: 88.29%;" class="c_175_1">
+		including the navy&rsquo;s big complex in
+	</div>
+
+	<div id="t_175_53" style="position: absolute; left: 9.90%; top: 90.18%;" class="c_175_1">
+		Norfolk, Virginia, with more than 10,000
+	</div>
+
+	<div id="t_175_54" style="position: absolute; left: 9.90%; top: 92.08%;" class="c_175_1">
+		employees&mdash;the Department of Defense
+	</div>
+
+	<div id="t_175_55" style="position: absolute; left: 9.90%; top: 93.97%;" class="c_175_1">
+		sprawls over 30 million acres of land.
+	</div>
+
+	<div id="t_175_56" style="position: absolute; left: 93.74%; top: 94.77%; letter-spacing: -0.15em;" class="c_175_8">
+		175
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 11%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_175_education_for_all.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 56%; top: 17%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_175_a_hefty_price_tag.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 7%; top: 21%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_175_mission_critical.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 5%; top: 48%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_175_norfolk_virginia.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 44.5%; top: 53.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_175_the_pentagon.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_174_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_175_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_174_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="174.html?page=right"; onclick="goto('174.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="176.html"; onclick="goto('176.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="176.html"; onclick="goto('176.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

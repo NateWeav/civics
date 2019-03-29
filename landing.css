@@ -1,0 +1,67 @@
+
+body {
+    background: #ffffcd;
+}
+
+.content {
+    max-width: 1010px;
+    margin: auto;
+}
+
+.login {
+    text-align: right;
+    background: #b7342a;
+    padding-right: 10px;
+}
+
+.login a {
+    font-family: 'StoneSansIIITCW01-Bd';
+    font-size: 16px;
+    color: white;
+    text-decoration: none;
+}
+
+.login a:hover {
+    text-decoration: underline;
+}
+
+.header {
+    text-align: center;
+    background: #b7342a;
+}
+
+.intro, .footer {
+    font-family: 'StoneSansIIITCW01-Bd';
+    font-size: 16px;
+    text-align: center;
+    margin: 12px 0;
+}
+
+.grid {
+    text-align:center;
+}
+
+.book {
+    display: inline-block;
+    margin: 10px;
+    min-width: 225px;
+}
+
+.book .heading {
+    font-family: 'StoneSansIIITCW01-Bd';
+    font-size: 16px;
+    text-align: left;
+    margin-bottom: 2px;
+}
+
+.book img {
+    min-height: 291px;
+}
+
+.footer {
+    text-align: center;
+}
+
+.book.student_civics .heading {
+    letter-spacing: -0.05em;
+}

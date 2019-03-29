@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_54.css">
+                <link rel="stylesheet" href="css/civics_55.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="52.html?page=right"; onclick="goto('52.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="54.html"; onclick="goto('54.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="52.html?page=right"; onclick="goto('52.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_54_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_55_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_54_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="54.html?page=right"; onclick="goto('54.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="56.html"; onclick="goto('56.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="56.html"; onclick="goto('56.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="52.html?page=right"; onclick="goto('52.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="54.html"; onclick="goto('54.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="52.html?page=right"; onclick="goto('52.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_54">
+                                                                                                <div class="pageData">
+
+	<div id="t_54_0" style="position: absolute; left: 5.57%; top:4.40%;" class="c_54_0">
+		A two-party system characterizes
+	</div>
+
+	<div id="t_54_1" style="position: absolute; left: 5.57%; top:6.17%;" class="c_54_0">
+		the American political process.
+	</div>
+
+	<div id="t_54_2" style="position: absolute; left: 32.18%; top: 4.55%; letter-spacing: -0.02em;" class="c_54_1">
+		Elephants and
+	</div>
+
+	<div id="t_54_3" style="position: absolute; left: 38.43%; top: 10.36%; letter-spacing: -0.02em;" class="c_54_1">
+		Donkeys
+	</div>
+
+	<div id="t_54_4" style="position: absolute; left: 38.32%; top: 17.86%; letter-spacing: 0.01em;" class="c_54_2">
+		Think about the last election.
+	</div>
+
+	<div id="t_54_5" style="position: absolute; left: 38.82%; top: 19.75%; letter-spacing: 0.01em;" class="c_54_2">
+		The candidates wanted very
+	</div>
+
+	<div id="t_54_6" style="position: absolute; left: 37.90%; top: 21.64%; letter-spacing: 0.01em;" class="c_54_2">
+		different things for the nation,
+	</div>
+
+	<div id="t_54_7" style="position: absolute; left: 39.94%; top: 23.54%; letter-spacing: 0.01em;" class="c_54_2">
+		but their political parties
+	</div>
+
+	<div id="t_54_8" style="position: absolute; left: 40.09%; top: 25.43%; letter-spacing: 0.01em;" class="c_54_2">
+		wanted exactly the same
+	</div>
+
+	<div id="t_54_9" style="position: absolute; left: 38.45%; top: 27.33%; letter-spacing: 0.01em;" class="c_54_2">
+		thing: to win and take office.
+	</div>
+
+	<div id="t_54_10" style="position: absolute; left: 7.66%; top:34.73%;" class="c_54_3">
+		Words to Know
+	</div>
+
+	<div id="t_54_11" style="position: absolute; left: 7.66%; top:37.61%;" class="c_54_4">
+		<span class="c_54_5">&nbsp;&nbsp;&nbsp;&nbsp;liberal</span>
+	</div>
+
+	<div id="t_54_12" style="position: absolute; left: 7.26%; top:35.86%; font-size: 2.5em;" class="c_54_4">&#8227;</div>
+	<div id="t_54_13" style="position: absolute; left: 9.10%; top:39.94%;" class="c_54_6">
+		(<span class="c_54_7">lib-ur-el</span><span class="c_54_8">)</span>
+	</div>
+
+	<div id="t_54_14" style="position: absolute; left: 7.66%; top:41.95%;" class="c_54_9">
+		A person who believes
+	</div>
+
+	<div id="t_54_15" style="position: absolute; left: 7.66%; top:43.84%;" class="c_54_9">
+		that government action is
+	</div>
+
+	<div id="t_54_16" style="position: absolute; left: 7.66%; top:45.74%;" class="c_54_9">
+		the best way to achieve
+	</div>
+
+	<div id="t_54_17" style="position: absolute; left: 7.66%; top:47.63%;" class="c_54_9">
+		equal opportunity, protect
+	</div>
+
+	<div id="t_54_18" style="position: absolute; left: 7.66%; top:49.53%;" class="c_54_9">
+		civil rights, and help
+	</div>
+
+	<div id="t_54_19" style="position: absolute; left: 7.66%; top:51.42%;" class="c_54_9">
+		those in need
+	</div>
+
+	<div id="t_54_20" style="position: absolute; left: 7.66%; top:54.65%;" class="c_54_4">
+		<span class="c_54_5">&nbsp;&nbsp;&nbsp;&nbsp;conservative</span>
+	</div>
+
+	<div id="t_54_21" style="position: absolute; left: 7.26%; top:52.90%; font-size: 2.5em;" class="c_54_4">&#8227;</div>
+	<div id="t_54_22" style="position: absolute; left: 9.10%; top:56.98%;" class="c_54_6">
+		(<span class="c_54_7">cun-ser-vuh-tiv</span><span class="c_54_8">)</span>
+	</div>
+
+	<div id="t_54_23" style="position: absolute; left: 7.66%; top:58.99%;" class="c_54_9">
+		A person who believes
+	</div>
+
+	<div id="t_54_24" style="position: absolute; left: 7.66%; top:60.89%;" class="c_54_9">
+		that limited government
+	</div>
+
+	<div id="t_54_25" style="position: absolute; left: 7.66%; top:62.78%;" class="c_54_9">
+		is best, with little oversight
+	</div>
+
+	<div id="t_54_26" style="position: absolute; left: 7.66%; top:64.68%;" class="c_54_9">
+		of businesses, plus strong
+	</div>
+
+	<div id="t_54_27" style="position: absolute; left: 7.66%; top:66.57%;" class="c_54_9">
+		support for traditional
+	</div>
+
+	<div id="t_54_28" style="position: absolute; left: 7.66%; top:68.47%;" class="c_54_9">
+		lifestyle choices
+	</div>
+
+	<div id="t_54_29" style="position: absolute; left: 44.18%; top:33.75%;" class="c_54_10">
+		THE SAME, YET DIFFERENT
+	</div>
+
+	<div id="t_54_30" style="position: absolute; left: 32.71%; top: 36.27%;" class="c_54_11">
+		The Republican and Democratic parties have a lot in common. Both
+	</div>
+
+	<div id="t_54_31" style="position: absolute; left: 30.52%; top: 38.17%;" class="c_54_11">
+		parties seek peace and prosperity, but they define those goals differently,
+	</div>
+
+	<div id="t_54_32" style="position: absolute; left: 30.52%; top: 40.06%;" class="c_54_11">
+		and they have different ways of achieving those goals. Both parties must
+	</div>
+
+	<div id="t_54_33" style="position: absolute; left: 30.52%; top: 41.96%;" class="c_54_11">
+		organize to win elections. They both will take steps to influence public
+	</div>
+
+	<div id="t_54_34" style="position: absolute; left: 30.52%; top: 43.85%;" class="c_54_11">
+		policy through speeches, meetings, and the media. Both parties try to
+	</div>
+
+	<div id="t_54_35" style="position: absolute; left: 30.52%; top: 45.75%;" class="c_54_11">
+		appeal to <span class="c_54_12">all</span> <span class="c_54_13">their supporters &mdash; to find a middle ground that will satisfy</span>
+	</div>
+
+	<div id="t_54_36" style="position: absolute; left: 30.52%; top: 47.64%;" class="c_54_11">
+		both <span class="c_54_14">liberals&nbsp;</span><span class="c_54_13"> and&nbsp;</span><span class="c_54_14">conservatives</span><span class="c_54_13"> in each party. We call this a </span><span class="c_54_14">political</span>
+	</div>
+
+	<div id="t_54_37" style="position: absolute; left: 30.52%; top:49.50%;" class="c_54_15">
+		spectrum<span class="c_54_13">. Think of a seesaw. On the left side sit the liberals. On the right,</span>
+	</div>
+
+	<div id="t_54_38" style="position: absolute; left: 30.52%; top: 51.43%;" class="c_54_11">
+		the conservatives. Ideally the goal is to get the seesaw to balance by
+	</div>
+
+	<div id="t_54_39" style="position: absolute; left: 30.52%; top: 53.32%;" class="c_54_11">
+		appealing to the center, which is not an easy task.
+	</div>
+
+	<div id="t_54_40" style="position: absolute; left: 31.83%; top: 55.22%;" class="c_54_11">
+		There are, of course, big differences between Democrats and
+	</div>
+
+	<div id="t_54_41" style="position: absolute; left: 30.52%; top: 57.11%;" class="c_54_11">
+		Republicans. How can you find out what each party believes? Read the
+	</div>
+
+	<div id="t_54_42" style="position: absolute; left: 30.52%; top: 59.01%;" class="c_54_11">
+		&ldquo;mission statements&rdquo; from their party platforms and compare their plans
+	</div>
+
+	<div id="t_54_43" style="position: absolute; left: 30.52%; top: 60.9%;" class="c_54_11">
+		for America. Because they see America&rsquo;s future in very different ways,
+	</div>
+
+	<div id="t_54_44" style="position: absolute; left: 30.52%; top: 62.8%;" class="c_54_11">
+		conflict between the two parties can lead to some very real difficulties.
+	</div>
+
+	<div id="t_54_45" style="position: absolute; left: 30.52%; top: 64.69%;" class="c_54_11">
+		The spirit of compromise can sometimes be in short supply.
+	</div>
+
+	<div id="t_54_46" style="position: absolute; left: 30.43%; top:68.00%;" class="c_54_16">
+		Nast&rsquo;s first Republican
+	</div>
+
+	<div id="t_54_47" style="position: absolute; left: 30.43%; top:69.64%;" class="c_54_16">
+		elephant cartoon. What
+	</div>
+
+	<div id="t_54_48" style="position: absolute; left: 30.43%; top:71.28%;" class="c_54_16">
+		is his biased message?
+	</div>
+
+	<div id="t_54_49" style="position: absolute; left: 60.11%; top:67.29%;" class="c_54_10">
+		THE POLITICAL ZOO
+	</div>
+
+	<div id="t_54_50" style="position: absolute; left: 55.15%; top: 70.01%;" class="c_54_11">
+		Why are Democrats &ldquo;donkeys&rdquo; and
+	</div>
+
+	<div id="t_54_51" style="position: absolute; left: 53.83%; top: 71.91%;" class="c_54_11">
+		Republicans &ldquo;elephants&rdquo;? The first donkey
+	</div>
+
+	<div id="t_54_52" style="position: absolute; left: 53.83%; top: 73.8%;" class="c_54_11">
+		made its appearance in 1828 when Democrat
+	</div>
+
+	<div id="t_54_53" style="position: absolute; left: 53.83%; top: 75.69%;" class="c_54_11">
+		Andrew Jackson ran for president. His
+	</div>
+
+	<div id="t_54_54" style="position: absolute; left: 53.83%; top: 77.59%;" class="c_54_11">
+		opponents called him a &ldquo;jackass,&rdquo; but instead
+	</div>
+
+	<div id="t_54_55" style="position: absolute; left: 53.83%; top: 79.48%;" class="c_54_11">
+		of getting angry, Jackson pointed out that
+	</div>
+
+	<div id="t_54_56" style="position: absolute; left: 53.83%; top: 81.38%;" class="c_54_11">
+		donkeys were very steadfast and determined.
+	</div>
+
+	<div id="t_54_57" style="position: absolute; left: 54.71%; top: 83.27%;" class="c_54_11">
+		In 1874, Thomas Nast, a brilliant political
+	</div>
+
+	<div id="t_54_58" style="position: absolute; left: 53.83%; top: 85.17%;" class="c_54_11">
+		cartoonist, decided that the elephant&mdash;a big,
+	</div>
+
+	<div id="t_54_59" style="position: absolute; left: 53.83%; top: 87.06%;" class="c_54_11">
+		powerful creature that tends to frighten
+	</div>
+
+	<div id="t_54_60" style="position: absolute; left: 53.83%; top: 88.96%;" class="c_54_11">
+		easily&mdash;reminded him of the Republicans.
+	</div>
+
+	<div id="t_54_61" style="position: absolute; left: 53.83%; top: 90.85%;" class="c_54_11">
+		Nast&rsquo;s menagerie was a hit and the critters
+	</div>
+
+	<div id="t_54_62" style="position: absolute; left: 53.83%; top: 92.74%;" class="c_54_11">
+		became enduring political symbols.
+	</div>
+
+	<div id="t_54_63" style="position: absolute; left: 4.49%; top: 95.14%;" class="c_54_17">
+		54
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_54_a_two-party_system.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 32%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_54_elephants_and_donkeys.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 35%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_54_words_to_know.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 37%; top: 32%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_54_the_same_yet_different.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 25.5%; top: 65%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_54_nasts_first.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 50%; top: 67%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_54_the_political_zoo.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_55">
+                                                                                                <div class="pageData">
+
+	<div id="t_55_0" style="position: absolute; left: 60.08%; top:4.60%;" class="c_55_0">
+		Although third parties rarely win elections, they
+	</div>
+
+	<div id="t_55_1" style="position: absolute; left: 60.08%; top:6.37%;" class="c_55_0">
+		can play an important role in public politics.
+	</div>
+
+	<div id="t_55_2" style="position: absolute; left: 54.26%; top:8.14%;" class="c_55_1">
+		Third
+	</div>
+
+	<div id="t_55_3" style="position: absolute; left: 51.84%; top:13.57%;" class="c_55_1">
+		Parties
+	</div>
+
+	<div id="t_55_4" style="position: absolute; left: 50.93%; top:20.93%;" class="c_55_2">
+		A FORCE FOR CHANGE
+	</div>
+
+	<div id="t_55_5" style="position: absolute; left: 23.76%; top:25.3%;" class="c_55_3">
+		Why <span class="c_55_4">not</span> <span class="c_55_5">have a third party?&nbsp;</span><span class="c_55_6">Third-party candidates rarely win but can have a</span>
+	</div>
+
+	<div id="t_55_6" style="position: absolute; left: 23.74%; top: 27.27%;" class="c_55_7">
+		huge impact. They might push for a new way of thinking, or they may focus on
+	</div>
+
+	<div id="t_55_7" style="position: absolute; left: 23.26%; top: 29.16%;" class="c_55_7">
+		one really big issue rather than a whole slate of ideas. Third parties are often
+	</div>
+
+	<div id="t_55_8" style="position: absolute; left: 21.91%; top: 31.06%;" class="c_55_7">
+		dominated by one very strong personality and that person <span class="c_55_8">can</span> <span class="c_55_6">affect an election.</span>
+	</div>
+
+	<div id="t_55_9" style="position: absolute; left: 22.97%; top:32.89%;" class="c_55_9">
+		THEODORE ROOSEVELT: THE BULL MOOSE PARTY
+	</div>
+
+	<div id="t_55_10" style="position: absolute; left: 16.24%; top: 35.61%;" class="c_55_7">
+		Teddy Roosevelt was a dynamo&mdash;a Harvard-educated, Wild West rancher turned war
+	</div>
+
+	<div id="t_55_11" style="position: absolute; left: 14.92%; top: 37.51%;" class="c_55_7">
+		hero. He earned a reputation for honesty and fairness while governor of New York, and in
+	</div>
+
+	<div id="t_55_12" style="position: absolute; left: 14.92%; top: 39.4%;" class="c_55_7">
+		1900 was elected vice president under William McKinley. Ten months after the election,
+	</div>
+
+	<div id="t_55_13" style="position: absolute; left: 14.92%; top: 41.29%;" class="c_55_7">
+		McKinley was felled by an assassin and Roosevelt became president. He took on big
+	</div>
+
+	<div id="t_55_14" style="position: absolute; left: 14.92%; top: 43.19%;" class="c_55_7">
+		business and busted up big corporations that were gaining too much power. After
+	</div>
+
+	<div id="t_55_15" style="position: absolute; left: 14.92%; top: 45.08%;" class="c_55_7">
+		winning re-election easily and serving a full term as president, he left politics behind for a
+	</div>
+
+	<div id="t_55_16" style="position: absolute; left: 14.92%; top: 46.98%;" class="c_55_7">
+		life of adventure. A few years later, he decided he still had ideas for the nation. The
+	</div>
+
+	<div id="t_55_17" style="position: absolute; left: 14.92%; top: 48.87%;" class="c_55_7">
+		Republicans and Democrats had their presidential candidates lined up for the 1912
+	</div>
+
+	<div id="t_55_18" style="position: absolute; left: 14.92%; top: 50.77%;" class="c_55_7">
+		election so Roosevelt, nicknamed &ldquo;Bull Moose&rdquo; for his swagger, ran on the Progressive
+	</div>
+
+	<div id="t_55_19" style="position: absolute; left: 14.92%; top: 52.66%;" class="c_55_7">
+		Party ticket. Roosevelt got 27 percent of the popular vote. Because he split the
+	</div>
+
+	<div id="t_55_20" style="position: absolute; left: 14.92%; top: 54.56%;" class="c_55_7">
+		Republican vote, Democrat Woodrow Wilson won with only 42 percent of the popular
+	</div>
+
+	<div id="t_55_21" style="position: absolute; left: 14.92%; top: 56.45%;" class="c_55_7">
+		vote. Had Roosevelt not run, the Republicans would have easily won.
+	</div>
+
+	<div id="t_55_22" style="position: absolute; left: 35.37%; top:58.11%;" class="c_55_9">
+		ROSS PEROT: AFFECTING POLICY
+	</div>
+
+	<div id="t_55_23" style="position: absolute; left: 25.13%; top: 60.83%;" class="c_55_7">
+		Can Democrats or Republicans change their thinking? They can if they think
+	</div>
+
+	<div id="t_55_24" style="position: absolute; left: 23.82%; top: 62.73%;" class="c_55_7">
+		it will win votes! Ross Perot, a billionaire businessman, was a third-party
+	</div>
+
+	<div id="t_55_25" style="position: absolute; left: 23.82%; top: 64.62%;" class="c_55_7">
+		candidate who lost the presidential election but whose ideas were very
+	</div>
+
+	<div id="t_55_26" style="position: absolute; left: 23.82%; top: 66.51%;" class="c_55_7">
+		sound. When he ran in 1992, he got 18.9 percent of the vote. When he ran
+	</div>
+
+	<div id="t_55_27" style="position: absolute; left: 23.82%; top: 68.41%;" class="c_55_7">
+		again in 1996 he only got 8.4 percent because the major parties had adopted a
+	</div>
+
+	<div id="t_55_28" style="position: absolute; left: 23.82%; top: 70.3%;" class="c_55_7">
+		lot of his ideas about dealing with the federal budget.
+	</div>
+
+	<div id="t_55_29" style="position: absolute; left: 25.72%; top:73.62%;" class="c_55_10">
+		Today, the Libertarian, Green, and Constitution
+	</div>
+
+	<div id="t_55_30" style="position: absolute; left: 28.18%; top:75.26%;" class="c_55_10">
+		parties are the biggest third parties in America.
+	</div>
+
+	<div id="t_55_31" style="position: absolute; left: 29.56%; top:76.90%;" class="c_55_10">
+		These parties gained a lot more attention in
+	</div>
+
+	<div id="t_55_32" style="position: absolute; left: 30.02%; top:78.54%;" class="c_55_10">
+		the 2016 presidential election.
+	</div>
+
+	<div id="t_55_33" style="position: absolute; left: 30.33%; top:80.18%;" class="c_55_10">
+		&bull; The Green Party works for a peaceful,
+	</div>
+
+	<div id="t_55_34" style="position: absolute; left: 30.48%; top:81.82%;" class="c_55_10">
+		healthy planet and social justice.
+	</div>
+
+	<div id="t_55_35" style="position: absolute; left: 29.94%; top:83.47%;" class="c_55_10">
+		&bull; Libertarians believe in very little
+	</div>
+
+	<div id="t_55_36" style="position: absolute; left: 29.12%; top:85.11%;" class="c_55_10">
+		government. Their current platform calls for
+	</div>
+
+	<div id="t_55_37" style="position: absolute; left: 27.29%; top:86.75%;" class="c_55_10">
+		a repeal of the income tax and closing public
+	</div>
+
+	<div id="t_55_38" style="position: absolute; left: 25.72%; top:88.39%;" class="c_55_10">
+		schools to allow the private sector to run them.
+	</div>
+
+	<div id="t_55_39" style="position: absolute; left: 25.72%; top:90.03%;" class="c_55_10">
+		&bull; The Constitution Party reflects extremely
+	</div>
+
+	<div id="t_55_40" style="position: absolute; left: 25.72%; top:91.67%;" class="c_55_10">
+		conservative Christian views.
+	</div>
+
+	<div id="t_55_41" style="position: absolute; left: 62.99%; top:78.99%;" class="c_55_11">
+		Room for
+	</div>
+
+	<div id="t_55_42" style="position: absolute; left: 62.99%; top:80.88%;" class="c_55_11">
+		Debate
+	</div>
+
+	<div id="t_55_43" style="position: absolute; left: 62.99%; top:83.50%;" class="c_55_12">
+		Third-party candidates
+	</div>
+
+	<div id="t_55_44" style="position: absolute; left: 62.99%; top:85.39%;" class="c_55_12">
+		are usually not invited to take part in
+	</div>
+
+	<div id="t_55_45" style="position: absolute; left: 62.99%; top:87.29%;" class="c_55_12">
+		the presidential debates, so they do not
+	</div>
+
+	<div id="t_55_46" style="position: absolute; left: 62.99%; top:89.18%;" class="c_55_12">
+		get the same chances to talk to the
+	</div>
+
+	<div id="t_55_47" style="position: absolute; left: 62.99%; top:91.08%;" class="c_55_12">
+		voters. Do you think this is fair?
+	</div>
+
+	<div id="t_55_48" style="position: absolute; left: 62.99%; top:92.97%;" class="c_55_12">
+		Why or why not?
+	</div>
+
+	<div id="t_55_49" style="position: absolute; left: 93.11%; top: 95.13%;" class="c_55_13">
+		55
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 55%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_55_although_third_parties.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 44%; top: 8%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_55_third_parties_a_force.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 33%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_55_theodore_roosevelt.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 17%; top: 59%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_55_ross_perot.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 8%; top: 76%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_55_today_the_libertarian.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 62%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_55_room_for_debate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_54_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_55_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_54_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="54.html?page=right"; onclick="goto('54.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="56.html"; onclick="goto('56.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="56.html"; onclick="goto('56.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

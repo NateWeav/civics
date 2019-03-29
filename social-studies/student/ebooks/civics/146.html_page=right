@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_146.css">
+                <link rel="stylesheet" href="css/civics_147.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="144.html?page=right"; onclick="goto('144.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="146.html"; onclick="goto('146.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="144.html?page=right"; onclick="goto('144.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_146_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_147_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_146_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="146.html?page=right"; onclick="goto('146.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="148.html"; onclick="goto('148.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="148.html"; onclick="goto('148.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="144.html?page=right"; onclick="goto('144.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="146.html"; onclick="goto('146.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="144.html?page=right"; onclick="goto('144.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_146">
+                                                                                                <div class="pageData">
+
+	<div id="t_146_18" style="position: absolute; left: 46.36%; top:21.58%;" class="c_146_9">
+		TINKER v. DES MOINES<span class="c_146_10">, 1969</span>
+	</div>
+
+	<div id="t_146_19" style="position: absolute; left: 37.95%; top: 24.14%; letter-spacing: 0.01em;" class="c_146_11">
+		&bull; <span class="c_146_12">Does a prohibition against wearing armbands in public school as</span>
+	</div>
+
+	<div id="t_146_20" style="position: absolute; left: 37.95%; top: 25.91%; letter-spacing: 0.01em;" class="c_146_13">
+		a protest violate a student&rsquo;s First Amendment rights?
+	</div>
+
+	<div id="t_146_21" style="position: absolute; left: 38.82%; top:28.22%;" class="c_146_14">
+		In 1965, a group of students decided to wear black
+	</div>
+
+	<div id="t_146_22" style="position: absolute; left: 37.95%; top:30.12%;" class="c_146_14">
+		armbands to school to protest the Vietnam War. The
+	</div>
+
+	<div id="t_146_23" style="position: absolute; left: 37.95%; top:32.01%;" class="c_146_14">
+		principals of their school heard about the plan and warned
+	</div>
+
+	<div id="t_146_24" style="position: absolute; left: 37.95%; top:33.91%;" class="c_146_14">
+		that any student wearing an armband would be asked to
+	</div>
+
+	<div id="t_146_25" style="position: absolute; left: 37.95%; top:35.80%;" class="c_146_14">
+		remove it. If they did not, they would be suspended.
+	</div>
+
+	<div id="t_146_26" style="position: absolute; left: 37.95%; top:37.70%;" class="c_146_14">
+		Several students proudly wore their armbands and were
+	</div>
+
+	<div id="t_146_27" style="position: absolute; left: 37.95%; top:39.59%;" class="c_146_14">
+		sent home. Through their parents, the students sued the
+	</div>
+
+	<div id="t_146_28" style="position: absolute; left: 37.95%; top:41.49%;" class="c_146_14">
+		school district for censoring their free speech, but a district
+	</div>
+
+	<div id="t_146_29" style="position: absolute; left: 37.95%; top:43.38%;" class="c_146_14">
+		court voted in favor of the school district. School discipline
+	</div>
+
+	<div id="t_146_30" style="position: absolute; left: 37.95%; top:45.27%;" class="c_146_14">
+		must be upheld, they said. The U.S. Court of Appeals also
+	</div>
+
+	<div id="t_146_31" style="position: absolute; left: 37.95%; top:47.17%;" class="c_146_14">
+		agreed, so the students petitioned the Supreme Court.
+	</div>
+
+	<div id="t_146_32" style="position: absolute; left: 37.95%; top:49.50%;" class="c_146_15">
+		THE VERDICT: <span class="c_146_16">The Supreme Court ruled 7 to 2 in favor of the</span>
+	</div>
+
+	<div id="t_146_33" style="position: absolute; left: 37.95%; top: 51.29%; letter-spacing: 0.01em;" class="c_146_13">
+		students! Students have a right to free speech and expression as
+	</div>
+
+	<div id="t_146_34" style="position: absolute; left: 37.95%; top: 53.18%; letter-spacing: 0.01em;" class="c_146_13">
+		long as it does not disrupt the school.
+	</div>
+
+	<div id="t_146_35" style="position: absolute; left: 16.35%; top:41.21%;" class="c_146_17">
+		Mary Beth Tinker
+	</div>
+
+	<div id="t_146_36" style="position: absolute; left: 16.35%; top:42.85%;" class="c_146_17">
+		and her brother John
+	</div>
+
+	<div id="t_146_37" style="position: absolute; left: 16.35%; top:44.49%;" class="c_146_17">
+		proudly display the
+	</div>
+
+	<div id="t_146_38" style="position: absolute; left: 16.35%; top:46.13%;" class="c_146_17">
+		armbands that got
+	</div>
+
+	<div id="t_146_39" style="position: absolute; left: 16.35%; top:47.77%;" class="c_146_17">
+		them into so much
+	</div>
+
+	<div id="t_146_40" style="position: absolute; left: 16.35%; top:49.41%;" class="c_146_17">
+		trouble.
+	</div>
+
+	<div id="t_146_41" style="position: absolute; left: 16.81%; top:56.99%;" class="c_146_9">
+		NEW JERSEY v. T.L.O<span class="c_146_10">., 1985</span>
+	</div>
+
+	<div id="t_146_42" style="position: absolute; left: 8.82%; top: 59.54%; letter-spacing: 0.01em;" class="c_146_11">
+		&bull; <span class="c_146_12">Does the &ldquo;search warrant&rdquo; concept of the Fourth</span>
+	</div>
+
+	<div id="t_146_43" style="position: absolute; left: 8.82%; top: 61.31%; letter-spacing: 0.01em;" class="c_146_13">
+		Amendment apply to searches conducted by school officials in
+	</div>
+
+	<div id="t_146_44" style="position: absolute; left: 8.82%; top: 63.08%; letter-spacing: 0.01em;" class="c_146_13">
+		public schools?
+	</div>
+
+	<div id="t_146_45" style="position: absolute; left: 9.70%; top:65.02%;" class="c_146_14">
+		Caught smoking in a school bathroom, a 14-year-old
+	</div>
+
+	<div id="t_146_46" style="position: absolute; left: 8.82%; top:66.91%;" class="c_146_14">
+		girl was brought to the principal&rsquo;s office. She denied
+	</div>
+
+	<div id="t_146_47" style="position: absolute; left: 8.82%; top:68.81%;" class="c_146_14">
+		ever having smoked, so the assistant principal at
+	</div>
+
+	<div id="t_146_48" style="position: absolute; left: 8.82%; top:70.70%;" class="c_146_14">
+		Piscataway High School searched her purse. Not only
+	</div>
+
+	<div id="t_146_49" style="position: absolute; left: 8.82%; top:72.60%;" class="c_146_14">
+		did he find cigarettes, he also found marijuana,
+	</div>
+
+	<div id="t_146_50" style="position: absolute; left: 8.82%; top:74.49%;" class="c_146_14">
+		possession of which was a state crime, and other items
+	</div>
+
+	<div id="t_146_51" style="position: absolute; left: 8.82%; top:76.38%;" class="c_146_14">
+		that strongly suggested she was a drug dealer. A New
+	</div>
+
+	<div id="t_146_52" style="position: absolute; left: 8.82%; top:78.28%;" class="c_146_14">
+		Jersey Juvenile and Domestic Relations Court found
+	</div>
+
+	<div id="t_146_53" style="position: absolute; left: 8.82%; top:80.17%;" class="c_146_14">
+		her guilty. She appealed the case based on Fourth
+	</div>
+
+	<div id="t_146_54" style="position: absolute; left: 8.82%; top:82.07%;" class="c_146_14">
+		Amendment violations.
+	</div>
+
+	<div id="t_146_55" style="position: absolute; left: 8.82%; top:84.12%;" class="c_146_15">
+		THE VERDICT: <span class="c_146_16">The court ruled against T.L.O. (only her</span>
+	</div>
+
+	<div id="t_146_56" style="position: absolute; left: 8.82%; top: 85.81%; letter-spacing: 0.01em;" class="c_146_13">
+		initials were used because she was a minor), because the
+	</div>
+
+	<div id="t_146_57" style="position: absolute; left: 8.82%; top: 87.70%; letter-spacing: 0.01em;" class="c_146_13">
+		search had been conducted for a non-criminal purpose: to
+	</div>
+
+	<div id="t_146_58" style="position: absolute; left: 8.82%; top: 89.59%; letter-spacing: 0.01em;" class="c_146_13">
+		keep contraband out of public schools.
+	</div>
+
+	<div id="t_146_59" style="position: absolute; left: 4.57%; top: 93.71%;" class="c_146_18">
+		146
+	</div>
+
+	<div id="t_146_60" style="position: absolute; left: 66.66%; top:78.67%;" class="c_146_17">
+		Should &ldquo;drug-
+	</div>
+
+	<div id="t_146_61" style="position: absolute; left: 66.66%; top:80.31%;" class="c_146_17">
+		sniffing&rdquo; dogs be
+	</div>
+
+	<div id="t_146_62" style="position: absolute; left: 66.66%; top:81.96%;" class="c_146_17">
+		allowed to patrol
+	</div>
+
+	<div id="t_146_63" style="position: absolute; left: 66.66%; top:83.60%;" class="c_146_17">
+		school lockers
+	</div>
+
+	<div id="t_146_64" style="position: absolute; left: 66.66%; top:85.24%;" class="c_146_17">
+		without probable
+	</div>
+
+	<div id="t_146_65" style="position: absolute; left: 66.66%; top:86.88%;" class="c_146_17">
+		cause?
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 0%; top: 5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_146_the_court_at_school.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 40%; top: 19%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_146_tinker_v_des_moines.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 11%; top: 38.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_146_mary_beth_tinker.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 9%; top: 55%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_146_new_jersey_v_tlo.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 60%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_146_should_drug-sniffing_dogs.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_147">
+                                                                                                <div class="pageData">
+
+	<div id="t_147_0" style="position: absolute; left: 11.98%; top:7.20%;" class="c_147_0">
+		HAZELWOOD v. KUHLMEIER<span class="c_147_1">, 1988</span>
+	</div>
+
+	<div id="t_147_1" style="position: absolute; left: 11.47%; top: 9.37%; letter-spacing: 0.01em;" class="c_147_2">
+		&bull; <span class="c_147_3">Does freedom of the press apply to a high school</span>
+	</div>
+
+	<div id="t_147_2" style="position: absolute; left: 11.47%; top: 11.14%; letter-spacing: 0.01em;" class="c_147_4">
+		newspaper?
+	</div>
+
+	<div id="t_147_3" style="position: absolute; left: 12.85%; top:13.05%;" class="c_147_5">
+		The Spectrum <span class="c_147_6">was the student-run</span>
+	</div>
+
+	<div id="t_147_4" style="position: absolute; left: 11.47%; top:14.97%;" class="c_147_7">
+		newspaper at Hazelwood East High School in
+	</div>
+
+	<div id="t_147_5" style="position: absolute; left: 11.47%; top:16.87%;" class="c_147_7">
+		St. Louis, Missouri. The students had written
+	</div>
+
+	<div id="t_147_6" style="position: absolute; left: 11.47%; top:18.76%;" class="c_147_7">
+		two articles&mdash;one about teen pregnancy and
+	</div>
+
+	<div id="t_147_7" style="position: absolute; left: 11.47%; top:20.66%;" class="c_147_7">
+		the other on divorce. The principal believed
+	</div>
+
+	<div id="t_147_8" style="position: absolute; left: 11.47%; top:22.55%;" class="c_147_7">
+		these two topics did not belong in a school
+	</div>
+
+	<div id="t_147_9" style="position: absolute; left: 11.47%; top:24.45%;" class="c_147_7">
+		publication, so he cut two pages from the
+	</div>
+
+	<div id="t_147_10" style="position: absolute; left: 11.47%; top:26.34%;" class="c_147_7">
+		newspaper without telling the students. Upset
+	</div>
+
+	<div id="t_147_11" style="position: absolute; left: 11.47%; top:28.24%;" class="c_147_7">
+		because they had not even been given a
+	</div>
+
+	<div id="t_147_12" style="position: absolute; left: 11.47%; top:30.13%;" class="c_147_7">
+		chance to make changes, the students went to
+	</div>
+
+	<div id="t_147_13" style="position: absolute; left: 11.47%; top:32.02%;" class="c_147_7">
+		the district court. Wasn&rsquo;t this in violation of the
+	</div>
+
+	<div id="t_147_14" style="position: absolute; left: 11.47%; top:33.89%;" class="c_147_7">
+		decision in <span class="c_147_8">Tinker v. Des Moines</span><span class="c_147_9">?</span>
+	</div>
+
+	<div id="t_147_15" style="position: absolute; left: 12.90%; top:35.81%;" class="c_147_7">
+		When the court sided with the school, the
+	</div>
+
+	<div id="t_147_16" style="position: absolute; left: 11.47%; top:37.71%;" class="c_147_7">
+		students appealed the ruling. The U.S. Court of
+	</div>
+
+	<div id="t_147_17" style="position: absolute; left: 11.47%; top:39.60%;" class="c_147_7">
+		Appeals reversed the lower court&rsquo;s decision
+	</div>
+
+	<div id="t_147_18" style="position: absolute; left: 11.47%; top:41.50%;" class="c_147_7">
+		and found in favor of the students. But victory
+	</div>
+
+	<div id="t_147_19" style="position: absolute; left: 11.47%; top:43.39%;" class="c_147_7">
+		was short-lived. The school went to the
+	</div>
+
+	<div id="t_147_20" style="position: absolute; left: 11.47%; top:45.29%;" class="c_147_7">
+		Supreme Court to appeal the decision.
+	</div>
+
+	<div id="t_147_21" style="position: absolute; left: 11.47%; top:47.60%;" class="c_147_10">
+		THE VERDICT: <span class="c_147_11">The Supreme Court ruled 5 to 3 in</span>
+	</div>
+
+	<div id="t_147_22" style="position: absolute; left: 11.47%; top: 49.40%; letter-spacing: 0.01em;" class="c_147_4">
+		favor of the school. Public schools do not have to
+	</div>
+
+	<div id="t_147_23" style="position: absolute; left: 11.47%; top: 51.29%; letter-spacing: 0.01em;" class="c_147_4">
+		allow free speech if it is at odds with the school&rsquo;s
+	</div>
+
+	<div id="t_147_24" style="position: absolute; left: 11.47%; top: 53.19%; letter-spacing: 0.01em;" class="c_147_4">
+		educational mission. Free speech outside of school is
+	</div>
+
+	<div id="t_147_25" style="position: absolute; left: 11.47%; top: 55.08%; letter-spacing: 0.01em;" class="c_147_4">
+		one thing. Inside, it is up to the school.
+	</div>
+
+	<div id="t_147_26" style="position: absolute; left: 58.27%; top:31.17%;" class="c_147_0">
+		INGRAHAM v. WRIGHT<span class="c_147_1">, 1977</span>
+	</div>
+
+	<div id="t_147_27" style="position: absolute; left: 56.41%; top: 33.73%; letter-spacing: 0.01em;" class="c_147_2">
+		&bull; <span class="c_147_3">Do schools have the right to spank a student?</span>
+	</div>
+
+	<div id="t_147_28" style="position: absolute; left: 57.33%; top: 36.17%;" class="c_147_12">
+		The Eighth Amendment bans &ldquo;cruel and
+	</div>
+
+	<div id="t_147_29" style="position: absolute; left: 56.40%; top: 38.06%;" class="c_147_12">
+		unusual punishment,&rdquo; so when James
+	</div>
+
+	<div id="t_147_30" style="position: absolute; left: 56.40%; top: 39.96%;" class="c_147_12">
+		Ingraham, an eighth-grade student at a junior
+	</div>
+
+	<div id="t_147_31" style="position: absolute; left: 56.40%; top: 41.85%;" class="c_147_12">
+		high school in Florida, was paddled more
+	</div>
+
+	<div id="t_147_32" style="position: absolute; left: 56.40%; top: 43.75%;" class="c_147_12">
+		than 20 times by the principal while being
+	</div>
+
+	<div id="t_147_33" style="position: absolute; left: 56.40%; top: 45.64%;" class="c_147_12">
+		held down by two other school officials, a
+	</div>
+
+	<div id="t_147_34" style="position: absolute; left: 56.40%; top: 47.53%;" class="c_147_12">
+		lot of people felt the punishment was
+	</div>
+
+	<div id="t_147_35" style="position: absolute; left: 56.40%; top: 49.43%;" class="c_147_12">
+		particularly cruel. Ingraham&rsquo;s parents filed a
+	</div>
+
+	<div id="t_147_36" style="position: absolute; left: 56.40%; top: 51.32%;" class="c_147_12">
+		complaint, stating that the use of physical
+	</div>
+
+	<div id="t_147_37" style="position: absolute; left: 56.40%; top: 53.22%;" class="c_147_12">
+		punishment violated both the Eighth
+	</div>
+
+	<div id="t_147_38" style="position: absolute; left: 56.40%; top: 55.11%;" class="c_147_12">
+		Amendment and the due process clause of
+	</div>
+
+	<div id="t_147_39" style="position: absolute; left: 56.40%; top: 57.01%;" class="c_147_12">
+		the Fourteenth Amendment, which requires
+	</div>
+
+	<div id="t_147_40" style="position: absolute; left: 56.40%; top: 58.9%;" class="c_147_12">
+		prior notice and an opportunity to be heard.
+	</div>
+
+	<div id="t_147_41" style="position: absolute; left: 44.92%; top: 60.8%;" class="c_147_12">
+		A district court dismissed the complaint, and the decision
+	</div>
+
+	<div id="t_147_42" style="position: absolute; left: 43.61%; top: 62.69%;" class="c_147_12">
+		was upheld by the court of appeals. From there the case
+	</div>
+
+	<div id="t_147_43" style="position: absolute; left: 43.61%; top: 64.58%;" class="c_147_12">
+		went to the Supreme Court.
+	</div>
+
+	<div id="t_147_44" style="position: absolute; left: 43.90%; top:67.72%;" class="c_147_10">
+		THE VERDICT: <span class="c_147_11">Ingraham lost his case. Fortunately, Virginia</span>
+	</div>
+
+	<div id="t_147_45" style="position: absolute; left: 43.90%; top: 69.52%; letter-spacing: 0.01em;" class="c_147_4">
+		does not allow physical punishments in the schools, but as of
+	</div>
+
+	<div id="t_147_46" style="position: absolute; left: 43.90%; top: 71.41%; letter-spacing: 0.01em;" class="c_147_4">
+		2015, 19 states (shown in red on this map) still allow it. Some
+	</div>
+
+	<div id="t_147_47" style="position: absolute; left: 43.90%; top: 73.30%; letter-spacing: 0.01em;" class="c_147_4">
+		require parental permission, but many do not.
+	</div>
+
+	<div id="t_147_48" style="position: absolute; left: 92.76%; top: 93.06%;" class="c_147_13">
+		147
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 7%; top: 5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_147_hazelwood_v_kuhlmeier.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 53%; top: 28%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_147_ingraham_v_wright.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_146_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_147_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_146_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="146.html?page=right"; onclick="goto('146.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="148.html"; onclick="goto('148.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="148.html"; onclick="goto('148.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

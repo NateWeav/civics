@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_160.css">
+                <link rel="stylesheet" href="css/civics_161.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="158.html?page=right"; onclick="goto('158.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="160.html"; onclick="goto('160.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="158.html?page=right"; onclick="goto('158.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_160_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_161_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_160_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="160.html?page=right"; onclick="goto('160.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="162.html"; onclick="goto('162.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="162.html"; onclick="goto('162.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="158.html?page=right"; onclick="goto('158.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="160.html"; onclick="goto('160.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="158.html?page=right"; onclick="goto('158.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_160">
+                                                                                                <div class="pageData">
+
+	<div id="t_160_0" style="position: absolute; left: 5.62%; top:31.47%; letter-spacing: -0.02em;" class="c_160_0">
+		Both buyers and sellers respond to price changes. When
+	</div>
+
+	<div id="t_160_1" style="position: absolute; left: 5.62%; top:33.24%;" class="c_160_0">
+		prices change, buyers change the quantity they are
+	</div>
+
+	<div id="t_160_2" style="position: absolute; left: 5.62%; top:35.01%; letter-spacing: -0.02em;" class="c_160_0">
+		willing and able to buy, and sellers change the quantity
+	</div>
+
+	<div id="t_160_3" style="position: absolute; left: 5.62%; top:36.77%;" class="c_160_0">
+		they are willing and able to bring to market.
+	</div>
+
+	<div id="t_160_4" style="position: absolute; left: 5.62%; top:39.30%;" class="c_160_0">
+		Neither supply nor demand alone can set a price.
+	</div>
+
+	<div id="t_160_5" style="position: absolute; left: 14.42%; top: 46.13%; letter-spacing: 0.01em;" class="c_160_1">
+		Why are these people fighting? They all want these discounted TVs, but there are limited numbers.
+	</div>
+
+	<div id="t_160_6" style="position: absolute; left: 24.16%; top: 47.90%; letter-spacing: 0.01em;" class="c_160_1">
+		They are learning that a driving force in economics is the interaction of&hellip;
+	</div>
+
+	<div id="t_160_7" style="position: absolute; left: 25.38%; top: 48.72%; letter-spacing: -0.02em;" class="c_160_2">
+		Supply and Demand
+	</div>
+
+	<div id="t_160_8" style="position: absolute; left: 10.14%; top: 56.59%;" class="c_160_3">
+		Even if you have several million dollars in the bank, you must make economic decisions every
+	</div>
+
+	<div id="t_160_9" style="position: absolute; left: 8.82%; top: 58.48%;" class="c_160_3">
+		time you go shopping. How much are you willing to pay?
+	</div>
+
+	<div id="t_160_10" style="position: absolute; left: 35.18%; top:60.56%;" class="c_160_4">
+		THE PRICE IS RIGHT!
+	</div>
+
+	<div id="t_160_11" style="position: absolute; left: 10.14%; top: 63.03%;" class="c_160_3">
+		Put simply, <span class="c_160_5">price</span> <span class="c_160_6">is the amount of money exchanged for a good or service. A lot of thought</span>
+	</div>
+
+	<div id="t_160_12" style="position: absolute; left: 8.82%; top: 64.92%;" class="c_160_3">
+		goes into the price of an item. How much does it cost to design and produce it? How much to get
+	</div>
+
+	<div id="t_160_13" style="position: absolute; left: 8.82%; top: 66.82%;" class="c_160_3">
+		it to the marketplace? What about the salaries of the salespeople and rent for the building in
+	</div>
+
+	<div id="t_160_14" style="position: absolute; left: 8.82%; top: 68.71%;" class="c_160_3">
+		which it is sold? But price is just one part of the economic puzzle.
+	</div>
+
+	<div id="t_160_15" style="position: absolute; left: 9.70%; top: 70.61%;" class="c_160_3">
+		If no one wants the product, how
+	</div>
+
+	<div id="t_160_16" style="position: absolute; left: 8.82%; top: 72.5%;" class="c_160_3">
+		much is it worth? If everyone wants
+	</div>
+
+	<div id="t_160_17" style="position: absolute; left: 8.82%; top: 74.4%;" class="c_160_3">
+		it and folks are lining up to get it,
+	</div>
+
+	<div id="t_160_18" style="position: absolute; left: 8.82%; top:76.34%;" class="c_160_7">
+		then <span class="c_160_8">how much is it worth? Neither</span>
+	</div>
+
+	<div id="t_160_19" style="position: absolute; left: 8.82%; top: 78.18%;" class="c_160_3">
+		supply nor demand alone can set
+	</div>
+
+	<div id="t_160_20" style="position: absolute; left: 8.82%; top: 80.08%;" class="c_160_3">
+		the price. It&rsquo;s very complicated!
+	</div>
+
+	<div id="t_160_21" style="position: absolute; left: 10.14%; top: 81.97%;" class="c_160_3">
+		Someone selling a good or service
+	</div>
+
+	<div id="t_160_22" style="position: absolute; left: 8.82%; top: 83.87%;" class="c_160_3">
+		hopes to get supply and demand
+	</div>
+
+	<div id="t_160_23" style="position: absolute; left: 8.82%; top: 85.76%;" class="c_160_3">
+		perfectly balanced, much like a
+	</div>
+
+	<div id="t_160_24" style="position: absolute; left: 8.82%; top: 87.66%;" class="c_160_3">
+		perfectly balanced seesaw. If
+	</div>
+
+	<div id="t_160_25" style="position: absolute; left: 8.82%; top: 89.55%;" class="c_160_3">
+		demand increases, prices rise. If
+	</div>
+
+	<div id="t_160_26" style="position: absolute; left: 8.82%; top: 91.45%;" class="c_160_3">
+		supply increases, prices fall.
+	</div>
+
+	<div id="t_160_27" style="position: absolute; left: 4.92%; top: 94.53%; letter-spacing: -0.15em;" class="c_160_9">
+		160
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 27.75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_160_both_buyers_and_sellers.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 8%; top: 45%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_160_supply_and_demand.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_161">
+                                                                                                <div class="pageData">
+
+	<div id="t_161_0" style="position: absolute; left: 22.10%; top:3.86%;" class="c_161_0">
+		I Have It,
+	</div>
+
+	<div id="t_161_1" style="position: absolute; left: 18.75%; top:9.29%;" class="c_161_0">
+		You Want It
+	</div>
+
+	<div id="t_161_2" style="position: absolute; left: 16.96%; top:16.54%;" class="c_161_1">
+		THE LAWS OF SUPPLY AND DEMAND
+	</div>
+
+	<div id="t_161_3" style="position: absolute; left: 11.73%; top: 20.23%;" class="c_161_2">
+		There are laws to keep us safe. There are laws of physics.
+	</div>
+
+	<div id="t_161_4" style="position: absolute; left: 11.73%; top: 22.12%;" class="c_161_2">
+		There are also laws in economics&mdash;certain &ldquo;truths&rdquo; that
+	</div>
+
+	<div id="t_161_5" style="position: absolute; left: 11.73%; top: 24.01%;" class="c_161_2">
+		help explain how people behave when it is time to shop.
+	</div>
+
+	<div id="t_161_6" style="position: absolute; left: 13.16%; top:25.96%;" class="c_161_3">
+		The Law of Demand<span class="c_161_4"> says that a consumer will buy more</span>
+	</div>
+
+	<div id="t_161_7" style="position: absolute; left: 11.73%; top: 27.8%;" class="c_161_2">
+		of a good or service at a lower price and less at a higher
+	</div>
+
+	<div id="t_161_8" style="position: absolute; left: 11.73%; top: 29.7%;" class="c_161_2">
+		price. Suppose Jazzy Jeans has decided to cut the price of
+	</div>
+
+	<div id="t_161_9" style="position: absolute; left: 11.73%; top: 31.59%;" class="c_161_2">
+		their &ldquo;Super-J jeans&rdquo; from $50.00 to $25.00. They can still
+	</div>
+
+	<div id="t_161_10" style="position: absolute; left: 11.73%; top: 33.49%;" class="c_161_2">
+		make a good profit. When you go shopping for a new pair of
+	</div>
+
+	<div id="t_161_11" style="position: absolute; left: 11.73%; top: 35.38%;" class="c_161_2">
+		jeans, you buy Super-Js because they cost less than the
+	</div>
+
+	<div id="t_161_12" style="position: absolute; left: 11.73%; top: 37.28%;" class="c_161_2">
+		other brands. You tell your friends about the great price,
+	</div>
+
+	<div id="t_161_13" style="position: absolute; left: 11.73%; top: 39.17%;" class="c_161_2">
+		and they tell <span class="c_161_5">their</span> <span class="c_161_4">friends. Soon, as word of Jazzy Jeans&rsquo;s</span>
+	</div>
+
+	<div id="t_161_14" style="position: absolute; left: 11.73%; top: 41.06%;" class="c_161_2">
+		great price gets out, it will lead to greater demand.
+	</div>
+
+	<div id="t_161_15" style="position: absolute; left: 13.05%; top:43.01%;" class="c_161_3">
+		The Law of Supply <span class="c_161_4">states that producers will make more</span>
+	</div>
+
+	<div id="t_161_16" style="position: absolute; left: 11.73%; top: 44.85%;" class="c_161_2">
+		of a product when they can sell it a higher price, and
+	</div>
+
+	<div id="t_161_17" style="position: absolute; left: 11.73%; top: 46.75%;" class="c_161_2">
+		produce less when they can sell at a lower price. Let&rsquo;s say
+	</div>
+
+	<div id="t_161_18" style="position: absolute; left: 11.73%; top: 48.64%;" class="c_161_2">
+		that Super-J&rsquo;s success gets noticed by lots of companies.
+	</div>
+
+	<div id="t_161_19" style="position: absolute; left: 11.73%; top: 50.54%;" class="c_161_2">
+		They all start producing $25.00 jeans. The market price falls
+	</div>
+
+	<div id="t_161_20" style="position: absolute; left: 11.73%; top: 52.43%;" class="c_161_2">
+		because there is a greater supply, so Super-J will now start
+	</div>
+
+	<div id="t_161_21" style="position: absolute; left: 11.73%; top: 54.33%;" class="c_161_2">
+		to produce less. Producers keep an eye on price, making
+	</div>
+
+	<div id="t_161_22" style="position: absolute; left: 11.73%; top: 56.22%;" class="c_161_2">
+		less when the market price falls.
+	</div>
+
+	<div id="t_161_23" style="position: absolute; left: 45.50%; top: 63.87%; letter-spacing: 0.01em;" class="c_161_6">
+		How much more
+	</div>
+
+	<div id="t_161_24" style="position: absolute; left: 45.50%; top: 65.69%; letter-spacing: 0.01em;" class="c_161_6">
+		would you be
+	</div>
+
+	<div id="t_161_25" style="position: absolute; left: 45.50%; top: 67.51%; letter-spacing: 0.01em;" class="c_161_6">
+		willing to pay for
+	</div>
+
+	<div id="t_161_26" style="position: absolute; left: 45.50%; top: 69.33%; letter-spacing: 0.01em;" class="c_161_6">
+		&ldquo;designer&rdquo; jeans?
+	</div>
+
+	<div id="t_161_27" style="position: absolute; left: 45.50%; top: 71.14%; letter-spacing: 0.01em;" class="c_161_6">
+		Do labels make a
+	</div>
+
+	<div id="t_161_28" style="position: absolute; left: 45.50%; top: 72.96%; letter-spacing: 0.01em;" class="c_161_6">
+		difference when
+	</div>
+
+	<div id="t_161_29" style="position: absolute; left: 45.50%; top: 74.78%; letter-spacing: 0.01em;" class="c_161_6">
+		you go shopping?
+	</div>
+
+	<div id="t_161_30" style="position: absolute; left: 63.46%; top:5.61%;" class="c_161_7">
+		FROM CHRISTMAS TREES
+	</div>
+
+	<div id="t_161_31" style="position: absolute; left: 65.33%; top:7.50%;" class="c_161_7">
+		TO CONCERT TICKETS
+	</div>
+
+	<div id="t_161_32" style="position: absolute; left: 64.43%; top: 9.97%;" class="c_161_2">
+		There are a lot of things to think
+	</div>
+
+	<div id="t_161_33" style="position: absolute; left: 63.11%; top: 11.86%;" class="c_161_2">
+		about when it comes to supply and
+	</div>
+
+	<div id="t_161_34" style="position: absolute; left: 63.11%; top: 13.76%;" class="c_161_2">
+		demand. Who wants to buy a
+	</div>
+
+	<div id="t_161_35" style="position: absolute; left: 63.11%; top: 15.65%;" class="c_161_2">
+		Christmas tree three days after the
+	</div>
+
+	<div id="t_161_36" style="position: absolute; left: 63.11%; top: 17.55%;" class="c_161_2">
+		holiday? A pro-team&rsquo;s T-shirts will
+	</div>
+
+	<div id="t_161_37" style="position: absolute; left: 63.11%; top: 19.44%;" class="c_161_2">
+		sell like crazy during the
+	</div>
+
+	<div id="t_161_38" style="position: absolute; left: 63.11%; top: 21.34%;" class="c_161_2">
+		playoffs leading up to the
+	</div>
+
+	<div id="t_161_39" style="position: absolute; left: 63.11%; top: 23.23%;" class="c_161_2">
+		big game. But if they lose,
+	</div>
+
+	<div id="t_161_40" style="position: absolute; left: 63.11%; top: 25.13%;" class="c_161_2">
+		sales of those same
+	</div>
+
+	<div id="t_161_41" style="position: absolute; left: 63.11%; top: 27.02%;" class="c_161_2">
+		T-shirts will
+	</div>
+
+	<div id="t_161_42" style="position: absolute; left: 63.11%; top: 28.91%;" class="c_161_2">
+		plummet.
+	</div>
+
+	<div id="t_161_43" style="position: absolute; left: 64.43%; top: 30.81%;" class="c_161_2">
+		Sometimes,
+	</div>
+
+	<div id="t_161_44" style="position: absolute; left: 63.11%; top: 32.7%;" class="c_161_2">
+		companies do
+	</div>
+
+	<div id="t_161_45" style="position: absolute; left: 63.11%; top: 34.6%;" class="c_161_2">
+		not make enough
+	</div>
+
+	<div id="t_161_46" style="position: absolute; left: 63.11%; top: 36.49%;" class="c_161_2">
+		of an item that
+	</div>
+
+	<div id="t_161_47" style="position: absolute; left: 63.11%; top: 38.39%;" class="c_161_2">
+		people are clamoring
+	</div>
+
+	<div id="t_161_48" style="position: absolute; left: 63.11%; top: 40.28%;" class="c_161_2">
+		for, in order to create a
+	</div>
+
+	<div id="t_161_49" style="position: absolute; left: 63.11%; top: 42.18%;" class="c_161_2">
+		buzz. Think about the
+	</div>
+
+	<div id="t_161_50" style="position: absolute; left: 63.11%; top: 44.07%;" class="c_161_2">
+		sensation created when
+	</div>
+
+	<div id="t_161_51" style="position: absolute; left: 63.11%; top: 45.96%;" class="c_161_2">
+		tickets to a sold-out rock
+	</div>
+
+	<div id="t_161_52" style="position: absolute; left: 63.11%; top: 47.86%;" class="c_161_2">
+		concert sell for three
+	</div>
+
+	<div id="t_161_53" style="position: absolute; left: 63.11%; top: 49.75%;" class="c_161_2">
+		times the price printed
+	</div>
+
+	<div id="t_161_54" style="position: absolute; left: 63.11%; top: 51.65%;" class="c_161_2">
+		on the ticket!
+	</div>
+
+	<div id="t_161_55" style="position: absolute; left: 64.43%; top: 53.54%;" class="c_161_2">
+		If demand increases, prices rise.
+	</div>
+
+	<div id="t_161_56" style="position: absolute; left: 63.11%; top: 55.44%;" class="c_161_2">
+		If supply increases, prices fall. It&rsquo;s
+	</div>
+
+	<div id="t_161_57" style="position: absolute; left: 63.11%; top: 57.33%;" class="c_161_2">
+		that simple.
+	</div>
+
+	<div id="t_161_58" style="position: absolute; left: 69.91%; top:59.65%;" class="c_161_7">
+		LOOKING FOR
+	</div>
+
+	<div id="t_161_59" style="position: absolute; left: 70.26%; top:61.54%;" class="c_161_7">
+		EQUILIBRIUM
+	</div>
+
+	<div id="t_161_60" style="position: absolute; left: 64.43%; top: 64.01%;" class="c_161_2">
+		There is a &ldquo;sweet spot&rdquo; in supply
+	</div>
+
+	<div id="t_161_61" style="position: absolute; left: 63.11%; top: 65.9%;" class="c_161_2">
+		and demand. It is the place of perfect
+	</div>
+
+	<div id="t_161_62" style="position: absolute; left: 63.11%; top: 67.8%;" class="c_161_2">
+		balance where the two meet&mdash;the
+	</div>
+
+	<div id="t_161_63" style="position: absolute; left: 63.11%; top:69.72%;" class="c_161_3">
+		equilibrium price<span class="c_161_4">. Everyone who</span>
+	</div>
+
+	<div id="t_161_64" style="position: absolute; left: 63.11%; top: 71.59%;" class="c_161_2">
+		wants to sell at a specific price can,
+	</div>
+
+	<div id="t_161_65" style="position: absolute; left: 63.11%; top: 73.48%;" class="c_161_2">
+		and everyone who wants to buy at
+	</div>
+
+	<div id="t_161_66" style="position: absolute; left: 63.11%; top: 75.38%;" class="c_161_2">
+		that price can buy. When a
+	</div>
+
+	<div id="t_161_67" style="position: absolute; left: 63.11%; top: 77.27%;" class="c_161_2">
+		manufacturer has a product that
+	</div>
+
+	<div id="t_161_68" style="position: absolute; left: 63.11%; top: 79.17%;" class="c_161_2">
+		people want, and the product is
+	</div>
+
+	<div id="t_161_69" style="position: absolute; left: 63.11%; top: 81.06%;" class="c_161_2">
+		priced well, it will sell.
+	</div>
+
+	<div id="t_161_70" style="position: absolute; left: 93.49%; top: 94.52%; letter-spacing: -0.15em;" class="c_161_8">
+		161
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 8%; top: 2%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_161_i_have_it_you_want_it.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 60%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_161_from_christmas_trees.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 43%; top: 60%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_161_how_much_more.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 59%; top: 60%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_161_looking_for_equilibrium.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_160_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_161_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_160_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="160.html?page=right"; onclick="goto('160.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="162.html"; onclick="goto('162.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="162.html"; onclick="goto('162.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_164.css">
+                <link rel="stylesheet" href="css/civics_165.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="162.html?page=right"; onclick="goto('162.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="164.html"; onclick="goto('164.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="162.html?page=right"; onclick="goto('162.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_164_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_165_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_164_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="164.html?page=right"; onclick="goto('164.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="166.html"; onclick="goto('166.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="166.html"; onclick="goto('166.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="162.html?page=right"; onclick="goto('162.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="164.html"; onclick="goto('164.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="162.html?page=right"; onclick="goto('162.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_164">
+                                                                                                <div class="pageData">
+
+	<div id="t_164_0" style="position: absolute; left: 6.00%; top:4.15%;" class="c_164_0">
+		Private financial institutions help facilitate an exchange of
+	</div>
+
+	<div id="t_164_1" style="position: absolute; left: 6.00%; top:5.92%;" class="c_164_0">
+		money between savers and borrowers.
+	</div>
+
+	<div id="t_164_2" style="position: absolute; left: 16.12%; top: 9.13%; letter-spacing: 0.01em;" class="c_164_1">
+		Keeping money under a mattress or in
+	</div>
+
+	<div id="t_164_3" style="position: absolute; left: 20.59%; top: 10.90%; letter-spacing: 0.01em;" class="c_164_1">
+		jam jars is a terrible idea!
+	</div>
+
+	<div id="t_164_4" style="position: absolute; left: 8.96%; top: 12.03%; letter-spacing: -0.02em;" class="c_164_2">
+		Put It in the Bank
+	</div>
+
+	<div id="t_164_5" style="position: absolute; left: 41.48%; top: 23.82%;" class="c_164_3">
+		&ldquo;Will that be cash or credit?&rdquo; How many times have you heard
+	</div>
+
+	<div id="t_164_6" style="position: absolute; left: 45.47%; top: 25.72%;" class="c_164_3">
+		someone ask that? It is a simple question, but the story
+	</div>
+
+	<div id="t_164_7" style="position: absolute; left: 44.13%; top: 27.61%;" class="c_164_3">
+		of America&rsquo;s banking system is anything but simple. Today,
+	</div>
+
+	<div id="t_164_8" style="position: absolute; left: 42.19%; top: 29.51%;" class="c_164_3">
+		we may walk up to a cash machine and slide a credit or debit
+	</div>
+
+	<div id="t_164_9" style="position: absolute; left: 40.26%; top: 31.4%;" class="c_164_3">
+		card into a slot, then walk away with spending money, but it has
+	</div>
+
+	<div id="t_164_10" style="position: absolute; left: 38.32%; top: 33.3%;" class="c_164_3">
+		not always been like that.
+	</div>
+
+	<div id="t_164_11" style="position: absolute; left: 10.14%; top: 38.26%;" class="c_164_3">
+		What happens when you mix economics with politics? In the 1790s, Republicans,
+	</div>
+
+	<div id="t_164_12" style="position: absolute; left: 37.12%; top:35.79%;" class="c_164_4">
+		BANK BEGINNINGS
+	</div>
+
+	<div id="t_164_13" style="position: absolute; left: 8.82%; top: 40.25%;" class="c_164_3">
+		such as Thomas Jefferson, interpreted the Constitution narrowly, arguing that
+	</div>
+
+	<div id="t_164_14" style="position: absolute; left: 8.82%; top: 42.04%;" class="c_164_3">
+		Congress could <span class="c_164_5">only</span><span class="c_164_6"> use those powers that had been expressly granted. The</span>
+	</div>
+
+	<div id="t_164_15" style="position: absolute; left: 8.82%; top: 43.94%;" class="c_164_3">
+		Federalists, including Alexander Hamilton, read the Constitution differently,
+	</div>
+
+	<div id="t_164_16" style="position: absolute; left: 8.82%; top: 45.83%;" class="c_164_3">
+		thinking if it did not say Congress <span class="c_164_5">could not</span><span class="c_164_6">, that implied that it</span> <span class="c_164_5">could!</span>
+	</div>
+
+	<div id="t_164_17" style="position: absolute; left: 10.14%; top: 47.73%;" class="c_164_3">
+		Nowhere did the Constitution deny Congress the power to have a
+	</div>
+
+	<div id="t_164_18" style="position: absolute; left: 8.82%; top: 49.62%;" class="c_164_3">
+		national bank. So in 1791, the <span class="c_164_5">Bank of the United States</span> <span class="c_164_6">was</span>
+	</div>
+
+	<div id="t_164_19" style="position: absolute; left: 8.82%; top: 51.52%;" class="c_164_3">
+		created, but its charter expired after 20 years. In 1816 Congress
+	</div>
+
+	<div id="t_164_20" style="position: absolute; left: 8.82%; top: 53.41%;" class="c_164_3">
+		created a second bank, but its charter also expired after 20
+	</div>
+
+	<div id="t_164_21" style="position: absolute; left: 8.82%; top: 55.31%;" class="c_164_3">
+		years. As a result, more years of anything-goes banking followed.
+	</div>
+
+	<div id="t_164_22" style="position: absolute; left: 8.82%; top: 57.2%;" class="c_164_3">
+		During the difficult days of the Civil War, Congress created a new
+	</div>
+
+	<div id="t_164_23" style="position: absolute; left: 8.82%; top: 59.09%;" class="c_164_3">
+		national banking system. Finally, in 1913, our current system, the
+	</div>
+
+	<div id="t_164_24" style="position: absolute; left: 8.82%; top: 60.99%;" class="c_164_3">
+		Federal Reserve, was set in place. States also chartered banks, but
+	</div>
+
+	<div id="t_164_25" style="position: absolute; left: 8.82%; top: 62.88%;" class="c_164_3">
+		there were still many flaws with the banking system.
+	</div>
+
+	<div id="t_164_26" style="position: absolute; left: 72.42%; top:63.76%;" class="c_164_4">
+		UNSTABLE!
+	</div>
+
+	<div id="t_164_27" style="position: absolute; left: 67.92%; top: 66.23%;" class="c_164_3">
+		How would you feel if you
+	</div>
+
+	<div id="t_164_28" style="position: absolute; left: 5.76%; top:68.00%;" class="c_164_7">
+		Customers line up to
+	</div>
+
+	<div id="t_164_29" style="position: absolute; left: 5.76%; top:69.64%;" class="c_164_7">
+		try to withdraw their
+	</div>
+
+	<div id="t_164_30" style="position: absolute; left: 5.76%; top:71.28%;" class="c_164_7">
+		savings after yet
+	</div>
+
+	<div id="t_164_31" style="position: absolute; left: 5.76%; top:72.92%;" class="c_164_7">
+		another bank collapse
+	</div>
+
+	<div id="t_164_32" style="position: absolute; left: 5.76%; top:74.56%;" class="c_164_7">
+		during the Great
+	</div>
+
+	<div id="t_164_33" style="position: absolute; left: 5.76%; top:76.21%;" class="c_164_7">
+		Depression. What
+	</div>
+
+	<div id="t_164_34" style="position: absolute; left: 5.76%; top:77.85%;" class="c_164_7">
+		lessons did our country
+	</div>
+
+	<div id="t_164_35" style="position: absolute; left: 5.76%; top:79.49%;" class="c_164_7">
+		learn from this event?
+	</div>
+
+	<div id="t_164_36" style="position: absolute; left: 4.69%; top: 94.79%; letter-spacing: -0.15em;" class="c_164_8">
+		164
+	</div>
+
+	<div id="t_164_37" style="position: absolute; left: 66.61%; top: 68.12%;" class="c_164_3">
+		went to the bank to withdraw
+	</div>
+
+	<div id="t_164_38" style="position: absolute; left: 60.80%; top: 70.02%;" class="c_164_3">
+		your money and were told you could
+	</div>
+
+	<div id="t_164_39" style="position: absolute; left: 60.80%; top: 71.91%;" class="c_164_3">
+		not have it? By 1920 there were
+	</div>
+
+	<div id="t_164_40" style="position: absolute; left: 60.80%; top: 73.81%;" class="c_164_3">
+		almost 30,000 different banks in the
+	</div>
+
+	<div id="t_164_41" style="position: absolute; left: 60.80%; top: 75.7%;" class="c_164_3">
+		United States. Most of them were tiny
+	</div>
+
+	<div id="t_164_42" style="position: absolute; left: 60.80%; top: 77.6%;" class="c_164_3">
+		and had strong ties to the local
+	</div>
+
+	<div id="t_164_43" style="position: absolute; left: 60.80%; top: 79.49%;" class="c_164_3">
+		economy. If the local economy
+	</div>
+
+	<div id="t_164_44" style="position: absolute; left: 60.80%; top: 81.38%;" class="c_164_3">
+		faltered, the bank crashed, losing
+	</div>
+
+	<div id="t_164_45" style="position: absolute; left: 60.80%; top: 83.28%;" class="c_164_3">
+		most of its customers&rsquo; money. Even
+	</div>
+
+	<div id="t_164_46" style="position: absolute; left: 60.80%; top: 85.17%;" class="c_164_3">
+		the Federal Reserve had limited
+	</div>
+
+	<div id="t_164_47" style="position: absolute; left: 60.80%; top: 87.07%;" class="c_164_3">
+		powers back then, and during the
+	</div>
+
+	<div id="t_164_48" style="position: absolute; left: 60.80%; top: 88.96%;" class="c_164_3">
+		Great Depression, thousands of small
+	</div>
+
+	<div id="t_164_49" style="position: absolute; left: 60.80%; top: 90.86%;" class="c_164_3">
+		banks failed. Where had the money
+	</div>
+
+	<div id="t_164_50" style="position: absolute; left: 60.80%; top: 92.75%;" class="c_164_3">
+		gone? How do banks work?
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 1%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_164_private_financial.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 9%; top: 9%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_164_put_it_in_the_bank.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 31%; top: 34%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_164_bank_beginnings.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 63%; top: 62%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_164_unstable.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 1%; top: 64.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_164_customers_line_up.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_165">
+                                                                                                <div class="pageData">
+
+	<div id="t_165_0" style="position: absolute; left: 23.36%; top:5.45%;" class="c_165_0">
+		BANK BASICS
+	</div>
+
+	<div id="t_165_1" style="position: absolute; left: 10.58%; top: 8.02%;" class="c_165_1">
+		A bank&mdash;sometimes called a private financial
+	</div>
+
+	<div id="t_165_2" style="position: absolute; left: 8.82%; top: 9.82%;" class="c_165_1">
+		institution &mdash; is a business. When you put money into a
+	</div>
+
+	<div id="t_165_3" style="position: absolute; left: 8.82%; top: 11.71%;" class="c_165_1">
+		bank, it doesn&rsquo;t just sit there. Your account is credited
+	</div>
+
+	<div id="t_165_4" style="position: absolute; left: 8.82%; top: 13.61%;" class="c_165_1">
+		with your deposit, but the bank then loans your money
+	</div>
+
+	<div id="t_165_5" style="position: absolute; left: 8.82%; top: 15.5%;" class="c_165_1">
+		to someone else and makes a profit. Banks can legally
+	</div>
+
+	<div id="t_165_6" style="position: absolute; left: 8.82%; top: 17.4%;" class="c_165_1">
+		loan upward of 90 percent of the money they take in.
+	</div>
+
+	<div id="t_165_7" style="position: absolute; left: 8.82%; top: 19.29%;" class="c_165_1">
+		At any given time there is not a lot of cash in a bank.
+	</div>
+
+	<div id="t_165_8" style="position: absolute; left: 10.14%; top: 21.19%;" class="c_165_1">
+		If you want to buy a house, a car, or start a business,
+	</div>
+
+	<div id="t_165_9" style="position: absolute; left: 8.82%; top: 23.08%;" class="c_165_1">
+		and you can prove that you will be able to pay it back, a
+	</div>
+
+	<div id="t_165_10" style="position: absolute; left: 8.82%; top: 24.97%;" class="c_165_1">
+		bank will lend you money. Banks make their profits by
+	</div>
+
+	<div id="t_165_11" style="position: absolute; left: 8.82%; top: 26.87%;" class="c_165_1">
+		adding an interest charge in every monthly payment a
+	</div>
+
+	<div id="t_165_12" style="position: absolute; left: 8.82%; top: 28.76%;" class="c_165_1">
+		borrower makes.
+	</div>
+
+	<div id="t_165_13" style="position: absolute; left: 10.14%; top: 30.66%;" class="c_165_1">
+		During the Great Depression, about 9,000 banks failed
+	</div>
+
+	<div id="t_165_14" style="position: absolute; left: 8.82%; top: 32.55%;" class="c_165_1">
+		because people lost their jobs and could not pay back
+	</div>
+
+	<div id="t_165_15" style="position: absolute; left: 8.82%; top: 34.45%;" class="c_165_1">
+		their loans. These days, the government insures the
+	</div>
+
+	<div id="t_165_16" style="position: absolute; left: 8.82%; top: 36.34%;" class="c_165_1">
+		money on deposit in banks, so your savings stay safe.
+	</div>
+
+	<div id="t_165_17" style="position: absolute; left: 21.50%; top:38.54%;" class="c_165_0">
+		&ldquo;INTEREST&rdquo;-ING!
+	</div>
+
+	<div id="t_165_18" style="position: absolute; left: 10.14%; top: 41.01%;" class="c_165_1">
+		Because banks need you to put your money within
+	</div>
+
+	<div id="t_165_19" style="position: absolute; left: 8.82%; top: 42.9%;" class="c_165_1">
+		their &ldquo;walls,&rdquo; they encourage you to save by paying
+	</div>
+
+	<div id="t_165_20" style="position: absolute; left: 8.82%; top: 44.79%;" class="c_165_1">
+		interest to depositors. Interest rates are always
+	</div>
+
+	<div id="t_165_21" style="position: absolute; left: 8.82%; top: 46.69%;" class="c_165_1">
+		changing, depending on the health of the economy. So
+	</div>
+
+	<div id="t_165_22" style="position: absolute; left: 8.82%; top: 48.58%;" class="c_165_1">
+		let&rsquo;s pretend that the banks are paying 5 percent interest
+	</div>
+
+	<div id="t_165_23" style="position: absolute; left: 8.82%; top: 50.48%;" class="c_165_1">
+		on savings accounts every year. Let&rsquo;s say you have
+	</div>
+
+	<div id="t_165_24" style="position: absolute; left: 8.82%; top: 52.37%;" class="c_165_1">
+		deposited $100 in an account. By the end of the year
+	</div>
+
+	<div id="t_165_25" style="position: absolute; left: 8.82%; top: 54.27%;" class="c_165_1">
+		you will have $105 in the bank.
+	</div>
+
+	<div id="t_165_26" style="position: absolute; left: 10.14%; top: 56.16%;" class="c_165_1">
+		Now, at the same time, the bank has loaned most of
+	</div>
+
+	<div id="t_165_27" style="position: absolute; left: 8.82%; top: 58.06%;" class="c_165_1">
+		your $100 to a shopkeeper who wants to buy a new sign
+	</div>
+
+	<div id="t_165_28" style="position: absolute; left: 8.82%; top: 59.95%;" class="c_165_1">
+		for her storefront. The bank gives her $100, but she
+	</div>
+
+	<div id="t_165_29" style="position: absolute; left: 8.82%; top: 61.84%;" class="c_165_1">
+		must pay them back with <span class="c_165_2">10% interest</span> <span class="c_165_3">every year the</span>
+	</div>
+
+	<div id="t_165_30" style="position: absolute; left: 8.82%; top: 63.74%;" class="c_165_1">
+		money is out of the bank. That interest adds up!
+	</div>
+
+	<div id="t_165_31" style="position: absolute; left: 67.74%; top:4.34%;" class="c_165_4">
+		Two
+	</div>
+
+	<div id="t_165_32" style="position: absolute; left: 62.50%; top:9.77%;" class="c_165_4">
+		Ways to
+	</div>
+
+	<div id="t_165_33" style="position: absolute; left: 65.74%; top:15.20%;" class="c_165_4">
+		Bank
+	</div>
+
+	<div id="t_165_34" style="position: absolute; left: 58.85%; top:22.46%;" class="c_165_5">
+		KEEPING YOUR MONEY SAFE
+	</div>
+
+	<div id="t_165_35" style="position: absolute; left: 68.30%; top:26.19%;" class="c_165_6">
+		1. BANKS
+	</div>
+
+	<div id="t_165_36" style="position: absolute; left: 56.45%; top: 28.49%; letter-spacing: 0.01em;" class="c_165_7">
+		&bull; <span class="c_165_8">Banks are community, regional, or national</span>
+	</div>
+
+	<div id="t_165_37" style="position: absolute; left: 56.45%; top: 30.39%; letter-spacing: 0.01em;" class="c_165_9">
+		for-profit corporations owned by private
+	</div>
+
+	<div id="t_165_38" style="position: absolute; left: 56.45%; top: 32.30%; letter-spacing: 0.01em;" class="c_165_9">
+		investors. <span class="c_165_10">Many are geared to the needs of</span>
+	</div>
+
+	<div id="t_165_39" style="position: absolute; left: 56.45%; top: 34.34%;" class="c_165_1">
+		businesses, but individuals are welcome.
+	</div>
+
+	<div id="t_165_40" style="position: absolute; left: 56.45%; top: 36.24%;" class="c_165_1">
+		They offer savings and checking accounts,
+	</div>
+
+	<div id="t_165_41" style="position: absolute; left: 56.45%; top: 38.13%;" class="c_165_1">
+		make loans, and most have automatic teller
+	</div>
+
+	<div id="t_165_42" style="position: absolute; left: 56.45%; top: 40.02%;" class="c_165_1">
+		machines (ATMs) that allow you to access
+	</div>
+
+	<div id="t_165_43" style="position: absolute; left: 56.45%; top: 41.92%;" class="c_165_1">
+		your cash whenever you need it. They also
+	</div>
+
+	<div id="t_165_44" style="position: absolute; left: 56.45%; top: 43.81%;" class="c_165_1">
+		offer safe-deposit boxes where people stash
+	</div>
+
+	<div id="t_165_45" style="position: absolute; left: 56.45%; top: 45.71%;" class="c_165_1">
+		very valuable papers and jewelry.
+	</div>
+
+	<div id="t_165_46" style="position: absolute; left: 63.18%; top:47.91%;" class="c_165_6">
+		2. CREDIT UNIONS
+	</div>
+
+	<div id="t_165_47" style="position: absolute; left: 56.45%; top: 50.21%; letter-spacing: 0.01em;" class="c_165_7">
+		&bull; <span class="c_165_8">Credit unions are non-profit organizations</span>
+	</div>
+
+	<div id="t_165_48" style="position: absolute; left: 56.45%; top: 52.10%; letter-spacing: 0.01em;" class="c_165_9">
+		owned by their members. <span class="c_165_10">For example,</span>
+	</div>
+
+	<div id="t_165_49" style="position: absolute; left: 56.45%; top: 54.16%;" class="c_165_1">
+		teachers or farmers might start their own
+	</div>
+
+	<div id="t_165_50" style="position: absolute; left: 56.45%; top: 56.06%;" class="c_165_1">
+		credit unions. Credit unions were first
+	</div>
+
+	<div id="t_165_51" style="position: absolute; left: 56.45%; top: 57.95%;" class="c_165_1">
+		started to help friends who could not
+	</div>
+
+	<div id="t_165_52" style="position: absolute; left: 56.45%; top: 59.85%;" class="c_165_1">
+		borrow money from the for-profit banks.
+	</div>
+
+	<div id="t_165_53" style="position: absolute; left: 12.35%; top:65.93%;" class="c_165_0">
+		CREDIT OR DEBIT?
+	</div>
+
+	<div id="t_165_54" style="position: absolute; left: 10.14%; top: 68.4%;" class="c_165_1">
+		Go to the mall, order a pizza, or fill
+	</div>
+
+	<div id="t_165_55" style="position: absolute; left: 8.82%; top: 70.3%;" class="c_165_1">
+		the car&rsquo;s gas tank&mdash;then charge it!
+	</div>
+
+	<div id="t_165_56" style="position: absolute; left: 8.82%; top: 72.19%;" class="c_165_1">
+		More and more, people are carrying
+	</div>
+
+	<div id="t_165_57" style="position: absolute; left: 8.82%; top: 74.09%;" class="c_165_1">
+		less cash and more plastic. Smart-
+	</div>
+
+	<div id="t_165_58" style="position: absolute; left: 8.82%; top: 75.98%;" class="c_165_1">
+		phone apps can also be used to pay
+	</div>
+
+	<div id="t_165_59" style="position: absolute; left: 8.82%; top: 77.88%;" class="c_165_1">
+		for things. Electronic banking
+	</div>
+
+	<div id="t_165_60" style="position: absolute; left: 8.82%; top: 79.77%;" class="c_165_1">
+		transactions are big moneymakers
+	</div>
+
+	<div id="t_165_61" style="position: absolute; left: 8.82%; top: 81.67%;" class="c_165_1">
+		for banks. Some charge a fee to use
+	</div>
+
+	<div id="t_165_62" style="position: absolute; left: 8.82%; top: 83.56%;" class="c_165_1">
+		their cash machines, and they all
+	</div>
+
+	<div id="t_165_63" style="position: absolute; left: 8.82%; top: 85.45%;" class="c_165_1">
+		charge hefty interest if you cannot
+	</div>
+
+	<div id="t_165_64" style="position: absolute; left: 8.82%; top: 87.35%;" class="c_165_1">
+		pay your entire bill at the end of the
+	</div>
+
+	<div id="t_165_65" style="position: absolute; left: 8.82%; top: 89.24%;" class="c_165_1">
+		month. You do NOT want to carry a
+	</div>
+
+	<div id="t_165_66" style="position: absolute; left: 8.82%; top: 91.14%;" class="c_165_1">
+		balance on your credit card! Credit
+	</div>
+
+	<div id="t_165_67" style="position: absolute; left: 8.82%; top: 93.03%;" class="c_165_1">
+		must be used wisely!
+	</div>
+
+	<div id="t_165_68" style="position: absolute; left: 76.67%; top:76.06%;" class="c_165_11">
+		Virginia-based
+	</div>
+
+	<div id="t_165_69" style="position: absolute; left: 76.67%; top:77.70%;" class="c_165_11">
+		Capital One is one
+	</div>
+
+	<div id="t_165_70" style="position: absolute; left: 76.67%; top:79.34%;" class="c_165_11">
+		of the biggest
+	</div>
+
+	<div id="t_165_71" style="position: absolute; left: 76.67%; top:80.98%;" class="c_165_11">
+		banks in the nation.
+	</div>
+
+	<div id="t_165_72" style="position: absolute; left: 76.67%; top:82.62%;" class="c_165_11">
+		It grew into a
+	</div>
+
+	<div id="t_165_73" style="position: absolute; left: 76.67%; top:84.26%;" class="c_165_11">
+		powerhouse by
+	</div>
+
+	<div id="t_165_74" style="position: absolute; left: 76.67%; top:85.91%;" class="c_165_11">
+		actively marketing
+	</div>
+
+	<div id="t_165_75" style="position: absolute; left: 76.67%; top:87.55%;" class="c_165_11">
+		credit cards to
+	</div>
+
+	<div id="t_165_76" style="position: absolute; left: 76.67%; top:89.19%;" class="c_165_11">
+		consumers.
+	</div>
+
+	<div id="t_165_77" style="position: absolute; left: 93.17%; top: 94.65%; letter-spacing: -0.15em;" class="c_165_12">
+		165
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 15%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_165_bank_basics.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 54%; top: 3%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_165_two_ways_to_bank.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 39%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_165_interest_ing.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 66%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_165_credit_or_debit.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 72.5%; top: 72.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_165_virginia_based.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_164_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_165_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_164_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="164.html?page=right"; onclick="goto('164.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="166.html"; onclick="goto('166.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="166.html"; onclick="goto('166.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

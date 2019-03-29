@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_218.css">
+                <link rel="stylesheet" href="css/civics_219.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="216.html?page=right"; onclick="goto('216.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="218.html"; onclick="goto('218.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="216.html?page=right"; onclick="goto('216.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="218.html?page=right"; onclick="goto('218.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="220.html"; onclick="goto('220.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="220.html"; onclick="goto('220.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="216.html?page=right"; onclick="goto('216.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="218.html"; onclick="goto('218.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="216.html?page=right"; onclick="goto('216.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_218">
+                                                                                                <div class="pageData">
+
+	<div id="t_218_0" style="position: absolute; left: 7.14%; top:2.7%; letter-spacing: -0.06em;" class="c_218_0">
+		GLOSSARY
+	</div>
+
+	<div id="t_218_1" style="position: absolute; left: 21.15%; top:8.46%;" class="c_218_1">
+		A
+	</div>
+
+	<div id="t_218_2" style="position: absolute; left: 8.82%; top:11.56%;" class="c_218_2">
+		ambassador - <span class="c_218_3">a person sent by the</span>
+	</div>
+
+	<div id="t_218_3" style="position: absolute; left: 8.82%; top:13.07%;" class="c_218_4">
+		president as the official representative
+	</div>
+
+	<div id="t_218_4" style="position: absolute; left: 8.82%; top:14.59%;" class="c_218_4">
+		to a foreign country
+	</div>
+
+	<div id="t_218_5" style="position: absolute; left: 8.82%; top:17.36%;" class="c_218_2">
+		amendment - <span class="c_218_3">a formal or official</span>
+	</div>
+
+	<div id="t_218_6" style="position: absolute; left: 8.82%; top:18.88%;" class="c_218_4">
+		change to a document
+	</div>
+
+	<div id="t_218_7" style="position: absolute; left: 8.82%; top:21.66%;" class="c_218_2">
+		appeal - <span class="c_218_3">ask a higher court to</span>
+	</div>
+
+	<div id="t_218_8" style="position: absolute; left: 8.82%; top:23.18%;" class="c_218_4">
+		reverse the decision of a lower court
+	</div>
+
+	<div id="t_218_9" style="position: absolute; left: 8.82%; top:25.95%;" class="c_218_2">
+		appellate court - <span class="c_218_3">a court that hears</span>
+	</div>
+
+	<div id="t_218_10" style="position: absolute; left: 8.82%; top:27.47%;" class="c_218_4">
+		appeals from already-tried cases
+	</div>
+
+	<div id="t_218_11" style="position: absolute; left: 8.82%; top:30.49%;" class="c_218_2">
+		appellate jurisdiction - <span class="c_218_3">authority</span>
+	</div>
+
+	<div id="t_218_12" style="position: absolute; left: 8.82%; top:32.01%;" class="c_218_4">
+		to review a decision of a lower court
+	</div>
+
+	<div id="t_218_13" style="position: absolute; left: 8.82%; top:34.79%;" class="c_218_2">
+		antitrust - <span class="c_218_3">a kind of legislation to</span>
+	</div>
+
+	<div id="t_218_14" style="position: absolute; left: 8.82%; top:36.31%;" class="c_218_4">
+		prevent monopolies from forming,
+	</div>
+
+	<div id="t_218_15" style="position: absolute; left: 8.82%; top:37.82%;" class="c_218_4">
+		with the hopes of promoting
+	</div>
+
+	<div id="t_218_16" style="position: absolute; left: 8.82%; top:39.34%;" class="c_218_4">
+		competition in business
+	</div>
+
+	<div id="t_218_17" style="position: absolute; left: 8.82%; top:42.11%;" class="c_218_2">
+		arraignment - <span class="c_218_3">a criminal</span>
+	</div>
+
+	<div id="t_218_18" style="position: absolute; left: 8.82%; top:43.63%;" class="c_218_4">
+		proceeding at which the defendant is
+	</div>
+
+	<div id="t_218_19" style="position: absolute; left: 8.82%; top:45.14%;" class="c_218_4">
+		called before a court, told of the
+	</div>
+
+	<div id="t_218_20" style="position: absolute; left: 8.82%; top:46.66%;" class="c_218_4">
+		charges, and asked to enter a plea of
+	</div>
+
+	<div id="t_218_21" style="position: absolute; left: 8.82%; top:48.18%;" class="c_218_4">
+		guilty or not guilty
+	</div>
+
+	<div id="t_218_22" style="position: absolute; left: 8.82%; top:50.95%;" class="c_218_2">
+		attorney general - <span class="c_218_3">an elected</span>
+	</div>
+
+	<div id="t_218_23" style="position: absolute; left: 8.82%; top:52.47%;" class="c_218_4">
+		position, this person serves as the
+	</div>
+
+	<div id="t_218_24" style="position: absolute; left: 8.82%; top:53.98%;" class="c_218_4">
+		state of Virginia&rsquo;s head lawyer and
+	</div>
+
+	<div id="t_218_25" style="position: absolute; left: 8.82%; top:55.50%;" class="c_218_4">
+		legal expert
+	</div>
+
+	<div id="t_218_26" style="position: absolute; left: 21.11%; top:56.81%;" class="c_218_1">
+		B
+	</div>
+
+	<div id="t_218_27" style="position: absolute; left: 8.82%; top:59.91%;" class="c_218_2">
+		bail - <span class="c_218_3">money paid or property</span>
+	</div>
+
+	<div id="t_218_28" style="position: absolute; left: 8.82%; top:61.43%;" class="c_218_4">
+		pledged for the temporary release
+	</div>
+
+	<div id="t_218_29" style="position: absolute; left: 8.82%; top:62.95%;" class="c_218_4">
+		of a person awaiting trial as a
+	</div>
+
+	<div id="t_218_30" style="position: absolute; left: 8.82%; top:64.46%;" class="c_218_4">
+		guarantee that he or she will
+	</div>
+
+	<div id="t_218_31" style="position: absolute; left: 8.82%; top:65.98%;" class="c_218_4">
+		appear in court
+	</div>
+
+	<div id="t_218_32" style="position: absolute; left: 8.82%; top:68.75%;" class="c_218_2">
+		bailiff - <span class="c_218_3">an official in a court of law</span>
+	</div>
+
+	<div id="t_218_33" style="position: absolute; left: 8.82%; top:70.27%;" class="c_218_4">
+		who keeps order and looks after the
+	</div>
+
+	<div id="t_218_34" style="position: absolute; left: 8.82%; top:71.79%;" class="c_218_4">
+		accused during criminal trials
+	</div>
+
+	<div id="t_218_35" style="position: absolute; left: 8.82%; top:74.81%;" class="c_218_2">
+		ballot - <span class="c_218_3">a document on which a</span>
+	</div>
+
+	<div id="t_218_36" style="position: absolute; left: 8.82%; top:76.33%;" class="c_218_4">
+		voter will choose a candidate for
+	</div>
+
+	<div id="t_218_37" style="position: absolute; left: 8.82%; top:77.85%;" class="c_218_4">
+		election
+	</div>
+
+	<div id="t_218_38" style="position: absolute; left: 8.82%; top:80.62%;" class="c_218_2">
+		bias - <span class="c_218_3">being in favor of or against a</span>
+	</div>
+
+	<div id="t_218_39" style="position: absolute; left: 8.82%; top:82.14%;" class="c_218_4">
+		person or group, in an unfair, one-
+	</div>
+
+	<div id="t_218_40" style="position: absolute; left: 8.82%; top:83.66%;" class="c_218_4">
+		sided way
+	</div>
+
+	<div id="t_218_41" style="position: absolute; left: 8.82%; top:86.43%;" class="c_218_2">
+		bicameral - <span class="c_218_3">having two branches,</span>
+	</div>
+
+	<div id="t_218_42" style="position: absolute; left: 8.83%; top:87.95%;" class="c_218_4">
+		houses, or chambers
+	</div>
+
+	<div id="t_218_43" style="position: absolute; left: 8.83%; top:90.72%;" class="c_218_2">
+		bill - <span class="c_218_3">a proposed law to be shared for</span>
+	</div>
+
+	<div id="t_218_44" style="position: absolute; left: 8.83%; top:92.24%;" class="c_218_4">
+        discussion
+	</div>
+
+	<div id="t_218_45" style="position: absolute; left: 65.03%; top:3.51%;" class="c_218_2">
+		competition - <span class="c_218_3">rivalry among sellers</span>
+	</div>
+
+	<div id="t_218_46" style="position: absolute; left: 65.03%; top:5.03%;" class="c_218_4">
+		that keeps prices low and quality high
+	</div>
+
+	<div id="t_218_47" style="position: absolute; left: 65.03%; top:6.54%;" class="c_218_4">
+		for consumers
+	</div>
+
+	<div id="t_218_48" style="position: absolute; left: 4.62%; top: 95.34%; letter-spacing: -0.15em;" class="c_218_5">
+		218
+	</div>
+
+	<div id="t_218_49" style="position: absolute; left: 36.93%; top:3.51%;" class="c_218_2">
+		board of supervisors - <span class="c_218_3">the</span>
+	</div>
+
+	<div id="t_218_50" style="position: absolute; left: 36.93%; top:5.03%;" class="c_218_4">
+		legislative body for a county in
+	</div>
+
+	<div id="t_218_51" style="position: absolute; left: 36.93%; top:6.54%;" class="c_218_4">
+		Virginia
+	</div>
+
+	<div id="t_218_52" style="position: absolute; left: 65.03%; top: 9.25735%;" class="c_218_2">
+		consent of the governed - <span class="c_218_3">the</span>
+	</div>
+
+	<div id="t_218_53" style="position: absolute; left: 65.03%; top: 10.75455%;" class="c_218_4">
+		people are the source of any and all
+	</div>
+
+	<div id="t_218_54" style="position: absolute; left: 65.03%; top: 12.2419%;" class="c_218_4">
+		governmental power
+	</div>
+
+	<div id="t_218_55" style="position: absolute; left: 36.93%; top:9.57%;" class="c_218_2">
+		bonds - <span class="c_218_3">certificates issued by</span>
+	</div>
+
+	<div id="t_218_56" style="position: absolute; left: 36.93%; top:11.09%;" class="c_218_4">
+		governments to borrow money.
+	</div>
+
+	<div id="t_218_57" style="position: absolute; left: 36.93%; top:12.60%;" class="c_218_4">
+		Bonds are purchased and held for
+	</div>
+
+	<div id="t_218_58" style="position: absolute; left: 36.93%; top:14.12%;" class="c_218_4">
+		fixed periods of time. When they are
+	</div>
+
+	<div id="t_218_59" style="position: absolute; left: 36.93%; top:15.63%;" class="c_218_4">
+		cashed in, the value will have grown
+	</div>
+
+	<div id="t_218_60" style="position: absolute; left: 36.93%; top:17.15%;" class="c_218_4">
+		due to interest payments.
+	</div>
+
+	<div id="t_218_61" style="position: absolute; left: 36.93%; top:19.92%;" class="c_218_2">
+		budget - <span class="c_218_3">an estimate of how money</span>
+	</div>
+
+	<div id="t_218_62" style="position: absolute; left: 36.93%; top:21.44%;" class="c_218_4">
+		will be spent
+	</div>
+
+	<div id="t_218_63" style="position: absolute; left: 36.93%; top:24.47%;" class="c_218_2">
+		bureaucracy - <span class="c_218_3">a large group of</span>
+	</div>
+
+	<div id="t_218_64" style="position: absolute; left: 36.93%; top:25.99%;" class="c_218_4">
+		people who are appointed, rather
+	</div>
+
+	<div id="t_218_65" style="position: absolute; left: 36.93%; top:27.50%;" class="c_218_4">
+		than elected, to take part in running
+	</div>
+
+	<div id="t_218_66" style="position: absolute; left: 36.93%; top:29.02%;" class="c_218_4">
+		a government
+	</div>
+
+	<div id="t_218_67" style="position: absolute; left: 49.22%; top:32.35%;" class="c_218_1">
+		C
+	</div>
+
+	<div id="t_218_68" style="position: absolute; left: 36.93%; top:35.45%;" class="c_218_2">
+		cabinet - <span class="c_218_3">a group of advisors to the</span>
+	</div>
+
+	<div id="t_218_69" style="position: absolute; left: 36.93%; top:36.97%;" class="c_218_4">
+		president or governor. Each heads up
+	</div>
+
+	<div id="t_218_70" style="position: absolute; left: 36.93%; top:38.49%;" class="c_218_4">
+		one of the executive departments of
+	</div>
+
+	<div id="t_218_71" style="position: absolute; left: 36.93%; top:40.00%;" class="c_218_4">
+		the government.
+	</div>
+
+	<div id="t_218_72" style="position: absolute; left: 36.93%; top:42.78%;" class="c_218_2">
+		checks and balances - <span class="c_218_3">ways for</span>
+	</div>
+
+	<div id="t_218_73" style="position: absolute; left: 36.93%; top:44.29%;" class="c_218_4">
+		each branch of government to limit
+	</div>
+
+	<div id="t_218_74" style="position: absolute; left: 36.93%; top:45.81%;" class="c_218_4">
+		the powers of the other two branches
+	</div>
+
+	<div id="t_218_75" style="position: absolute; left: 36.93%; top:47.32%;" class="c_218_4">
+		so that one branch does not abuse its
+	</div>
+
+	<div id="t_218_76" style="position: absolute; left: 36.93%; top:48.84%;" class="c_218_4">
+		power
+	</div>
+
+	<div id="t_218_77" style="position: absolute; left: 36.93%; top:51.61%;" class="c_218_2">
+		choice - <span class="c_218_3">picking an item or an action</span>
+	</div>
+
+	<div id="t_218_78" style="position: absolute; left: 36.93%; top:53.13%;" class="c_218_4">
+		from possible alternatives
+	</div>
+
+	<div id="t_218_79" style="position: absolute; left: 36.93%; top:55.91%;" class="c_218_2">
+		circuit court - <span class="c_218_3">the trial courts in</span>
+	</div>
+
+	<div id="t_218_80" style="position: absolute; left: 36.93%; top:57.43%;" class="c_218_4">
+		Virginia that handle felony criminal
+	</div>
+
+	<div id="t_218_81" style="position: absolute; left: 36.93%; top:58.94%;" class="c_218_4">
+		cases and major civil cases
+	</div>
+
+	<div id="t_218_82" style="position: absolute; left: 36.93%; top:61.71%;" class="c_218_2">
+		city council - <span class="c_218_3">the legislative body of</span>
+	</div>
+
+	<div id="t_218_83" style="position: absolute; left: 36.93%; top:63.23%;" class="c_218_4">
+		a city
+	</div>
+
+	<div id="t_218_84" style="position: absolute; left: 36.93%; top: 73.31%;" class="c_218_2">
+		civil suit - <span class="c_218_3">one person or business</span>
+	</div>
+
+	<div id="t_218_85" style="position: absolute; left: 36.93%; top: 74.83%;" class="c_218_4">
+		suing another person or business in
+	</div>
+
+	<div id="t_218_86" style="position: absolute; left: 36.93%; top: 76.34%;" class="c_218_4">
+		hopes of getting a financial
+	</div>
+
+	<div id="t_218_87" style="position: absolute; left: 36.93%; top: 77.86%;" class="c_218_4">
+		settlement to pay for damages. Also
+	</div>
+
+	<div id="t_218_88" style="position: absolute; left: 36.93%; top: 79.37%;" class="c_218_4">
+		called a lawsuit or civil suit.
+	</div>
+
+	<div id="t_218_89" style="position: absolute; left: 36.93%; top: 82.15%;" class="c_218_2">
+		Commonwealth&rsquo;s Attorneys -
+	</div>
+
+	<div id="t_218_90" style="position: absolute; left: 36.93%; top: 83.66%;" class="c_218_4">
+		elected officials in Virginia&rsquo;s counties
+	</div>
+
+	<div id="t_218_91" style="position: absolute; left: 36.93%; top: 85.18%;" class="c_218_4">
+		and cities who represent the victims
+	</div>
+
+	<div id="t_218_92" style="position: absolute; left: 36.93%; top: 86.7%;" class="c_218_4">
+		of crime in court; also known as
+	</div>
+
+	<div id="t_218_93" style="position: absolute; left: 36.93%; top: 88.21%;" class="c_218_4">
+		prosecutors
+	</div>
+
+	<div id="t_218_94" style="position: absolute; left: 36.93%; top: 90.98%;" class="c_218_2">
+		communicable - <span class="c_218_3">able to be passed</span>
+	</div>
+
+	<div id="t_218_95" style="position: absolute; left: 36.93%; top: 92.5%;" class="c_218_4">
+		from one person to another;
+	</div>
+
+	<div id="t_218_96" style="position: absolute; left: 36.93%; top: 94.02%;" class="c_218_4">
+		contagious
+	</div>
+
+	<div id="t_218_97" style="position: absolute; left: 65.03%; top: 15.22645%;" class="c_218_2">
+		conservative - <span class="c_218_3">a person who</span>
+	</div>
+
+	<div id="t_218_98" style="position: absolute; left: 65.03%; top: 16.72365%;" class="c_218_4">
+		believes that limited government is
+	</div>
+
+	<div id="t_218_99" style="position: absolute; left: 65.03%; top: 18.211%;" class="c_218_4">
+		best, with little oversight of
+	</div>
+
+	<div id="t_218_100" style="position: absolute; left: 65.03%; top: 19.7082%;" class="c_218_4">
+		businesses, plus strong support for
+	</div>
+
+	<div id="t_218_101" style="position: absolute; left: 65.03%; top: 21.19555%;" class="c_218_4">
+		traditional lifestyle choices
+	</div>
+
+	<div id="t_218_102" style="position: absolute; left: 65.03%; top: 24.1801%;" class="c_218_2">
+		consumer sovereignty - <span class="c_218_3">when the</span>
+	</div>
+
+	<div id="t_218_103" style="position: absolute; left: 65.03%; top: 25.6773%;" class="c_218_4">
+		wants and needs of consumers
+	</div>
+
+	<div id="t_218_104" style="position: absolute; left: 65.03%; top: 27.16465%;" class="c_218_4">
+		dictate what products are made
+	</div>
+
+	<div id="t_218_105" style="position: absolute; left: 65.03%; top: 30.1492%;" class="c_218_2">
+		consumption - <span class="c_218_3">the using of goods</span>
+	</div>
+
+	<div id="t_218_106" style="position: absolute; left: 65.03%; top: 31.6464%;" class="c_218_4">
+		or services
+	</div>
+
+	<div id="t_218_107" style="position: absolute; left: 65.03%; top: 34.63095%;" class="c_218_2">
+		contract - <span class="c_218_3">a written or spoken</span>
+	</div>
+
+	<div id="t_218_108" style="position: absolute; left: 65.03%; top: 36.1183%;" class="c_218_4">
+		agreement, usually concerning
+	</div>
+
+	<div id="t_218_109" style="position: absolute; left: 65.03%; top: 37.6155%;" class="c_218_4">
+		employment, sales, or the
+	</div>
+
+	<div id="t_218_110" style="position: absolute; left: 65.03%; top: 39.10285%;" class="c_218_4">
+		occupancy of a home. A signed
+	</div>
+
+	<div id="t_218_111" style="position: absolute; left: 65.03%; top: 40.60005%;" class="c_218_4">
+		contract is enforceable by law.
+	</div>
+
+	<div id="t_218_112" style="position: absolute; left: 65.03%; top: 43.5846%;" class="c_218_2">
+		corporation - <span class="c_218_3">a form of business</span>
+	</div>
+
+	<div id="t_218_113" style="position: absolute; left: 65.03%; top: 45.0818%;" class="c_218_4">
+		that legally acts as a single business
+	</div>
+
+	<div id="t_218_114" style="position: absolute; left: 65.03%; top: 46.56915%;" class="c_218_4">
+		entity, sharing ownership and profits,
+	</div>
+
+	<div id="t_218_115" style="position: absolute; left: 65.03%; top: 48.06635%;" class="c_218_4">
+		but with some financial protection for
+	</div>
+
+	<div id="t_218_116" style="position: absolute; left: 65.03%; top: 49.5537%;" class="c_218_4">
+		shareholders
+	</div>
+
+	<div id="t_218_117" style="position: absolute; left: 65.03%; top: 52.28215%;" class="c_218_2">
+		criminal case - <span class="c_218_3">a court proceeding</span>
+	</div>
+
+	<div id="t_218_118" style="position: absolute; left: 65.03%; top: 53.77935%;" class="c_218_4">
+		in which a person who is charged
+	</div>
+
+	<div id="t_218_119" style="position: absolute; left: 65.03%; top: 55.27655%;" class="c_218_4">
+		with having committed a crime is
+	</div>
+
+	<div id="t_218_120" style="position: absolute; left: 65.03%; top: 56.7639%;" class="c_218_4">
+		brought to trial and found not guilty
+	</div>
+
+	<div id="t_218_121" style="position: absolute; left: 65.03%; top: 58.2611%;" class="c_218_4">
+		or guilty and sentenced
+	</div>
+
+	<div id="t_218_122" style="position: absolute; left: 77.29%; top: 60.0538%;" class="c_218_1">
+		D
+	</div>
+
+	<div id="t_218_123" style="position: absolute; left: 65.03%; top: 63.1073%;" class="c_218_2">
+		damages - <span class="c_218_3">payment ordered by the</span>
+	</div>
+
+	<div id="t_218_124" style="position: absolute; left: 65.03%; top: 64.6045%;" class="c_218_4">
+		court to compensate the harmed party
+	</div>
+
+	<div id="t_218_125" style="position: absolute; left: 65.03%; top: 66.09185%;" class="c_218_4">
+		for loss, injury, pain, or suffering
+	</div>
+
+	<div id="t_218_126" style="position: absolute; left: 65.03%; top: 69.0764%;" class="c_218_2">
+		defendant - <span class="c_218_3">in a civil case the</span>
+	</div>
+
+	<div id="t_218_127" style="position: absolute; left: 65.03%; top: 70.5736%;" class="c_218_4">
+		person or company being sued; in a
+	</div>
+
+	<div id="t_218_128" style="position: absolute; left: 65.03%; top: 72.06095%;" class="c_218_4">
+		criminal case the person being
+	</div>
+
+	<div id="t_218_129" style="position: absolute; left: 65.03%; top: 73.55815%;" class="c_218_4">
+		accused of committing a crime
+	</div>
+
+	<div id="t_218_130" style="position: absolute; left: 65.03%; top: 76.2866%;" class="c_218_2">
+		district court - <span class="c_218_3">found in each city</span>
+	</div>
+
+	<div id="t_218_131" style="position: absolute; left: 65.03%; top: 77.7838%;" class="c_218_4">
+		and county of Virginia, this court
+	</div>
+
+	<div id="t_218_132" style="position: absolute; left: 65.03%; top: 79.281%;" class="c_218_4">
+		handles things like traffic violations,
+	</div>
+
+	<div id="t_218_133" style="position: absolute; left: 65.03%; top: 80.76835%;" class="c_218_4">
+		misdemeanors, and civil suits with
+	</div>
+
+	<div id="t_218_134" style="position: absolute; left: 65.03%; top: 82.26555%;" class="c_218_4">
+		claims of $4,500 or less
+	</div>
+
+	<div id="t_218_135" style="position: absolute; left: 65.03%; top: 84.994%;" class="c_218_2">
+		domestic - <span class="c_218_3">existing or occurring</span>
+	</div>
+
+	<div id="t_218_136" style="position: absolute; left: 65.03%; top: 86.4912%;" class="c_218_4">
+		within a country or a home
+	</div>
+
+	<div id="t_218_137" style="position: absolute; left: 65.03%; top: 89.21965%;" class="c_218_2">
+		due process - <span class="c_218_3">constitutional</span>
+	</div>
+
+	<div id="t_218_138" style="position: absolute; left: 65.03%; top: 90.71685%;" class="c_218_4">
+		protection against unfair
+	</div>
+
+	<div id="t_218_139" style="position: absolute; left: 65.03%; top: 92.21405%;" class="c_218_4">
+		governmental actions and laws. A
+	</div>
+
+	<div id="t_218_140" style="position: absolute; left: 65.03%; top: 93.7014%;" class="c_218_4">
+		guarantee of fairness.
+	</div>
+
+    <div id="t_218_141" style="position: absolute; left: 36.93%; top:66.01%;" class="c_218_2">
+        citizen - <span class="c_218_3">A person who legally</span>
+    </div>
+     
+    <div id="t_218_142" style="position: absolute; left: 36.93%; top:67.53%;" class="c_218_4">
+        belongs to a country and has the
+    </div>
+
+    <div id="t_218_143" style="position: absolute; left: 36.93%; top:69.04%;" class="c_218_4">
+        rights, protections, and freedoms of
+    </div>
+
+    <div id="t_218_144" style="position: absolute; left: 36.93%; top:70.56%;" class="c_218_4">
+        that country
+    </div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_219">
+                                                                                                <div class="pageData">
+
+	<div id="t_219_0" style="position: absolute; left: 21.22%; top:3.92%;" class="c_219_0">
+		E
+	</div>
+
+	<div id="t_219_1" style="position: absolute; left: 8.82%; top:7.02%;" class="c_219_1">
+		editorials - <span class="c_219_2">writings that reflect the</span>
+	</div>
+
+	<div id="t_219_2" style="position: absolute; left: 8.82%; top:8.54%;" class="c_219_3">
+		opinion of the newspaper
+	</div>
+
+	<div id="t_219_3" style="position: absolute; left: 8.82%; top:11.57%;" class="c_219_1">
+		Elastic Clause - <span class="c_219_2">Article 1, Section 8</span>
+	</div>
+
+	<div id="t_219_4" style="position: absolute; left: 8.82%; top:13.09%;" class="c_219_3">
+		of the U.S. Constitution that allows
+	</div>
+
+	<div id="t_219_5" style="position: absolute; left: 8.82%; top:14.60%;" class="c_219_3">
+		Congress to stretch its powers to
+	</div>
+
+	<div id="t_219_6" style="position: absolute; left: 8.82%; top:16.12%;" class="c_219_3">
+		make the 27 expressed powers
+	</div>
+
+	<div id="t_219_7" style="position: absolute; left: 8.82%; top:17.63%;" class="c_219_3">
+		possible; also known as the <span class="c_219_4">Necessary</span>
+	</div>
+
+	<div id="t_219_8" style="position: absolute; left: 8.82%; top:19.15%;" class="c_219_5">
+		and Proper Clause
+	</div>
+
+	<div id="t_219_9" style="position: absolute; left: 8.82%; top:22.18%;" class="c_219_1">
+		Electoral College - <span class="c_219_2">a body of</span>
+	</div>
+
+	<div id="t_219_10" style="position: absolute; left: 8.82%; top:23.69%;" class="c_219_3">
+		electors chosen by the voters in each
+	</div>
+
+	<div id="t_219_11" style="position: absolute; left: 8.82%; top:25.21%;" class="c_219_3">
+		state to elect the president and vice
+	</div>
+
+	<div id="t_219_12" style="position: absolute; left: 8.82%; top:26.72%;" class="c_219_3">
+		president of the U.S.
+	</div>
+
+	<div id="t_219_13" style="position: absolute; left: 8.82%; top:29.75%;" class="c_219_1">
+		electorate - <span class="c_219_2">a large group of people</span>
+	</div>
+
+	<div id="t_219_14" style="position: absolute; left: 8.82%; top:31.27%;" class="c_219_3">
+		who are entitled to vote
+	</div>
+
+	<div id="t_219_15" style="position: absolute; left: 8.82%; top:34.30%;" class="c_219_1">
+		embassies - <span class="c_219_2">the official residences or</span>
+	</div>
+
+	<div id="t_219_16" style="position: absolute; left: 8.82%; top:35.82%;" class="c_219_3">
+		offices of ambassadors
+	</div>
+
+	<div id="t_219_17" style="position: absolute; left: 8.82%; top:38.59%;" class="c_219_1">
+		entrepreneur - <span class="c_219_2">a person who</span>
+	</div>
+
+	<div id="t_219_18" style="position: absolute; left: 8.82%; top:40.11%;" class="c_219_3">
+		thinks of an idea for a new product
+	</div>
+
+	<div id="t_219_19" style="position: absolute; left: 8.82%; top:41.62%;" class="c_219_3">
+		or business and then works to build
+	</div>
+
+	<div id="t_219_20" style="position: absolute; left: 8.82%; top:43.14%;" class="c_219_3">
+		that business
+	</div>
+
+	<div id="t_219_21" style="position: absolute; left: 8.82%; top:45.91%;" class="c_219_1">
+		entrepreneurial - <span class="c_219_2">taking a</span>
+	</div>
+
+	<div id="t_219_22" style="position: absolute; left: 8.82%; top:47.43%;" class="c_219_3">
+		financial risk by starting a new
+	</div>
+
+	<div id="t_219_23" style="position: absolute; left: 8.82%; top:48.95%;" class="c_219_3">
+		business
+	</div>
+
+	<div id="t_219_24" style="position: absolute; left: 8.82%; top:51.72%;" class="c_219_1">
+		executive - <span class="c_219_2">the branch of federal</span>
+	</div>
+
+	<div id="t_219_25" style="position: absolute; left: 8.82%; top:53.24%;" class="c_219_3">
+		and state governments responsible
+	</div>
+
+	<div id="t_219_26" style="position: absolute; left: 8.82%; top:54.75%;" class="c_219_3">
+		for implementing, supporting, and
+	</div>
+
+	<div id="t_219_27" style="position: absolute; left: 8.82%; top:56.27%;" class="c_219_3">
+		enforcing laws made by the
+	</div>
+
+	<div id="t_219_28" style="position: absolute; left: 8.82%; top:57.78%;" class="c_219_3">
+		legislative branch and interpreted by
+	</div>
+
+	<div id="t_219_29" style="position: absolute; left: 8.82%; top:59.30%;" class="c_219_3">
+		the judicial branch
+	</div>
+
+	<div id="t_219_30" style="position: absolute; left: 8.82%; top:62.07%;" class="c_219_1">
+		executive actions - <span class="c_219_2">legally binding</span>
+	</div>
+
+	<div id="t_219_31" style="position: absolute; left: 8.82%; top:63.59%;" class="c_219_3">
+		orders given by the president to
+	</div>
+
+	<div id="t_219_32" style="position: absolute; left: 8.82%; top:65.11%;" class="c_219_3">
+		federal administrative agencies
+	</div>
+
+	<div id="t_219_33" style="position: absolute; left: 8.82%; top:67.88%;" class="c_219_1">
+		export - <span class="c_219_2">to sell goods or services to</span>
+	</div>
+
+	<div id="t_219_34" style="position: absolute; left: 8.82%; top:69.40%;" class="c_219_3">
+		another country
+	</div>
+
+	<div id="t_219_35" style="position: absolute; left: 8.82%; top:72.17%;" class="c_219_1">
+		expressed powers - <span class="c_219_2">the powers of</span>
+	</div>
+
+	<div id="t_219_36" style="position: absolute; left: 8.82%; top:73.69%;" class="c_219_3">
+		Congress that are listed in the
+	</div>
+
+	<div id="t_219_37" style="position: absolute; left: 8.82%; top:75.21%;" class="c_219_3">
+		Constitution
+	</div>
+
+	<div id="t_219_38" style="position: absolute; left: 21.26%; top:76.52%;" class="c_219_0">
+		F
+	</div>
+
+	<div id="t_219_39" style="position: absolute; left: 8.82%; top:79.62%;" class="c_219_1">
+		Federal Election Commission
+	</div>
+
+	<div id="t_219_40" style="position: absolute; left: 8.82%; top:81.13%;" class="c_219_1">
+		(FEC)<span class="c_219_6"> - </span><span class="c_219_2">an independent regulatory</span>
+	</div>
+
+	<div id="t_219_41" style="position: absolute; left: 8.82%; top:82.66%;" class="c_219_3">
+		agency created to enforce campaign
+	</div>
+
+	<div id="t_219_42" style="position: absolute; left: 8.82%; top:84.17%;" class="c_219_3">
+		finance legislation in the United
+	</div>
+
+	<div id="t_219_43" style="position: absolute; left: 8.82%; top:85.69%;" class="c_219_3">
+		States
+	</div>
+
+	<div id="t_219_44" style="position: absolute; left: 8.82%; top:88.46%;" class="c_219_1">
+		federalism - <span class="c_219_2">a way to distribute</span>
+	</div>
+
+	<div id="t_219_45" style="position: absolute; left: 8.82%; top:89.98%;" class="c_219_3">
+		power in government between a
+	</div>
+
+	<div id="t_219_46" style="position: absolute; left: 8.82%; top:91.50%;" class="c_219_3">
+		central authority and a state
+	</div>
+
+	<div id="t_219_47" style="position: absolute; left: 8.82%; top:94.27%;" class="c_219_1">
+		felony - <span class="c_219_2">a serious crime</span>
+	</div>
+
+	<div id="t_219_48" style="position: absolute; left: 36.93%; top:5.79%;" class="c_219_1">
+		foreign - <span class="c_219_2">related to contact or</span>
+	</div>
+
+	<div id="t_219_49" style="position: absolute; left: 36.93%; top:7.31%;" class="c_219_3">
+		dealings with other countries
+	</div>
+
+	<div id="t_219_50" style="position: absolute; left: 36.93%; top:10.34%;" class="c_219_1">
+		free enterprise<span class="c_219_2"> - an economic</span>
+	</div>
+
+	<div id="t_219_51" style="position: absolute; left: 36.93%; top:11.86%;" class="c_219_3">
+		system that operates without undue
+	</div>
+
+	<div id="t_219_52" style="position: absolute; left: 36.93%; top:13.37%;" class="c_219_3">
+		interference from the government
+	</div>
+
+	<div id="t_219_53" style="position: absolute; left: 36.93%; top:17.92%;" class="c_219_1">
+		global economy<span class="c_219_2"> - worldwide</span>
+	</div>
+
+	<div id="t_219_54" style="position: absolute; left: 36.93%; top:19.43%;" class="c_219_3">
+		markets in which the buying and
+	</div>
+
+	<div id="t_219_55" style="position: absolute; left: 36.93%; top:20.95%;" class="c_219_3">
+		selling of goods and services by all
+	</div>
+
+	<div id="t_219_56" style="position: absolute; left: 36.93%; top:22.46%;" class="c_219_3">
+		individuals, nations, and businesses
+	</div>
+
+	<div id="t_219_57" style="position: absolute; left: 36.93%; top:23.98%;" class="c_219_3">
+		takes place
+	</div>
+
+	<div id="t_219_58" style="position: absolute; left: 36.93%; top:27.01%;" class="c_219_1">
+		globalization - <span class="c_219_2">the interaction of</span>
+	</div>
+
+	<div id="t_219_59" style="position: absolute; left: 36.93%; top:28.53%;" class="c_219_3">
+		the people, companies, and
+	</div>
+
+	<div id="t_219_60" style="position: absolute; left: 36.93%; top:30.04%;" class="c_219_3">
+		governments of different nations; a
+	</div>
+
+	<div id="t_219_61" style="position: absolute; left: 36.93%; top:31.56%;" class="c_219_3">
+		process driven by international trade
+	</div>
+
+	<div id="t_219_62" style="position: absolute; left: 36.93%; top:33.07%;" class="c_219_3">
+		and investment and aided by
+	</div>
+
+	<div id="t_219_63" style="position: absolute; left: 36.93%; top:34.59%;" class="c_219_3">
+		information technology
+	</div>
+
+	<div id="t_219_64" style="position: absolute; left: 49.22%; top:14.82%;" class="c_219_0">
+		G
+	</div>
+
+	<div id="t_219_65" style="position: absolute; left: 49.61%; top:35.90%;" class="c_219_0">
+		I
+	</div>
+
+	<div id="t_219_66" style="position: absolute; left: 36.93%; top:39.00%;" class="c_219_1">
+		immigrate - <span class="c_219_2">to come into a new</span>
+	</div>
+
+	<div id="t_219_67" style="position: absolute; left: 36.93%; top:40.52%;" class="c_219_3">
+		country permanently
+	</div>
+
+	<div id="t_219_68" style="position: absolute; left: 36.93%; top:43.55%;" class="c_219_1">
+		impeach - <span class="c_219_2">to officially charge a</span>
+	</div>
+
+	<div id="t_219_69" style="position: absolute; left: 36.93%; top:45.07%;" class="c_219_3">
+		person who holds a public office with
+	</div>
+
+	<div id="t_219_70" style="position: absolute; left: 36.93%; top:46.58%;" class="c_219_3">
+		misconduct
+	</div>
+
+	<div id="t_219_71" style="position: absolute; left: 36.93%; top:49.61%;" class="c_219_1">
+		implied powers - <span class="c_219_2">the powers of</span>
+	</div>
+
+	<div id="t_219_72" style="position: absolute; left: 36.93%; top:51.13%;" class="c_219_3">
+		Congress to carry out expressed
+	</div>
+
+	<div id="t_219_73" style="position: absolute; left: 36.93%; top:52.64%;" class="c_219_3">
+		powers; powers suggested without
+	</div>
+
+	<div id="t_219_74" style="position: absolute; left: 36.93%; top:54.16%;" class="c_219_3">
+		actually being said
+	</div>
+
+	<div id="t_219_75" style="position: absolute; left: 36.93%; top:57.18%;" class="c_219_1">
+		import - <span class="c_219_2">to purchase goods or</span>
+	</div>
+
+	<div id="t_219_76" style="position: absolute; left: 36.93%; top:58.70%;" class="c_219_3">
+		services from another country
+	</div>
+
+	<div id="t_219_77" style="position: absolute; left: 36.93%; top:61.73%;" class="c_219_1">
+		inalienable - <span class="c_219_2">a right that cannot be</span>
+	</div>
+
+	<div id="t_219_78" style="position: absolute; left: 36.93%; top:63.25%;" class="c_219_3">
+		taken away from a person
+	</div>
+
+	<div id="t_219_79" style="position: absolute; left: 36.93%; top:66.27%;" class="c_219_1">
+		income tax - <span class="c_219_2">payments made by</span>
+	</div>
+
+	<div id="t_219_80" style="position: absolute; left: 36.93%; top:67.79%;" class="c_219_3">
+		individuals and corporations based on
+	</div>
+
+	<div id="t_219_81" style="position: absolute; left: 36.93%; top:69.31%;" class="c_219_3">
+		income received
+	</div>
+
+	<div id="t_219_82" style="position: absolute; left: 36.93%; top:72.33%;" class="c_219_1">
+		incorporated - <span class="c_219_2">having powers</span>
+	</div>
+
+	<div id="t_219_83" style="position: absolute; left: 36.93%; top:73.85%;" class="c_219_3">
+		granted by the state and county to
+	</div>
+
+	<div id="t_219_84" style="position: absolute; left: 36.93%; top:75.37%;" class="c_219_3">
+		provide products and local services to
+	</div>
+
+	<div id="t_219_85" style="position: absolute; left: 36.93%; top:76.88%;" class="c_219_3">
+		citizens
+	</div>
+
+	<div id="t_219_86" style="position: absolute; left: 36.93%; top:79.91%;" class="c_219_1">
+		inflation - <span class="c_219_2">a time when prices keep</span>
+	</div>
+
+	<div id="t_219_87" style="position: absolute; left: 36.93%; top:81.43%;" class="c_219_3">
+		quickly going up and up
+	</div>
+
+	<div id="t_219_88" style="position: absolute; left: 49.50%; top:83.25%;" class="c_219_0">
+		J
+	</div>
+
+	<div id="t_219_89" style="position: absolute; left: 36.93%; top:86.35%;" class="c_219_1">
+		judicial - <span class="c_219_2">the court systems of local,</span>
+	</div>
+
+	<div id="t_219_90" style="position: absolute; left: 36.93%; top:87.87%;" class="c_219_3">
+		state, and federal governments,
+	</div>
+
+	<div id="t_219_91" style="position: absolute; left: 36.93%; top:89.38%;" class="c_219_3">
+		responsible for interpreting and
+	</div>
+
+	<div id="t_219_92" style="position: absolute; left: 36.93%; top:90.90%;" class="c_219_3">
+		applying the laws passed by the
+	</div>
+
+	<div id="t_219_93" style="position: absolute; left: 36.93%; top:92.41%;" class="c_219_3">
+		legislative branch and enforced by
+	</div>
+
+	<div id="t_219_94" style="position: absolute; left: 36.93%; top:93.93%;" class="c_219_3">
+		the executive branch
+	</div>
+
+	<div id="t_219_95" style="position: absolute; left: 65.03%; top:4.28%;" class="c_219_1">
+		judicial review - <span class="c_219_2">the power of the</span>
+	</div>
+
+	<div id="t_219_96" style="position: absolute; left: 65.03%; top:5.80%;" class="c_219_3">
+		court to rule that a law passed by
+	</div>
+
+	<div id="t_219_97" style="position: absolute; left: 65.03%; top:7.31%;" class="c_219_3">
+		Congress or a state legislature is
+	</div>
+
+	<div id="t_219_98" style="position: absolute; left: 65.03%; top:8.83%;" class="c_219_3">
+		unconstitutional
+	</div>
+
+	<div id="t_219_99" style="position: absolute; left: 65.03%; top:11.85%;" class="c_219_1">
+		jurisdiction - <span class="c_219_2">the authority to hear a</span>
+	</div>
+
+	<div id="t_219_100" style="position: absolute; left: 65.03%; top:13.37%;" class="c_219_3">
+		case
+	</div>
+
+	<div id="t_219_101" style="position: absolute; left: 65.03%; top:16.40%;" class="c_219_1">
+		jury - <span class="c_219_2">a panel of people selected</span>
+	</div>
+
+	<div id="t_219_102" style="position: absolute; left: 65.03%; top:17.92%;" class="c_219_3">
+		from the general population to hear a
+	</div>
+
+	<div id="t_219_103" style="position: absolute; left: 65.03%; top:19.43%;" class="c_219_3">
+		civil or criminal case
+	</div>
+
+	<div id="t_219_104" style="position: absolute; left: 65.03%; top:22.46%;" class="c_219_1">
+		juvenile - <span class="c_219_2">a legal term that describes</span>
+	</div>
+
+	<div id="t_219_105" style="position: absolute; left: 65.03%; top:23.98%;" class="c_219_3">
+		a person under the age of 18
+	</div>
+
+	<div id="t_219_106" style="position: absolute; left: 65.03%; top:27.01%;" class="c_219_1">
+		juvenile and domestic relations
+	</div>
+
+	<div id="t_219_107" style="position: absolute; left: 65.03%; top:28.52%;" class="c_219_1">
+		district court - <span class="c_219_2">located in each</span>
+	</div>
+
+	<div id="t_219_108" style="position: absolute; left: 65.03%; top:30.04%;" class="c_219_3">
+		Virginia city and county, this court
+	</div>
+
+	<div id="t_219_109" style="position: absolute; left: 65.03%; top:31.56%;" class="c_219_3">
+		hears cases involving young people
+	</div>
+
+	<div id="t_219_110" style="position: absolute; left: 65.03%; top:33.07%;" class="c_219_3">
+		charged with a crime or matters
+	</div>
+
+	<div id="t_219_111" style="position: absolute; left: 65.03%; top:34.59%;" class="c_219_3">
+		involving family conflicts, such as
+	</div>
+
+	<div id="t_219_112" style="position: absolute; left: 65.03%; top:36.10%;" class="c_219_3">
+		child support
+	</div>
+
+	<div id="t_219_113" style="position: absolute; left: 77.43%; top:37.92%;" class="c_219_0">
+		L
+	</div>
+
+	<div id="t_219_114" style="position: absolute; left: 65.03%; top:41.02%;" class="c_219_1">
+		legislative - <span class="c_219_2">the branch of the</span>
+	</div>
+
+	<div id="t_219_115" style="position: absolute; left: 65.03%; top:42.54%;" class="c_219_3">
+		federal and state governments
+	</div>
+
+	<div id="t_219_116" style="position: absolute; left: 65.03%; top:44.06%;" class="c_219_3">
+		empowered to make laws that are
+	</div>
+
+	<div id="t_219_117" style="position: absolute; left: 65.03%; top:45.57%;" class="c_219_3">
+		enforced by the executive branch,
+	</div>
+
+	<div id="t_219_118" style="position: absolute; left: 65.03%; top:47.09%;" class="c_219_3">
+		and interpreted and applied by the
+	</div>
+
+	<div id="t_219_119" style="position: absolute; left: 65.03%; top:48.60%;" class="c_219_3">
+		judicial branch
+	</div>
+
+	<div id="t_219_120" style="position: absolute; left: 65.03%; top:51.63%;" class="c_219_1">
+		liberal - <span class="c_219_2">a person who believes that</span>
+	</div>
+
+	<div id="t_219_121" style="position: absolute; left: 65.03%; top:53.15%;" class="c_219_3">
+		government action is the best way to
+	</div>
+
+	<div id="t_219_122" style="position: absolute; left: 65.03%; top:54.66%;" class="c_219_3">
+		achieve equal opportunity, protect
+	</div>
+
+	<div id="t_219_123" style="position: absolute; left: 65.03%; top:56.18%;" class="c_219_3">
+		civil rights, and help those in need
+	</div>
+
+	<div id="t_219_124" style="position: absolute; left: 65.03%; top:59.20%;" class="c_219_1">
+		lieutenant governor - <span class="c_219_2">the</span>
+	</div>
+
+	<div id="t_219_125" style="position: absolute; left: 65.03%; top:60.72%;" class="c_219_3">
+		executive officer of a state who is
+	</div>
+
+	<div id="t_219_126" style="position: absolute; left: 65.03%; top:62.24%;" class="c_219_3">
+		next in rank to a governor and who
+	</div>
+
+	<div id="t_219_127" style="position: absolute; left: 65.03%; top:63.75%;" class="c_219_3">
+		takes the governor&rsquo;s place in case of
+	</div>
+
+	<div id="t_219_128" style="position: absolute; left: 65.03%; top:65.27%;" class="c_219_3">
+		disability or death
+	</div>
+
+	<div id="t_219_129" style="position: absolute; left: 65.03%; top:68.29%;" class="c_219_1">
+		limited government - <span class="c_219_2">a type of</span>
+	</div>
+
+	<div id="t_219_130" style="position: absolute; left: 65.03%; top:69.81%;" class="c_219_3">
+		government that is not all-powerful;
+	</div>
+
+	<div id="t_219_131" style="position: absolute; left: 65.03%; top:71.33%;" class="c_219_3">
+		it can only do those things the
+	</div>
+
+	<div id="t_219_132" style="position: absolute; left: 65.03%; top:72.84%;" class="c_219_3">
+		people have given it power to do
+	</div>
+
+	<div id="t_219_133" style="position: absolute; left: 65.03%; top:75.87%;" class="c_219_1">
+		litigation - <span class="c_219_2">a civil lawsuit or a court</span>
+	</div>
+
+	<div id="t_219_134" style="position: absolute; left: 65.03%; top:77.39%;" class="c_219_3">
+		proceeding involving someone
+	</div>
+
+	<div id="t_219_135" style="position: absolute; left: 65.03%; top:78.90%;" class="c_219_3">
+		charged with a crime
+	</div>
+
+	<div id="t_219_136" style="position: absolute; left: 65.03%; top:81.93%;" class="c_219_1">
+		lobbying - <span class="c_219_2">trying to influence a</span>
+	</div>
+
+	<div id="t_219_137" style="position: absolute; left: 65.03%; top:83.45%;" class="c_219_3">
+		legislator to introduce a bill or vote
+	</div>
+
+	<div id="t_219_138" style="position: absolute; left: 65.03%; top:84.96%;" class="c_219_3">
+		for, or against, a bill
+	</div>
+
+	<div id="t_219_139" style="position: absolute; left: 77.07%; top:86.79%;" class="c_219_0">
+		M
+	</div>
+
+	<div id="t_219_140" style="position: absolute; left: 65.03%; top:89.88%;" class="c_219_1">
+		manager - <span class="c_219_2">an administrator who</span>
+	</div>
+
+	<div id="t_219_141" style="position: absolute; left: 65.03%; top:91.40%;" class="c_219_3">
+		may be hired by the legislative
+	</div>
+
+	<div id="t_219_142" style="position: absolute; left: 65.03%; top:92.92%;" class="c_219_3">
+		branch in cities or counties to oversee
+	</div>
+
+	<div id="t_219_143" style="position: absolute; left: 65.03%; top:94.43%;" class="c_219_3">
+		the day-to-day tasks of that locality
+	</div>
+
+	<div id="t_219_144" style="position: absolute; left: 94.23%; top: 95.34%; letter-spacing: -0.15em;" class="c_219_7">
+		219
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="218.html?page=right"; onclick="goto('218.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="220.html"; onclick="goto('220.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="220.html"; onclick="goto('220.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

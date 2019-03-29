@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_72.css">
+                <link rel="stylesheet" href="css/civics_73.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="70.html?page=right"; onclick="goto('70.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="72.html"; onclick="goto('72.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="70.html?page=right"; onclick="goto('70.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_72_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_73_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_72_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="72.html?page=right"; onclick="goto('72.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="74.html"; onclick="goto('74.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="74.html"; onclick="goto('74.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="70.html?page=right"; onclick="goto('70.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="72.html"; onclick="goto('72.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="70.html?page=right"; onclick="goto('70.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_72">
+                                                                                                <div class="pageData">
+
+	<div id="t_72_0" style="position: absolute; left: 36.08%; top:3.83%;" class="c_72_0">
+		National laws are made by Congress.
+	</div>
+
+	<div id="t_72_1" style="position: absolute; left: 29.72%; top: 7.14%; letter-spacing: 0.01em;" class="c_72_1">
+		Senators? Representatives? What&rsquo;s the difference?
+	</div>
+
+	<div id="t_72_2" style="position: absolute; left: 17.84%; top: 8.60%; letter-spacing: -0.02em;" class="c_72_2">
+		Who&rsquo;s Who on Capitol Hill
+	</div>
+
+	<div id="t_72_3" style="position: absolute; left: 15.58%; top: 15.68%;" class="c_72_3">
+		Walk into the U.S. Capitol when Congress is in session and you will often see a mad rush
+	</div>
+
+	<div id="t_72_4" style="position: absolute; left: 14.26%; top: 17.57%;" class="c_72_3">
+		of people moving swiftly from here to there. The people who work here&mdash;legislators and
+	</div>
+
+	<div id="t_72_5" style="position: absolute; left: 14.26%; top: 19.47%;" class="c_72_3">
+		staffers, representing the voters of their state&mdash;know that the stakes are high.
+	</div>
+
+	<div id="t_72_6" style="position: absolute; left: 22.42%; top:21.29%;" class="c_72_4">
+		ON ONE SIDE OF THE BUILDING&mdash;THE &ldquo;HOUSE&rdquo;
+	</div>
+
+	<div id="t_72_7" style="position: absolute; left: 16.89%; top: 24.01%;" class="c_72_3">
+		The House of Representatives takes up one side of the Capitol building. Its heart is a
+	</div>
+
+	<div id="t_72_8" style="position: absolute; left: 14.26%; top: 25.91%;" class="c_72_3">
+		huge blue and gold chamber where congresspeople gather to make new laws for the
+	</div>
+
+	<div id="t_72_9" style="position: absolute; left: 17.03%; top: 27.8%;" class="c_72_3">
+		country. Getting elected to the House is hard work! Every two years, on an even-year
+	</div>
+
+	<div id="t_72_10" style="position: absolute; left: 19.82%; top: 29.7%;" class="c_72_3">
+		cycle, <span class="c_72_5">every</span><span class="c_72_6"> member must run for re-election. Many come back again and again,</span>
+	</div>
+
+	<div id="t_72_11" style="position: absolute; left: 21.15%; top: 31.59%;" class="c_72_3">
+		but sometimes there is a great turnover. Getting elected is a time-consuming
+	</div>
+
+	<div id="t_72_12" style="position: absolute; left: 21.66%; top: 33.49%;" class="c_72_3">
+		task, and half of a congressperson&rsquo;s time is spent raising money for re-election.
+	</div>
+
+	<div id="t_72_13" style="position: absolute; left: 48.25%; top:35.43%;" class="c_72_4">
+		WHO THEY REPRESENT
+	</div>
+
+	<div id="t_72_14" style="position: absolute; left: 35.87%; top: 38.15%;" class="c_72_3">
+		The number of people a state sends to the House depends on its
+	</div>
+
+	<div id="t_72_15" style="position: absolute; left: 34.56%; top: 40.05%;" class="c_72_3">
+		population. Delaware has only one representative in Congress.
+	</div>
+
+	<div id="t_72_16" style="position: absolute; left: 34.56%; top: 41.94%;" class="c_72_3">
+		Virginia has 11. California has 53! The formula for each state is
+	</div>
+
+	<div id="t_72_17" style="position: absolute; left: 34.56%; top: 43.84%;" class="c_72_3">
+		based on population, as determined every 10 years by a census.
+	</div>
+
+	<div id="t_72_18" style="position: absolute; left: 34.56%; top: 45.73%;" class="c_72_3">
+		The Democratic and Republican parties try to control the outcome
+	</div>
+
+	<div id="t_72_19" style="position: absolute; left: 34.56%; top: 47.63%;" class="c_72_3">
+		of congressional elections through &ldquo;gerrymandering&rdquo;&mdash;drawing and
+	</div>
+
+	<div id="t_72_20" style="position: absolute; left: 34.56%; top: 49.52%;" class="c_72_3">
+		redrawing congressional district lines to their advantage.
+	</div>
+
+	<div id="t_72_21" style="position: absolute; left: 43.98%; top:52.42%;" class="c_72_7">
+		Virginia&rsquo;s congressional districts in
+	</div>
+
+	<div id="t_72_22" style="position: absolute; left: 43.98%; top:54.06%;" class="c_72_7">
+		2016. See the larger map on page
+	</div>
+
+	<div id="t_72_23" style="position: absolute; left: 43.98%; top:55.70%;" class="c_72_7">
+        214 to find your district and learn
+	</div>
+
+	<div id="t_72_24" style="position: absolute; left: 43.98%; top:57.35%;" class="c_72_7">
+		about gerrymandering.
+	</div>
+
+	<div id="t_72_25" style="position: absolute; left: 20.54%; top:38.45%;" class="c_72_4">
+		WANT
+	</div>
+
+	<div id="t_72_26" style="position: absolute; left: 18.56%; top:40.35%;" class="c_72_4">
+		TO RUN?
+	</div>
+
+	<div id="t_72_27" style="position: absolute; left: 4.79%; top:42.51%;" class="c_72_7">
+		&bull; You must be 25 years old.
+	</div>
+
+	<div id="t_72_28" style="position: absolute; left: 4.79%; top:44.53%;" class="c_72_7">
+		&bull; You must be a U.S. citizen for at
+	</div>
+
+	<div id="t_72_29" style="position: absolute; left: 6.06%; top:46.18%;" class="c_72_7">
+		least seven years.
+	</div>
+
+	<div id="t_72_30" style="position: absolute; left: 4.79%; top:48.20%;" class="c_72_7">
+		&bull; At the time of election, you must be
+	</div>
+
+	<div id="t_72_31" style="position: absolute; left: 5.63%; top:49.84%;" class="c_72_7">
+		a resident of the state you represent.
+	</div>
+
+	<div id="t_72_32" style="position: absolute; left: 4.79%; top:51.86%;" class="c_72_7">
+		&bull; <span class="c_72_8">The House has 435 members.</span>
+	</div>
+
+	<div id="t_72_33" style="position: absolute; left: 4.79%; top:53.88%;" class="c_72_7">
+		&bull; <span class="c_72_8">Your term lasts two years.</span>
+	</div>
+
+	<div id="t_72_34" style="position: absolute; left: 13.01%; top:57.88%;" class="c_72_9">
+		House
+	</div>
+
+	<div id="t_72_35" style="position: absolute; left: 13.81%; top:63.69%;" class="c_72_9">
+		V.I.P.s
+	</div>
+
+	<div id="t_72_36" style="position: absolute; left: 55.05%; top:70.75%;" class="c_72_4">
+		MAJORITY POLITICS
+	</div>
+
+	<div id="t_72_37" style="position: absolute; left: 45.14%; top: 73.35%;" class="c_72_3">
+		Obviously, you want your political party to win the
+	</div>
+
+	<div id="t_72_38" style="position: absolute; left: 43.83%; top: 75.24%;" class="c_72_3">
+		most seats. Having a majority in the House gives you a
+	</div>
+
+	<div id="t_72_39" style="position: absolute; left: 43.83%; top: 77.14%;" class="c_72_3">
+		great deal of control in deciding what kinds of bills
+	</div>
+
+	<div id="t_72_40" style="position: absolute; left: 43.83%; top: 79.03%;" class="c_72_3">
+		become law. But every two years, the tide can turn.
+	</div>
+
+	<div id="t_72_41" style="position: absolute; left: 73.62%; top:81.88%;" class="c_72_10">
+		The House chamber
+	</div>
+
+	<div id="t_72_42" style="position: absolute; left: 8.78%; top:72.61%;" class="c_72_7">
+		There are three important leadership roles.
+	</div>
+
+	<div id="t_72_43" style="position: absolute; left: 6.67%; top:74.48%;" class="c_72_11">
+		THE SPEAKER OF THE HOUSE
+	</div>
+
+	<div id="t_72_44" style="position: absolute; left: 5.72%; top: 77.21%;" class="c_72_3">
+		Chosen by the majority party, this person
+	</div>
+
+	<div id="t_72_45" style="position: absolute; left: 5.72%; top: 79.1%;" class="c_72_3">
+		presides over the meetings and is the &ldquo;face&rdquo;
+	</div>
+
+	<div id="t_72_46" style="position: absolute; left: 5.72%; top: 81%;" class="c_72_3">
+		of the House.
+	</div>
+
+	<div id="t_72_47" style="position: absolute; left: 12.47%; top:82.82%;" class="c_72_11">
+		MAJORITY LEADER
+	</div>
+
+	<div id="t_72_48" style="position: absolute; left: 5.72%; top: 85.54%;" class="c_72_3">
+		When will meetings take place? Which bills
+	</div>
+
+	<div id="t_72_49" style="position: absolute; left: 5.72%; top: 87.43%;" class="c_72_3">
+		will come to the floor? This person decides.
+	</div>
+
+	<div id="t_72_50" style="position: absolute; left: 13.65%; top:89.26%;" class="c_72_11">
+		MAJORITY WHIP
+	</div>
+
+	<div id="t_72_51" style="position: absolute; left: 5.72%; top: 91.98%;" class="c_72_3">
+		Is a bill going to pass? Who is actually voting
+	</div>
+
+	<div id="t_72_52" style="position: absolute; left: 5.72%; top: 93.87%;" class="c_72_3">
+		for it? This person gets the inside scoop.
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 31%; top: 1%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_national_laws.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 10%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_whos_who.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 10%; top: 21%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_on_one_side.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 2%; top: 38%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_want_to_run_congress.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 38%; top: 52%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_virginias_congressional_districts.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_house_vips.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 43%; top: 69.5%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_majority_politics.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 43%; top: 81%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_72_the_house_chamber.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_73">
+                                                                                                <div class="pageData">
+
+	<div id="t_73_0" style="position: absolute; left: 10.14%; top:7.05%;" class="c_73_0">
+		WANT TO RUN?
+	</div>
+
+	<div id="t_73_1" style="position: absolute; left: 10.14%; top:9.47%;" class="c_73_1">
+		&bull; You must be 30 years old.
+	</div>
+
+	<div id="t_73_2" style="position: absolute; left: 10.14%; top:11.74%;" class="c_73_1">
+		&bull; You must be a U.S. citizen
+	</div>
+
+	<div id="t_73_3" style="position: absolute; left: 11.40%; top:13.39%;" class="c_73_1">
+		for at least nine years.
+	</div>
+
+	<div id="t_73_4" style="position: absolute; left: 10.14%; top:15.66%;" class="c_73_1">
+		&bull; At the time of election, you must be
+	</div>
+
+	<div id="t_73_5" style="position: absolute; left: 11.40%; top:17.30%;" class="c_73_1">
+		a resident of the state you represent.
+	</div>
+
+	<div id="t_73_6" style="position: absolute; left: 10.14%; top:19.57%;" class="c_73_1">
+		&bull; <span class="c_73_2">The Senate has 100 members.</span>
+	</div>
+
+	<div id="t_73_7" style="position: absolute; left: 10.14%; top:21.84%;" class="c_73_1">
+		&bull; <span class="c_73_2">Your term lasts six years.</span>
+	</div>
+
+	<div id="t_73_8" style="position: absolute; left: 9.97%; top:26.75%;" class="c_73_0">
+		ON THE OTHER SIDE&mdash;
+	</div>
+
+	<div id="t_73_9" style="position: absolute; left: 9.97%; top:28.64%;" class="c_73_0">
+		THE SENATE
+	</div>
+
+	<div id="t_73_10" style="position: absolute; left: 11.28%; top: 31.37%;" class="c_73_3">
+		Life in the Senate is a bit less
+	</div>
+
+	<div id="t_73_11" style="position: absolute; left: 9.97%; top: 33.26%;" class="c_73_3">
+		frantic. For starters, there are only 100 senators, two from
+	</div>
+
+	<div id="t_73_12" style="position: absolute; left: 9.97%; top: 35.15%;" class="c_73_3">
+		each state, regardless of size. Because they are elected to
+	</div>
+
+	<div id="t_73_13" style="position: absolute; left: 9.97%; top: 37.05%;" class="c_73_3">
+		a six-year term, senators can better focus on lawmaking,
+	</div>
+
+	<div id="t_73_14" style="position: absolute; left: 9.97%; top: 38.94%;" class="c_73_3">
+		instead of getting re-elected. Elections are staggered over
+	</div>
+
+	<div id="t_73_15" style="position: absolute; left: 9.97%; top: 40.84%;" class="c_73_3">
+		even years, so that only about a third of the Senate is up
+	</div>
+
+	<div id="t_73_16" style="position: absolute; left: 9.97%; top: 42.73%;" class="c_73_3">
+		for re-election at one time.
+	</div>
+
+	<div id="t_73_17" style="position: absolute; left: 20.85%; top:44.80%;" class="c_73_0">
+		WHAT DO THEY DO?
+	</div>
+
+	<div id="t_73_18" style="position: absolute; left: 11.72%; top: 47.53%;" class="c_73_3">
+		Besides writing and voting for new legislation, a
+	</div>
+
+	<div id="t_73_19" style="position: absolute; left: 9.97%; top: 49.42%;" class="c_73_3">
+		senator&rsquo;s day starts as early as 7:00 a.m. with a morning
+	</div>
+
+	<div id="t_73_20" style="position: absolute; left: 9.97%; top: 51.32%;" class="c_73_3">
+		staff meeting, and runs late into the night with evening
+	</div>
+
+	<div id="t_73_21" style="position: absolute; left: 9.97%; top: 53.21%;" class="c_73_3">
+		fund-raisers. Money is behind every upcoming election&mdash;
+	</div>
+
+	<div id="t_73_22" style="position: absolute; left: 9.97%; top: 55.1%;" class="c_73_3">
+		even those still a few years off.
+	</div>
+
+	<div id="t_73_23" style="position: absolute; left: 11.28%; top: 57%;" class="c_73_3">
+		Throughout the day, a senator might dash off to a
+	</div>
+
+	<div id="t_73_24" style="position: absolute; left: 9.97%; top: 58.89%;" class="c_73_3">
+		committee meeting or meet with people called
+	</div>
+
+	<div id="t_73_25" style="position: absolute; left: 9.97%; top: 60.79%;" class="c_73_3">
+		&ldquo;lobbyists,&rdquo; who represent different special-interest
+	</div>
+
+	<div id="t_73_26" style="position: absolute; left: 9.97%; top: 62.68%;" class="c_73_3">
+		groups, such as supporters of gun control or the dairy
+	</div>
+
+	<div id="t_73_27" style="position: absolute; left: 9.97%; top: 64.58%;" class="c_73_3">
+		industry. Lobbyists often visit to talk about a bill that will
+	</div>
+
+	<div id="t_73_28" style="position: absolute; left: 9.97%; top: 66.47%;" class="c_73_3">
+		affect their particular &ldquo;interest.&rdquo;
+	</div>
+
+	<div id="t_73_29" style="position: absolute; left: 11.28%; top: 68.37%;" class="c_73_3">
+		In addition to writing new laws, from time to time the
+	</div>
+
+	<div id="t_73_30" style="position: absolute; left: 9.97%; top: 70.26%;" class="c_73_3">
+		Senate is charged with confirming presidential choices for
+	</div>
+
+	<div id="t_73_31" style="position: absolute; left: 9.97%; top: 72.15%;" class="c_73_3">
+		certain important jobs, such as justices of the Supreme
+	</div>
+
+	<div id="t_73_32" style="position: absolute; left: 9.97%; top: 74.05%;" class="c_73_3">
+		Court and judges for the lower federal courts.
+	</div>
+
+	<div id="t_73_33" style="position: absolute; left: 20.43%; top:76.12%;" class="c_73_0">
+		AN IDEAL POLITICIAN
+	</div>
+
+	<div id="t_73_34" style="position: absolute; left: 11.28%; top: 78.84%;" class="c_73_3">
+		All senators and representatives have strong opinions
+	</div>
+
+	<div id="t_73_35" style="position: absolute; left: 9.97%; top: 80.73%;" class="c_73_3">
+		about what they think is best for the country. As a result,
+	</div>
+
+	<div id="t_73_36" style="position: absolute; left: 9.97%; top: 82.63%;" class="c_73_3">
+		sometimes <span class="c_73_4">nothing</span> <span class="c_73_5">gets done because no one is willing to</span>
+	</div>
+
+	<div id="t_73_37" style="position: absolute; left: 9.97%; top: 84.52%;" class="c_73_3">
+		compromise. There is frequently a lot of tension in the
+	</div>
+
+	<div id="t_73_38" style="position: absolute; left: 9.97%; top: 86.42%;" class="c_73_3">
+		House and the Senate due to hard-line party politics. Who
+	</div>
+
+	<div id="t_73_39" style="position: absolute; left: 9.97%; top: 88.31%;" class="c_73_3">
+		is your representative in Congress? Who are your U.S.
+	</div>
+
+	<div id="t_73_40" style="position: absolute; left: 9.97%; top: 90.21%;" class="c_73_3">
+		senators? Write or email all three and encourage them to
+	</div>
+
+	<div id="t_73_41" style="position: absolute; left: 9.97%; top: 92.1%;" class="c_73_3">
+		learn to compromise!
+	</div>
+
+	<div id="t_73_42" style="position: absolute; left: 63.24%; top:4.35%;" class="c_73_1">
+		The Senate &ldquo;class picture&rdquo; for 2015.
+	</div>
+
+	<div id="t_73_43" style="position: absolute; left: 67.03%; top:30.02%;" class="c_73_6">
+		Senate
+	</div>
+
+	<div id="t_73_44" style="position: absolute; left: 68.89%; top:35.83%;" class="c_73_6">
+		V.I.P.s
+	</div>
+
+	<div id="t_73_45" style="position: absolute; left: 62.43%; top:44.69%;" class="c_73_1">
+		The leadership of the Senate is mandated in
+	</div>
+
+	<div id="t_73_46" style="position: absolute; left: 71.52%; top:46.34%;" class="c_73_1">
+		the Constitution.
+	</div>
+
+	<div id="t_73_47" style="position: absolute; left: 65.17%; top:48.83%;" class="c_73_7">
+		THE VICE PRESIDENT
+	</div>
+
+	<div id="t_73_48" style="position: absolute; left: 60.07%; top: 50.93%;" class="c_73_3">
+		The vice president has an important role.
+	</div>
+
+	<div id="t_73_49" style="position: absolute; left: 60.07%; top: 52.83%;" class="c_73_3">
+		In the event of a tie vote in the Senate,
+	</div>
+
+	<div id="t_73_50" style="position: absolute; left: 60.07%; top: 54.72%;" class="c_73_3">
+		which happens every so often, the vice
+	</div>
+
+	<div id="t_73_51" style="position: absolute; left: 60.07%; top: 56.61%;" class="c_73_3">
+		president gets to cast the deciding vote.
+	</div>
+
+	<div id="t_73_52" style="position: absolute; left: 60.70%; top:58.94%;" class="c_73_7">
+		PRESIDENT &ldquo;PRO TEMPORE&rdquo;
+	</div>
+
+	<div id="t_73_53" style="position: absolute; left: 60.07%; top: 61.16%;" class="c_73_3">
+		If the vice president is busy, this senator
+	</div>
+
+	<div id="t_73_54" style="position: absolute; left: 60.07%; top: 63.05%;" class="c_73_3">
+		steps in &ldquo;for the time being.&rdquo;
+	</div>
+
+	<div id="t_73_55" style="position: absolute; left: 61.32%; top:65.38%;" class="c_73_7">
+		MAJORITY LEADER &amp;WHIP
+	</div>
+
+	<div id="t_73_56" style="position: absolute; left: 60.07%; top: 67.6%;" class="c_73_3">
+		Much like the House, the Senate also has a
+	</div>
+
+	<div id="t_73_57" style="position: absolute; left: 60.07%; top: 69.49%;" class="c_73_3">
+		majority leader and a whip who try to
+	</div>
+
+	<div id="t_73_58" style="position: absolute; left: 60.07%; top: 71.39%;" class="c_73_3">
+		persuade people to vote along party lines.
+	</div>
+
+	<div id="t_73_59" style="position: absolute; left: 60.51%; top:75.17%;" class="c_73_8">
+		Room for Debate
+	</div>
+
+	<div id="t_73_60" style="position: absolute; left: 60.51%; top:77.53%;" class="c_73_9">
+		Presidents have
+	</div>
+
+	<div id="t_73_61" style="position: absolute; left: 60.51%; top:79.43%;" class="c_73_9">
+		&ldquo;term limits.&rdquo;
+	</div>
+
+	<div id="t_73_62" style="position: absolute; left: 60.51%; top:81.32%;" class="c_73_9">
+		They may serve
+	</div>
+
+	<div id="t_73_63" style="position: absolute; left: 60.51%; top:83.22%;" class="c_73_9">
+		no more than
+	</div>
+
+t	<div id="t_73_64" style="position: absolute; left: 60.51%; top:85.11%;" class="c_73_9">
+		two four-year
+	</div>
+
+	<div id="t_73_65" style="position: absolute; left: 60.51%; top:87.00%;" class="c_73_9">
+		terms. Members of Congress have
+	</div>
+
+	<div id="t_73_66" style="position: absolute; left: 60.51%; top:88.90%;" class="c_73_9">
+		no such limits. Should they?
+	</div>
+
+	<div id="t_73_67" style="position: absolute; left: 60.51%; top:90.79%;" class="c_73_9">
+		Defend your opinion.
+	</div>
+
+	<div id="t_73_68" style="position: absolute; left: 93.92%; top: 94.43%;" class="c_73_10">
+		73
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 6%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_want_to_run_senate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 57%; top: 4%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_the_senate_class_picture.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 4%; top: 27%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_on_the_other_side.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 58%; top: 32%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_senate_vips.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 45%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_what_do_they_do.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 6%; top: 76%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_an_ideal_politician.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 55%; top: 75%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_73_room_for_debate.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_72_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_73_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_72_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="72.html?page=right"; onclick="goto('72.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="74.html"; onclick="goto('74.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="74.html"; onclick="goto('74.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

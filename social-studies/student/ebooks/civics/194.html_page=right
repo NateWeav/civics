@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_194.css">
+                <link rel="stylesheet" href="css/civics_195.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="192.html?page=right"; onclick="goto('192.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="194.html"; onclick="goto('194.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="192.html?page=right"; onclick="goto('192.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_194_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_195_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_194_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="196.html"; onclick="goto('196.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="196.html"; onclick="goto('196.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="192.html?page=right"; onclick="goto('192.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="194.html"; onclick="goto('194.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="192.html?page=right"; onclick="goto('192.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_194">
+                                                                                                <div class="pageData">
+
+	<div id="t_194_0" style="position: absolute; left: 26.67%; top: 4.71%; letter-spacing: -0.02em;" class="c_194_0">
+		Chapter 11 Review
+	</div>
+
+	<div id="t_194_1" style="position: absolute; left: 11.35%; top:12.25%;" class="c_194_1">
+		Use pages 188&ndash;189 to answer questions 1&ndash;2 in complete sentences.
+	</div>
+
+	<div id="t_194_2" style="position: absolute; left: 11.35%; top: 14.2%;" class="c_194_2">
+		1. Why is self-assessment important before choosing a career?
+	</div>
+
+	<div id="t_194_3" style="position: absolute; left: 11.35%; top: 16.09%;" class="c_194_2">
+		2. How does an individual&rsquo;s work ethic determine career success?
+	</div>
+
+	<div id="t_194_4" style="position: absolute; left: 11.35%; top:18.95%;" class="c_194_1">
+		Use pages 190&ndash;191 to answer questions 3&ndash;4 in complete sentences.
+	</div>
+
+	<div id="t_194_5" style="position: absolute; left: 11.35%; top: 20.89%;" class="c_194_2">
+		3. Why is it important for employees to stay informed of new technology?
+	</div>
+
+	<div id="t_194_6" style="position: absolute; left: 11.35%; top: 22.79%;" class="c_194_2">
+		4. Use your own words to explain how technological advances impact the workplace.
+	</div>
+
+	<div id="t_194_7" style="position: absolute; left: 11.35%; top:25.64%;" class="c_194_1">
+		Use pages 192&ndash;193 to answer questions 5&ndash;6 in complete sentences.
+	</div>
+
+	<div id="t_194_8" style="position: absolute; left: 11.35%; top: 27.59%;" class="c_194_2">
+		5. Write a paragraph explaining the six ways to stay financially responsible.
+	</div>
+
+	<div id="t_194_9" style="position: absolute; left: 11.35%; top: 29.48%;" class="c_194_2">
+		6. Study the graph on page 193. What can you conclude from this graph about how
+	</div>
+
+	<div id="t_194_10" style="position: absolute; left: 13.55%; top: 31.37%;" class="c_194_2">
+		education levels affect income?
+	</div>
+
+	<div id="t_194_11" style="position: absolute; left: 25.56%; top: 33.71%; letter-spacing: -0.02em;" class="c_194_0">
+		Apply Your Learning
+	</div>
+
+	<div id="t_194_12" style="position: absolute; left: 11.33%; top: 41.25%;" class="c_194_2">
+		1. <span class="c_194_3">There is a correlation among skills, education, and income.</span> <span class="c_194_4">However, by 2025, the</span>
+	</div>
+
+	<div id="t_194_13" style="position: absolute; left: 11.33%; top: 43.14%;" class="c_194_2">
+		projected cost of a public college education will be $41,284 per year&mdash;a whopping $165,136
+	</div>
+
+	<div id="t_194_14" style="position: absolute; left: 11.33%; top: 45.04%;" class="c_194_2">
+		for all four years. Is free college something you believe is possible in the United States?
+	</div>
+
+	<div id="t_194_15" style="position: absolute; left: 13.08%; top: 46.93%;" class="c_194_2">
+		Gather information from a variety of sources on this issue to construct an informed,
+	</div>
+
+	<div id="t_194_16" style="position: absolute; left: 11.33%; top: 48.83%;" class="c_194_2">
+		evidence-based argument. Make sure you select various resources with multiple points of
+	</div>
+
+	<div id="t_194_17" style="position: absolute; left: 11.33%; top: 50.72%;" class="c_194_2">
+		view, such as news-based sources, social media, or government sites. After analyzing the
+	</div>
+
+	<div id="t_194_18" style="position: absolute; left: 11.33%; top: 52.61%;" class="c_194_2">
+		sources, write a newspaper editorial persuading readers to adopt your chosen perspective.
+	</div>
+
+	<div id="t_194_19" style="position: absolute; left: 11.33%; top: 54.51%;" class="c_194_2">
+		Cite evidence from your sources to increase the validity of your argument.
+	</div>
+
+	<div id="t_194_20" style="position: absolute; left: 11.33%; top: 57.41%;" class="c_194_2">
+		2. <span class="c_194_3">Changes in technology influence the abilities, skills, and education needed in the</span>
+	</div>
+
+	<div id="t_194_21" style="position: absolute; left: 11.33%; top:59.28%;" class="c_194_5">
+		workforce. <span class="c_194_4">Advanced computers and smart artificial intelligence are fairly recent</span>
+	</div>
+
+	<div id="t_194_22" style="position: absolute; left: 11.33%; top: 61.2%;" class="c_194_2">
+		inventions. What are some careers that did not exist 50 years ago? Create a diagram or flow
+	</div>
+
+	<div id="t_194_23" style="position: absolute; left: 11.33%; top: 63.1%;" class="c_194_2">
+		chart that shows the invention of a new technology and the careers that stem from that
+	</div>
+
+	<div id="t_194_24" style="position: absolute; left: 11.33%; top: 64.99%;" class="c_194_2">
+		invention.
+	</div>
+
+	<div id="t_194_25" style="position: absolute; left: 11.33%; top: 67.9%;" class="c_194_2">
+		3. <span class="c_194_3">Elected officials write laws in response to problems or issues.</span> <span class="c_194_4">When major changes in</span>
+	</div>
+
+	<div id="t_194_26" style="position: absolute; left: 11.33%; top: 69.79%;" class="c_194_2">
+		technology occur, legislation must be updated. In 2012 it became legal for civilians to fly
+	</div>
+
+	<div id="t_194_27" style="position: absolute; left: 11.33%; top: 71.68%;" class="c_194_2">
+		drones for a hobby, and businesses are now able to use drones for work purposes. What
+	</div>
+
+	<div id="t_194_28" style="position: absolute; left: 11.33%; top: 73.58%;" class="c_194_2">
+		rules for drones might be created in the future? Research the public policy that has been
+	</div>
+
+	<div id="t_194_29" style="position: absolute; left: 11.33%; top: 75.47%;" class="c_194_2">
+		passed in your locality, state, and the nation. Create a timeline that shows how legislation
+	</div>
+
+	<div id="t_194_30" style="position: absolute; left: 11.33%; top: 77.37%;" class="c_194_2">
+		has changed over time as drones have become more common.
+	</div>
+
+	<div id="t_194_31" style="position: absolute; left: 35.70%; top: 79.43%; letter-spacing: -0.02em;" class="c_194_0">
+		Imagine...
+	</div>
+
+	<div id="t_194_32" style="position: absolute; left: 11.30%; top:86.48%;" class="c_194_5">
+		Imagine you have just landed your dream job. <span class="c_194_4">How did you get it? What did you study?</span>
+	</div>
+
+	<div id="t_194_33" style="position: absolute; left: 11.30%; top: 88.78%;" class="c_194_2">
+		How much money will you make? What kind of work ethic will be required? What kinds of
+	</div>
+
+	<div id="t_194_34" style="position: absolute; left: 11.30%; top: 90.67%;" class="c_194_2">
+		technology will you be expected to use? Answer these questions by conducting research.
+	</div>
+
+	<div id="t_194_35" style="position: absolute; left: 11.30%; top: 92.57%;" class="c_194_2">
+		Create a job description that will go under your picture in the company newsletter.
+	</div>
+
+	<div id="t_194_36" style="position: absolute; left: 4.73%; top: 94.59%; letter-spacing: -0.15em;" class="c_194_6">
+		194
+	</div>
+
+</div>
+
+<div class="audiobook " style="position: absolute; left: 3%; top: 12%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_chapter_11_review.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 19%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_use_pages_190-191.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 26%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_use_pages_192-193.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 41%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_apply_your_learning.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 57%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_changes_in_tech.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 68%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_elected_officials.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>
+<div class="audiobook " style="position: absolute; left: 3%; top: 86%; height:4%; width:auto;"><a class="not_pressed" onclick="play('/mp3/civics/civics_194_imagine_you_have_just_landed.mp3', $(this));"><img class="button read" src="/images/read.png"/><img class="button read_pressed" src="/images/read_pressed.png"/></a></div>                    </div><!-- No whitespace
+             --><div class="rightPage page_195">
+                                                                                                <div class="pageData">
+
+	<div id="t_195_0" style="position: absolute; left: 27.03%; top:17.01%;" class="c_195_0">
+		DOCUMENTS
+	</div>
+
+	<div id="t_195_1" style="position: absolute; left: 30.77%; top:26.34%;" class="c_195_0">
+		AND MAPS
+	</div>
+
+	<div id="t_195_2" style="position: absolute; left: 29.20%; top:36.79%; letter-spacing: 0.55em;" class="c_195_1">
+		AND ADDITIONAL
+	</div>
+
+	<div id="t_195_3" style="position: absolute; left: 34.59%; top:38.91%; letter-spacing: 0.55em;" class="c_195_1">
+		REFERENCES
+	</div>
+
+	<div id="t_195_4" style="position: absolute; left: 93.19%; top: 94.91%; letter-spacing: -0.15em;" class="c_195_2">
+		195
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                            <a class="leftButton audiobook not_pressed" onclick="play('/mp3/civics/civics_194_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                            <a class="rightButton audiobook not_pressed" onclick="play('/mp3/civics/civics_195_single.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                            <a class="audiobook not_pressed" onclick="play('/mp3/civics/civics_194_dual.mp3', $(this));">
+                            <img class="button read" src="/images/narration.png"/>
+                            <img class="button read_pressed" src="/images/narration_pressed.png"/>
+                        </a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="194.html?page=right"; onclick="goto('194.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="196.html"; onclick="goto('196.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="196.html"; onclick="goto('196.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,436 @@
+
+/*
+ *  WIDE LANDSCAPE - 2 pages, buttons on side, constrained by height, (1700+buttons) / (1100+audio)
+ *    this is the default
+ */
+
+#zoom-outer {
+    left: 65%;
+}
+
+#reader {
+    margin: 0 auto;
+    height: 100vh;
+    width: 173.86vh;
+    font-size: 1.557520vh;
+    font-size: 1.45vh;
+}
+
+#readerTop {
+    display: none;
+    height: 0%;
+}
+
+#readerMiddle {
+    display: block;
+    height: 90%;
+}
+
+#readerBottom {
+    display: block;
+    height: 10%;
+}
+
+#readerTopLeft,
+#readerTopCenter,
+#readerTopRight,
+#readerMiddleLeft,
+#viewArea,
+#readerMiddleRight,
+#readerBottomLeft,
+#readerBottomCenter,
+#readerBottomRight {
+    display: inline-block;
+    vertical-align:top;
+    height: 100%;
+}
+
+#readerTopLeft,
+#readerMiddleLeft,
+#readerBottomLeft,
+#readerTopRight,
+#readerMiddleRight,
+#readerBottomRight {
+    width: 10%;
+}
+
+#readerTopCenter,
+#viewArea,
+#readerBottomCenter {
+    width: 80%;
+}
+
+#reader .leftPage,
+#reader .rightPage {
+    width: 50%;
+}
+
+.toolbar .single {
+    display: none;
+}
+
+.toolbar .dual {
+    display: block;
+}
+
+.dual.narration {
+    display: block;
+}
+
+.single.narration {
+    display: none;
+}
+
+/*
+ *  MID LANDSCAPE - 2 pages, buttons on top, constrained by height, 1700 / (1100+buttons+audio)
+ */
+@media (orientation: landscape) and (max-aspect-ratio: 1370/791) {
+
+    #reader {
+        margin: 0 auto;
+        height: 100vh;
+        width: 139.09vh;
+        width: 145.96vh;
+        font-size: 1.47vh;
+        font-size: 1.37vh;
+    }
+
+    #zoom-outer {
+        left: 35%;
+    }
+
+    .buttons-on-sides,
+    .toolbar .dual.buttons-on-sides {
+        display: none;
+    }
+
+    #readerTop {
+        display: block;
+        height: 5%;
+    }
+
+    #readerMiddle {
+        display: block;
+        height: 90%;
+        height: 85%;
+    }
+
+    #readerTopLeft,
+    #readerMiddleLeft,
+    #readerBottomLeft,
+    #readerTopRight,
+    #readerMiddleRight,
+    #readerBottomRight {
+        width: 5%;
+    }
+
+    #readerTopCenter,
+    #viewArea,
+    #readerBottomCenter {
+        width: 90%;
+    }
+
+}
+
+/*
+ *  NARROW LANDSCAPE - 2 pages, buttons on top, constrained by width, 1700 / (1100+buttons+audio)
+ */
+@media (orientation: landscape) and (max-aspect-ratio: 1125/791) {
+    #reader {
+        margin: 0 auto;
+        height: 68.54vw;
+        width: 100vw;
+        font-size: 0.95vw;   /* < 1.639344 * height */
+    }
+}
+
+
+/*
+ *  WIDE PORTRAIT - 1 page, buttons on side, constrained by height, (850+buttons) / (1100+audio)
+ *   default for portrait
+ */
+@media (orientation: portrait)  {
+
+    #reader {
+        margin: 0 auto;
+        height: 100vh;
+        width: 91.76vh;
+        width: 99.35vh;
+        font-size: 1.557368vh;
+        font-size: 1.46vh;
+    }
+
+    #readerTopLeft,
+    #readerMiddleLeft,
+    #readerBottomLeft,
+    #readerTopRight,
+    #readerMiddleRight,
+    #readerBottomRight {
+        width: 10%;
+        width: 15%;
+    }
+
+    #readerTopCenter,
+    #viewArea,
+    #readerBottomCenter {
+        width: 80%;
+        width: 70%;
+    }
+
+    #reader .leftPage,
+    #reader .rightPage {
+        width: 100%;
+    }
+
+    body.left .rightPage,
+    body.right .leftPage,
+    body.left .rightButton,
+    body.right .leftButton {
+        display: none;
+    }
+    .toolbar .single {
+        display: block;
+    }
+
+    .toolbar .dual {
+        display: none;
+    }
+
+    .dual.narration {
+        display: none;
+    }
+
+    .single.narration {
+        display: block;
+    }
+
+}
+
+/*
+ *  MID PORTRAIT - 1 page, buttons on top, constrained by height, (850) / (1100+buttons+audio)
+ */
+@media (orientation: portrait) and (max-aspect-ratio: 773/791) {
+
+    #reader {
+        margin: 0 auto;
+        height: 100vh;
+        width: 77.27vh;
+        font-size: 1.49vh;
+        font-size: 1.40vh;
+    }
+
+    #zoom-outer {
+        left: 35%;
+    }
+
+    .buttons-on-sides,
+    .toolbar .single.buttons-on-sides,
+    .toolbar .dual.buttons-on-sides {
+        display: none;
+    }
+
+    #readerTop {
+        display: block;
+        height: 5%;
+    }
+
+    #readerMiddle {
+        display: block;
+        height: 90%;
+        height: 85%;
+    }
+
+    #readerTopLeft,
+    #readerMiddleLeft,
+    #readerBottomLeft {
+        width: 10%;
+    }
+
+    #readerTopRight,
+    #readerMiddleRight,
+    #readerBottomRight {
+        width: 5%;
+    }
+
+    #readerTopCenter,
+    #viewArea,
+    #readerBottomCenter {
+        width: 85%;
+    }
+
+}
+
+/*
+ *  NARROW LANDSCAPE - 1 page, buttons on top, constrained by width, 850 / (1100+buttons)
+ */
+@media (orientation: portrait) and (max-aspect-ratio: 570/740) {
+
+
+    #reader {
+        margin: 0 auto;
+        height: 143.7815vw;
+        height: 129.41vw;
+        width: 100vw;
+        font-size: 2.12vw;
+        font-size: 1.9vw;
+        
+    }
+}
+
+/*
+ * Tool Bar
+ */
+
+.toolbar {
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+img.button {
+    height: 100%;
+    width: auto;
+}
+
+/*
+ * Pages
+ */
+
+.leftPage,
+.rightPage {
+    position: relative;
+    display: inline-block;
+    vertical-align:top;
+    height: 100%;
+}
+
+/* The sheet is essentially an 11x17 camera ready page */
+#viewArea {
+    background-repeat: no-repeat;
+    -moz-box-shadow: 0 0 6px #bbb;
+    -webkit-box-shadow: 0 0 6px #bbb;
+    box-shadow: 0 0 6px #bbb;
+}
+
+/* Styling */
+.ui-overlay-a, .ui-page-theme-a, .ui-page-theme-a .ui-panel-wrapper {
+    text-shadow: none !important;
+}
+
+/* Audiobook */
+body.silent .audiobook {
+    display: none;
+}
+
+body.audio .no_audiobook {
+    display: none;
+}
+
+.not_pressed .button.read,
+.pressed .button.read_pressed {
+    display: block;
+}
+
+.pressed .button.read,
+.not_pressed .button.read_pressed {
+    display: none;
+}
+
+/* Test */
+/*
+#readerTopLeft { background: orange; }
+#readerTopCenter { background: darkgray; }
+#readerTopRight { background: lightpink; }
+#readerMiddleLeft { background: cornflowerblue; }
+#viewArea .leftPage { background: tan; }
+#viewArea .rightPage { background: salmon; }
+#readerMiddleRight { background: dodgerblue; }
+#readerBottomLeft { background: violet; }
+#readerBottomCenter { background: brown; }
+#readerBottomRight { background: rosybrown; }
+*/
+
+#viewArea {
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+#scalebox {
+    height: 100%;
+    width: 100%;
+    font-size: 1.0em;
+    position: relative;
+}
+
+.leftPage, .rightPage {
+    height: 100%;
+}
+
+.hscroll, .vscroll {
+    border: 1px solid #ccc;
+    box-shadow: 0 0 6px #ccc;
+    background-color: #eee;
+}
+
+.hscroll {
+    display: flex;
+    width: 100%;
+    height: 20px;
+}
+
+.vscroll {
+    width: 20px;
+    height: 100%;
+}
+
+.hscroll-left, .hscroll-right,
+.vscroll-up, .vscroll-down {
+    font-size: 12px;
+    color: #ccc;
+}
+
+.hscroll-left, .hscroll-right {
+    width: 20px;
+    padding-top: 2px;
+}
+
+.vscroll-up, .vscroll-down {
+    padding-left: 4px;
+    height: 5%;
+}
+
+.hscroll-left {
+    padding-left: 8px;
+    padding-right: 4px;
+}
+
+.hscroll-right {
+    padding-left: 12px;
+}
+
+.hscroll-inner {
+    width: 100%;
+}
+
+.vscroll-inner {
+    height: 90%;
+}
+
+.hscroll-handle {
+    height: 20px;
+    background-color: #ddd;
+    width: 100%;
+}
+
+.vscroll-handle {
+    width: 20px;
+    background-color: #ddd;
+    height: 100%;
+}
+
+.hscroll-handle:hover,
+.hscroll-dragging,
+.vscroll-handle:hover,
+.vscroll-dragging {
+    background-color: #ccc;
+}

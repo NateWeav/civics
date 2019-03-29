@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_202.css">
+                <link rel="stylesheet" href="css/civics_203.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="200.html?page=right"; onclick="goto('200.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="202.html"; onclick="goto('202.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="200.html?page=right"; onclick="goto('200.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="202.html?page=right"; onclick="goto('202.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="204.html"; onclick="goto('204.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="204.html"; onclick="goto('204.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="200.html?page=right"; onclick="goto('200.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="202.html"; onclick="goto('202.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="200.html?page=right"; onclick="goto('200.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_202">
+                                                                                                <div class="pageData">
+
+	<div id="t_202_0" style="position: absolute; left: 30.88%; top:3.44%;" class="c_202_0">
+		Section 9 - Limits on Congress
+	</div>
+
+	<div id="t_202_1" style="position: absolute; left: 32.27%; top:4.96%;" class="c_202_1">
+		The Migration or Importation of such Persons as any of the States now existing shall think
+	</div>
+
+	<div id="t_202_2" style="position: absolute; left: 30.88%; top:6.48%;" class="c_202_1">
+		proper to admit, shall not be prohibited by the Congress prior to the Year one thousand
+	</div>
+
+	<div id="t_202_3" style="position: absolute; left: 30.88%; top:7.99%;" class="c_202_1">
+		eight hundred and eight, but a tax or duty may be imposed on such Importation, not
+	</div>
+
+	<div id="t_202_4" style="position: absolute; left: 30.88%; top:9.51%;" class="c_202_1">
+		exceeding ten dollars for each Person.
+	</div>
+
+	<div id="t_202_5" style="position: absolute; left: 32.27%; top:11.02%;" class="c_202_1">
+		The privilege of the Writ of Habeas Corpus shall not be suspended, unless when in Cases
+	</div>
+
+	<div id="t_202_6" style="position: absolute; left: 30.88%; top:12.54%;" class="c_202_1">
+		of Rebellion or Invasion the public Safety may require it.
+	</div>
+
+	<div id="t_202_7" style="position: absolute; left: 32.27%; top:14.05%;" class="c_202_1">
+		No Bill of Attainder or ex post facto Law shall be passed.
+	</div>
+
+	<div id="t_202_8" style="position: absolute; left: 32.27%; top:15.57%;" class="c_202_1">
+		(No capitation, or other direct, Tax shall be laid, unless in Proportion to the Census or
+	</div>
+
+	<div id="t_202_9" style="position: absolute; left: 30.88%; top:17.08%;" class="c_202_1">
+		Enumeration herein before directed to be taken.) (Section in parentheses clarified by the
+	</div>
+
+	<div id="t_202_10" style="position: absolute; left: 30.88%; top:18.60%;" class="c_202_1">
+		16th Amendment.)
+	</div>
+
+	<div id="t_202_11" style="position: absolute; left: 32.27%; top:20.11%;" class="c_202_1">
+		No Tax or Duty shall be laid on Articles exported from any State.
+	</div>
+
+	<div id="t_202_12" style="position: absolute; left: 32.27%; top:21.63%;" class="c_202_1">
+		No Preference shall be given by any Regulation of Commerce or Revenue to the Ports of
+	</div>
+
+	<div id="t_202_13" style="position: absolute; left: 30.88%; top:23.14%;" class="c_202_1">
+		one State over those of another: nor shall Vessels bound to, or from, one State, be obliged
+	</div>
+
+	<div id="t_202_14" style="position: absolute; left: 30.88%; top:24.66%;" class="c_202_1">
+		to enter, clear, or pay Duties in another.
+	</div>
+
+	<div id="t_202_15" style="position: absolute; left: 32.27%; top:26.17%;" class="c_202_1">
+		No Money shall be drawn from the Treasury, but in Consequence of Appropriations made
+	</div>
+
+	<div id="t_202_16" style="position: absolute; left: 30.88%; top:27.69%;" class="c_202_1">
+		by Law; and a regular Statement and Account of the Receipts and Expenditures of all public
+	</div>
+
+	<div id="t_202_17" style="position: absolute; left: 30.88%; top:29.20%;" class="c_202_1">
+		Money shall be published from time to time.
+	</div>
+
+	<div id="t_202_18" style="position: absolute; left: 32.27%; top:30.72%;" class="c_202_1">
+		No Title of Nobility shall be granted by the United States: And no Person holding any
+	</div>
+
+	<div id="t_202_19" style="position: absolute; left: 30.88%; top:32.23%;" class="c_202_1">
+		Office of Profit or Trust under them, shall, without the Consent of the Congress, accept of
+	</div>
+
+	<div id="t_202_20" style="position: absolute; left: 30.88%; top:33.75%;" class="c_202_1">
+		any present, Emolument, Office, or Title, of any kind whatever, from any King, Prince or
+	</div>
+
+	<div id="t_202_21" style="position: absolute; left: 30.88%; top:35.27%;" class="c_202_1">
+		foreign State.
+	</div>
+
+	<div id="t_202_22" style="position: absolute; left: 30.88%; top:37.77%;" class="c_202_0">
+		Section 10 - Powers prohibited of States
+	</div>
+
+	<div id="t_202_23" style="position: absolute; left: 32.27%; top:39.29%;" class="c_202_1">
+		No State shall enter into any Treaty, Alliance, or Confederation; grant Letters of Marque
+	</div>
+
+	<div id="t_202_24" style="position: absolute; left: 30.88%; top:40.80%;" class="c_202_1">
+		and Reprisal; coin Money; emit Bills of Credit; make any Thing but gold and silver Coin a
+	</div>
+
+	<div id="t_202_25" style="position: absolute; left: 30.88%; top:42.32%;" class="c_202_1">
+		Tender in Payment of Debts; pass any Bill of Attainder, ex post facto Law, or Law impairing
+	</div>
+
+	<div id="t_202_26" style="position: absolute; left: 30.88%; top:43.83%;" class="c_202_1">
+		the Obligation of Contracts, or grant any Title of Nobility.
+	</div>
+
+	<div id="t_202_27" style="position: absolute; left: 32.27%; top:45.35%;" class="c_202_1">
+		No State shall, without the Consent of the Congress, lay any Imposts or Duties on
+	</div>
+
+	<div id="t_202_28" style="position: absolute; left: 30.88%; top:46.86%;" class="c_202_1">
+		Imports or Exports, except what may be absolutely necessary for executing it's inspection
+	</div>
+
+	<div id="t_202_29" style="position: absolute; left: 30.88%; top:48.38%;" class="c_202_1">
+		Laws: and the net Produce of all Duties and Imposts, laid by any State on Imports or
+	</div>
+
+	<div id="t_202_30" style="position: absolute; left: 30.88%; top:49.89%;" class="c_202_1">
+		Exports, shall be for the Use of the Treasury of the United States; and all such Laws shall be
+	</div>
+
+	<div id="t_202_31" style="position: absolute; left: 30.88%; top:51.41%;" class="c_202_1">
+		subject to the Revision and control of the Congress.
+	</div>
+
+	<div id="t_202_32" style="position: absolute; left: 32.27%; top:52.92%;" class="c_202_1">
+		No State shall, without the Consent of Congress, lay any duty of Tonnage, keep Troops,
+	</div>
+
+	<div id="t_202_33" style="position: absolute; left: 30.88%; top:54.44%;" class="c_202_1">
+		or Ships of War in time of Peace, enter into any Agreement or Compact with another State,
+	</div>
+
+	<div id="t_202_34" style="position: absolute; left: 30.88%; top:55.95%;" class="c_202_1">
+		or with a foreign Power, or engage in War, unless actually invaded, or in such imminent
+	</div>
+
+	<div id="t_202_35" style="position: absolute; left: 30.88%; top:57.47%;" class="c_202_1">
+		Danger as will not admit of delay.
+	</div>
+
+	<div id="t_202_36" style="position: absolute; left: 30.88%; top:59.97%;" class="c_202_2">
+		ARTICLE. II. - THE EXECUTIVE BRANCH
+	</div>
+
+	<div id="t_202_37" style="position: absolute; left: 30.88%; top:61.49%;" class="c_202_0">
+		Section 1 - The President
+	</div>
+
+	<div id="t_202_38" style="position: absolute; left: 32.27%; top:63.00%;" class="c_202_1">
+		The executive Power shall be vested in a President of the United States of America. He
+	</div>
+
+	<div id="t_202_39" style="position: absolute; left: 30.88%; top:64.52%;" class="c_202_1">
+		shall hold his Office during the Term of four Years, and, together with the Vice President
+	</div>
+
+	<div id="t_202_40" style="position: absolute; left: 30.88%; top:66.04%;" class="c_202_1">
+		chosen for the same Term, be elected, as follows:
+	</div>
+
+	<div id="t_202_41" style="position: absolute; left: 32.27%; top:67.55%;" class="c_202_1">
+		Each State shall appoint, in such Manner as the Legislature thereof may direct, a Number
+	</div>
+
+	<div id="t_202_42" style="position: absolute; left: 30.88%; top:69.07%;" class="c_202_1">
+		of Electors, equal to the whole Number of Senators and Representatives to which the State
+	</div>
+
+	<div id="t_202_43" style="position: absolute; left: 30.88%; top:70.58%;" class="c_202_1">
+		may be entitled in the Congress: but no Senator or Representative, or Person holding an
+	</div>
+
+	<div id="t_202_44" style="position: absolute; left: 30.88%; top:72.10%;" class="c_202_1">
+		Office of Trust or Profit under the United States, shall be appointed an Elector.
+	</div>
+
+	<div id="t_202_45" style="position: absolute; left: 32.27%; top:73.61%;" class="c_202_1">
+		(The Electors shall meet in their respective States, and vote by Ballot for two persons, of
+	</div>
+
+	<div id="t_202_46" style="position: absolute; left: 30.88%; top:75.13%;" class="c_202_1">
+		whom one at least shall not lie an Inhabitant of the same State with themselves. And they
+	</div>
+
+	<div id="t_202_47" style="position: absolute; left: 30.88%; top:76.64%;" class="c_202_1">
+		shall make a List of all the Persons voted for, and of the Number of Votes for each; which
+	</div>
+
+	<div id="t_202_48" style="position: absolute; left: 30.88%; top:78.16%;" class="c_202_1">
+		List they shall sign and certify, and transmit sealed to the Seat of the Government of the
+	</div>
+
+	<div id="t_202_49" style="position: absolute; left: 30.88%; top:79.67%;" class="c_202_1">
+		United States, directed to the President of the Senate. The President of the Senate shall, in
+	</div>
+
+	<div id="t_202_50" style="position: absolute; left: 30.88%; top:81.19%;" class="c_202_1">
+		the Presence of the Senate and House of Representatives, open all the Certificates, and the
+	</div>
+
+	<div id="t_202_51" style="position: absolute; left: 30.88%; top:82.70%;" class="c_202_1">
+		Votes shall then be counted. The Person having the greatest Number of Votes shall be the
+	</div>
+
+	<div id="t_202_52" style="position: absolute; left: 30.88%; top:84.22%;" class="c_202_1">
+		President, if such Number be a Majority of the whole Number of Electors appointed; and if
+	</div>
+
+	<div id="t_202_53" style="position: absolute; left: 30.88%; top:85.73%;" class="c_202_1">
+		there be more than one who have such Majority, and have an equal Number of Votes, then
+	</div>
+
+	<div id="t_202_54" style="position: absolute; left: 30.88%; top:87.25%;" class="c_202_1">
+		the House of Representatives shall immediately choose by Ballot one of them for President;
+	</div>
+
+	<div id="t_202_55" style="position: absolute; left: 30.88%; top:88.76%;" class="c_202_1">
+		and if no Person have a Majority, then from the five highest on the List the said House shall
+	</div>
+
+	<div id="t_202_56" style="position: absolute; left: 30.88%; top:90.28%;" class="c_202_1">
+		in like Manner choose the President.
+	</div>
+
+	<div id="t_202_57" style="position: absolute; left: 4.72%; top:4.70%;" class="c_202_3">
+		LIMITS
+	</div>
+
+	<div id="t_202_58" style="position: absolute; left: 4.72%; top:6.45%;" class="c_202_4">
+		There are things the federal
+	</div>
+
+	<div id="t_202_59" style="position: absolute; left: 4.72%; top:7.97%;" class="c_202_4">
+		and state governments
+	</div>
+
+	<div id="t_202_60" style="position: absolute; left: 4.72%; top:9.48%;" class="c_202_4">
+		cannot do.
+	</div>
+
+	<div id="t_202_61" style="position: absolute; left: 4.72%; top:10.99%;" class="c_202_5">
+		Federal Government
+	</div>
+
+	<div id="t_202_62" style="position: absolute; left: 4.72%; top:12.51%;" class="c_202_4">
+		cannot:
+	</div>
+
+	<div id="t_202_63" style="position: absolute; left: 4.72%; top:14.03%;" class="c_202_4">
+		&bull;Put people in jail without
+	</div>
+
+	<div id="t_202_64" style="position: absolute; left: 4.72%; top:15.54%;" class="c_202_4">
+		telling them why.
+	</div>
+
+	<div id="t_202_65" style="position: absolute; left: 4.72%; top:18.05%;" class="c_202_4">
+		&bull;Pass a law against an
+	</div>
+
+	<div id="t_202_66" style="position: absolute; left: 4.72%; top:19.57%;" class="c_202_4">
+		action after it has already
+	</div>
+
+	<div id="t_202_67" style="position: absolute; left: 4.72%; top:21.08%;" class="c_202_4">
+		happened.
+	</div>
+
+	<div id="t_202_68" style="position: absolute; left: 4.72%; top:23.59%;" class="c_202_4">
+		&bull;Tax products shipped out
+	</div>
+
+	<div id="t_202_69" style="position: absolute; left: 4.72%; top:25.10%;" class="c_202_4">
+		of the United States.
+	</div>
+
+	<div id="t_202_70" style="position: absolute; left: 4.72%; top:27.61%;" class="c_202_4">
+		&bull;Allow elected officials to
+	</div>
+
+	<div id="t_202_71" style="position: absolute; left: 4.72%; top:29.12%;" class="c_202_4">
+		accept gifts from foreign
+	</div>
+
+	<div id="t_202_72" style="position: absolute; left: 4.72%; top:30.64%;" class="c_202_4">
+		countries.
+	</div>
+
+	<div id="t_202_73" style="position: absolute; left: 4.72%; top:33.14%;" class="c_202_4">
+		This is an abbreviated
+	</div>
+
+	<div id="t_202_74" style="position: absolute; left: 4.72%; top:34.66%;" class="c_202_4">
+		&ldquo;Bill of Rights.&rdquo;
+	</div>
+
+	<div id="t_202_75" style="position: absolute; left: 4.79%; top:40.71%;" class="c_202_3">
+		LIMITS ON STATE
+	</div>
+
+	<div id="t_202_76" style="position: absolute; left: 4.79%; top:42.22%;" class="c_202_3">
+		POWER
+	</div>
+
+	<div id="t_202_77" style="position: absolute; left: 4.79%; top:43.73%;" class="c_202_5">
+		State Government <span class="c_202_6">cannot:</span>
+	</div>
+
+	<div id="t_202_78" style="position: absolute; left: 4.79%; top:45.26%;" class="c_202_4">
+		&bull;Make treaties with other
+	</div>
+
+	<div id="t_202_79" style="position: absolute; left: 4.79%; top:46.77%;" class="c_202_4">
+		countries
+	</div>
+
+	<div id="t_202_80" style="position: absolute; left: 4.79%; top:49.28%;" class="c_202_4">
+		&bull;Print money
+	</div>
+
+	<div id="t_202_81" style="position: absolute; left: 4.79%; top:51.79%;" class="c_202_4">
+		&bull;Declare war on another
+	</div>
+
+	<div id="t_202_82" style="position: absolute; left: 4.79%; top:53.30%;" class="c_202_4">
+		country
+	</div>
+
+	<div id="t_202_83" style="position: absolute; left: 4.60%; top:59.96%;" class="c_202_3">
+		ARTICLE II.
+	</div>
+
+	<div id="t_202_84" style="position: absolute; left: 4.60%; top:61.47%;" class="c_202_3">
+		THE PRESIDENT
+	</div>
+
+	<div id="t_202_85" style="position: absolute; left: 4.60%; top:63.23%;" class="c_202_4">
+		The government will have a
+	</div>
+
+	<div id="t_202_86" style="position: absolute; left: 4.60%; top:64.74%;" class="c_202_4">
+		president and a vice
+	</div>
+
+	<div id="t_202_87" style="position: absolute; left: 4.60%; top:66.26%;" class="c_202_4">
+		president whose term will be
+	</div>
+
+	<div id="t_202_88" style="position: absolute; left: 4.60%; top:67.77%;" class="c_202_4">
+		four years. The president and
+	</div>
+
+	<div id="t_202_89" style="position: absolute; left: 4.60%; top:69.29%;" class="c_202_4">
+		vice president will be chosen
+	</div>
+
+	<div id="t_202_90" style="position: absolute; left: 4.60%; top:70.80%;" class="c_202_4">
+		by special people, called
+	</div>
+
+	<div id="t_202_91" style="position: absolute; left: 4.60%; top:72.32%;" class="c_202_4">
+		electors, from each state.
+	</div>
+
+	<div id="t_202_92" style="position: absolute; left: 4.60%; top:73.83%;" class="c_202_4">
+		There are rules to determine
+	</div>
+
+	<div id="t_202_93" style="position: absolute; left: 4.60%; top:75.35%;" class="c_202_4">
+		who is allowed to be
+	</div>
+
+	<div id="t_202_94" style="position: absolute; left: 4.60%; top:76.86%;" class="c_202_4">
+		president.
+	</div>
+
+	<div id="t_202_95" style="position: absolute; left: 4.75%; top: 96.05%; letter-spacing: -0.15em;" class="c_202_7">
+		202
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_203">
+                                                                                                <div class="pageData">
+
+	<div id="t_203_0" style="position: absolute; left: 12.17%; top:3.23%;" class="c_203_0">
+		But in choosing the President, the Votes shall be taken by States, the Representation
+	</div>
+
+	<div id="t_203_1" style="position: absolute; left: 10.78%; top:4.75%;" class="c_203_0">
+		from each State having one Vote; a quorum for this Purpose shall consist of a Member or
+	</div>
+
+	<div id="t_203_2" style="position: absolute; left: 10.78%; top:6.26%;" class="c_203_0">
+		Members from two-thirds of the States, and a Majority of all the States shall be necessary
+	</div>
+
+	<div id="t_203_3" style="position: absolute; left: 10.78%; top:7.78%;" class="c_203_0">
+		to a Choice. In every Case, after the Choice of the President, the Person having the
+	</div>
+
+	<div id="t_203_4" style="position: absolute; left: 10.78%; top:9.29%;" class="c_203_0">
+		greatest Number of Votes of the Electors shall be the Vice President. But if there should
+	</div>
+
+	<div id="t_203_5" style="position: absolute; left: 10.78%; top:10.81%;" class="c_203_0">
+		remain two or more who have equal Votes, the Senate shall choose from them by Ballot
+	</div>
+
+	<div id="t_203_6" style="position: absolute; left: 10.78%; top:12.32%;" class="c_203_0">
+		the Vice President.)<span class="c_203_1"> (This clause in parentheses was superseded by the 12th Amendment.)</span>
+	</div>
+
+	<div id="t_203_7" style="position: absolute; left: 12.17%; top:13.84%;" class="c_203_0">
+		The Congress may determine the Time of choosing the Electors, and the Day on which
+	</div>
+
+	<div id="t_203_8" style="position: absolute; left: 10.78%; top:15.35%;" class="c_203_0">
+		they shall give their Votes; which Day shall be the same throughout the United States.
+	</div>
+
+	<div id="t_203_9" style="position: absolute; left: 12.17%; top:16.87%;" class="c_203_0">
+		No person except a natural born Citizen, or a Citizen of the United States, at the time of
+	</div>
+
+	<div id="t_203_10" style="position: absolute; left: 10.78%; top:18.38%;" class="c_203_0">
+		the Adoption of this Constitution, shall be eligible to the Office of President; neither shall
+	</div>
+
+	<div id="t_203_11" style="position: absolute; left: 10.78%; top:19.90%;" class="c_203_0">
+		any Person be eligible to that Office who shall not have attained to the Age of thirty-five
+	</div>
+
+	<div id="t_203_12" style="position: absolute; left: 10.78%; top:21.42%;" class="c_203_0">
+		Years, and been fourteen Years a Resident within the United States.
+	</div>
+
+	<div id="t_203_13" style="position: absolute; left: 12.64%; top:22.93%;" class="c_203_0">
+		(In Case of the Removal of the President from Office, or of his Death, Resignation, or
+	</div>
+
+	<div id="t_203_14" style="position: absolute; left: 10.78%; top:24.45%;" class="c_203_0">
+		Inability to discharge the Powers and Duties of the said Office, the same shall devolve on
+	</div>
+
+	<div id="t_203_15" style="position: absolute; left: 10.78%; top:25.96%;" class="c_203_0">
+		the Vice President, and the Congress may by Law provide for the Case of Removal, Death,
+	</div>
+
+	<div id="t_203_16" style="position: absolute; left: 10.78%; top:27.48%;" class="c_203_0">
+		Resignation or Inability, both of the President and Vice President, declaring what Officer
+	</div>
+
+	<div id="t_203_17" style="position: absolute; left: 10.78%; top:28.99%;" class="c_203_0">
+		shall then act as President, and such Officer shall act accordingly, until the Disability be
+	</div>
+
+	<div id="t_203_18" style="position: absolute; left: 10.78%; top:30.51%;" class="c_203_0">
+		removed, or a President shall be elected.)<span class="c_203_1"> (This clause in parentheses has been modified by</span>
+	</div>
+
+	<div id="t_203_19" style="position: absolute; left: 10.78%; top:32.02%;" class="c_203_2">
+		the 20th and 25th Amendments.)
+	</div>
+
+	<div id="t_203_20" style="position: absolute; left: 13.10%; top:33.54%;" class="c_203_0">
+		The President shall, at stated Times, receive for his Services, a Compensation, which
+	</div>
+
+	<div id="t_203_21" style="position: absolute; left: 10.78%; top:35.05%;" class="c_203_0">
+		shall neither be increased nor diminished during the Period for which he shall have been
+	</div>
+
+	<div id="t_203_22" style="position: absolute; left: 10.78%; top:36.57%;" class="c_203_0">
+		elected, and he shall not receive within that Period any other Emolument from the United
+	</div>
+
+	<div id="t_203_23" style="position: absolute; left: 10.78%; top:38.08%;" class="c_203_0">
+		States, or any of them.
+	</div>
+
+	<div id="t_203_24" style="position: absolute; left: 12.17%; top:39.60%;" class="c_203_0">
+		Before he enter on the Execution of his Office, he shall take the following Oath or
+	</div>
+
+	<div id="t_203_25" style="position: absolute; left: 10.78%; top:41.11%;" class="c_203_0">
+		Affirmation: "I do solemnly swear (or affirm) that I will faithfully execute the Office of
+	</div>
+
+	<div id="t_203_26" style="position: absolute; left: 10.78%; top:42.63%;" class="c_203_0">
+		President of the United States, and will to the best of my Ability, preserve, protect and
+	</div>
+
+	<div id="t_203_27" style="position: absolute; left: 10.78%; top:44.14%;" class="c_203_0">
+		defend the Constitution of the United States."
+	</div>
+
+	<div id="t_203_28" style="position: absolute; left: 10.78%; top:46.65%;" class="c_203_3">
+		Section 2 - Civilian Power over Military, Cabinet, Pardon Power, Appointments
+	</div>
+
+	<div id="t_203_29" style="position: absolute; left: 10.78%; top:48.16%;" class="c_203_0">
+		The President shall be Commander in Chief of the Army and Navy of the United States,
+	</div>
+
+	<div id="t_203_30" style="position: absolute; left: 10.78%; top:49.68%;" class="c_203_0">
+		and of the Militia of the several States, when called into the actual Service of the
+	</div>
+
+	<div id="t_203_31" style="position: absolute; left: 10.78%; top:51.19%;" class="c_203_0">
+		United States; he may require the Opinion, in writing, of the principal Officer in each
+	</div>
+
+	<div id="t_203_32" style="position: absolute; left: 10.78%; top:52.71%;" class="c_203_0">
+		of the executive Departments, upon any subject relating to the Duties of their
+	</div>
+
+	<div id="t_203_33" style="position: absolute; left: 10.78%; top:54.22%;" class="c_203_0">
+		respective Offices, and he shall have Power to Grant Reprieves and Pardons for
+	</div>
+
+	<div id="t_203_34" style="position: absolute; left: 10.78%; top:55.74%;" class="c_203_0">
+		Offenses against the United States, except in Cases of Impeachment.
+	</div>
+
+	<div id="t_203_35" style="position: absolute; left: 12.25%; top:57.25%;" class="c_203_0">
+		He shall have Power, by and with the Advice and Consent of the Senate, to make
+	</div>
+
+	<div id="t_203_36" style="position: absolute; left: 10.78%; top:58.77%;" class="c_203_0">
+		Treaties, provided two thirds of the Senators present concur; and he shall nominate,
+	</div>
+
+	<div id="t_203_37" style="position: absolute; left: 10.78%; top:60.29%;" class="c_203_0">
+		and by and with the Advice and Consent of the Senate, shall appoint Ambassadors,
+	</div>
+
+	<div id="t_203_38" style="position: absolute; left: 10.78%; top:61.80%;" class="c_203_0">
+		other public Ministers and Consuls, Judges of the supreme Court, and all other Officers
+	</div>
+
+	<div id="t_203_39" style="position: absolute; left: 10.78%; top:63.32%;" class="c_203_0">
+		of the United States, whose Appointments are not herein otherwise provided for, and
+	</div>
+
+	<div id="t_203_40" style="position: absolute; left: 10.78%; top:64.83%;" class="c_203_0">
+		which shall be established by Law: but the Congress may by Law vest the Appointment
+	</div>
+
+	<div id="t_203_41" style="position: absolute; left: 10.78%; top:66.35%;" class="c_203_0">
+		of such inferior Officers, as they think proper, in the President alone, in the Courts of
+	</div>
+
+	<div id="t_203_42" style="position: absolute; left: 10.78%; top:67.86%;" class="c_203_0">
+		Law, or in the Heads of Departments.
+	</div>
+
+	<div id="t_203_43" style="position: absolute; left: 12.25%; top:69.38%;" class="c_203_0">
+		The President shall have Power to fill up all Vacancies that may happen during the
+	</div>
+
+	<div id="t_203_44" style="position: absolute; left: 10.78%; top:70.89%;" class="c_203_0">
+		Recess of the Senate, by granting Commissions which shall expire at the End of their
+	</div>
+
+	<div id="t_203_45" style="position: absolute; left: 10.78%; top:72.41%;" class="c_203_0">
+		next Session.
+	</div>
+
+	<div id="t_203_46" style="position: absolute; left: 10.78%; top:74.91%;" class="c_203_3">
+		Section 3 - State of the Union, Convening Congress
+	</div>
+
+	<div id="t_203_47" style="position: absolute; left: 12.25%; top:76.43%;" class="c_203_0">
+		He shall from time to time give to the Congress Information of the State of the
+	</div>
+
+	<div id="t_203_48" style="position: absolute; left: 10.78%; top:77.94%;" class="c_203_0">
+		Union, and recommend to their Consideration such Measures as he shall judge
+	</div>
+
+	<div id="t_203_49" style="position: absolute; left: 10.78%; top:79.46%;" class="c_203_0">
+		necessary and expedient; he may, on extraordinary Occasions, convene both Houses,
+	</div>
+
+	<div id="t_203_50" style="position: absolute; left: 10.78%; top:80.97%;" class="c_203_0">
+		or either of them, and in Case of Disagreement between them, with Respect to the
+	</div>
+
+	<div id="t_203_51" style="position: absolute; left: 10.78%; top:82.49%;" class="c_203_0">
+		Time of Adjournment, he may adjourn them to such Time as he shall think proper; he
+	</div>
+
+	<div id="t_203_52" style="position: absolute; left: 10.78%; top:84.00%;" class="c_203_0">
+		shall receive Ambassadors and other public Ministers; he shall take Care that the Laws
+	</div>
+
+	<div id="t_203_53" style="position: absolute; left: 10.78%; top:85.52%;" class="c_203_0">
+		be faithfully executed, and shall Commission all the Officers of the United States.
+	</div>
+
+	<div id="t_203_54" style="position: absolute; left: 10.78%; top:88.02%;" class="c_203_3">
+		Section 4 - Disqualification
+	</div>
+
+	<div id="t_203_55" style="position: absolute; left: 12.25%; top:89.54%;" class="c_203_0">
+		The President, Vice President and all civil Officers of the United States, shall be
+	</div>
+
+	<div id="t_203_56" style="position: absolute; left: 10.78%; top:91.06%;" class="c_203_0">
+		removed from Office on Impeachment for, and Conviction of, Treason, Bribery, or
+	</div>
+
+	<div id="t_203_57" style="position: absolute; left: 10.78%; top:92.57%;" class="c_203_0">
+		other high Crimes and Misdemeanors.
+	</div>
+
+	<div id="t_203_58" style="position: absolute; left: 76.81%; top:11.43%;" class="c_203_4">
+		WHO CAN BE
+	</div>
+
+	<div id="t_203_59" style="position: absolute; left: 76.81%; top:12.94%;" class="c_203_4">
+		PRESIDENT?
+	</div>
+
+	<div id="t_203_60" style="position: absolute; left: 76.81%; top:14.69%;" class="c_203_5">
+		To serve as president, a
+	</div>
+
+	<div id="t_203_61" style="position: absolute; left: 76.81%; top:16.21%;" class="c_203_5">
+		person must be a natural
+	</div>
+
+	<div id="t_203_62" style="position: absolute; left: 76.81%; top:17.72%;" class="c_203_5">
+		born citizen and be at least
+	</div>
+
+	<div id="t_203_63" style="position: absolute; left: 76.81%; top:19.24%;" class="c_203_5">
+		35 years old.
+	</div>
+
+	<div id="t_203_64" style="position: absolute; left: 76.59%; top:45.20%;" class="c_203_4">
+		PRESIDENTIAL POWERS
+	</div>
+
+	<div id="t_203_65" style="position: absolute; left: 76.59%; top:46.95%;" class="c_203_5">
+		Presidential power includes:
+	</div>
+
+	<div id="t_203_66" style="position: absolute; left: 76.59%; top:48.47%;" class="c_203_5">
+		being in charge of the
+	</div>
+
+	<div id="t_203_67" style="position: absolute; left: 76.59%; top:49.98%;" class="c_203_5">
+		military, making treaties,
+	</div>
+
+	<div id="t_203_68" style="position: absolute; left: 76.59%; top:51.50%;" class="c_203_5">
+		and appointing judges.
+	</div>
+
+	<div id="t_203_69" style="position: absolute; left: 76.71%; top:69.48%;" class="c_203_4">
+		STATE OF THE UNION
+	</div>
+
+	<div id="t_203_70" style="position: absolute; left: 76.71%; top:71.24%;" class="c_203_5">
+		The president must report
+	</div>
+
+	<div id="t_203_71" style="position: absolute; left: 76.71%; top:72.75%;" class="c_203_5">
+		to Congress on how
+	</div>
+
+	<div id="t_203_72" style="position: absolute; left: 76.71%; top:74.27%;" class="c_203_5">
+		things in the country are
+	</div>
+
+	<div id="t_203_73" style="position: absolute; left: 76.71%; top:75.78%;" class="c_203_5">
+		going. He describes the
+	</div>
+
+	<div id="t_203_74" style="position: absolute; left: 76.71%; top:77.30%;" class="c_203_5">
+		&ldquo;State of the Union.&rdquo;
+	</div>
+
+	<div id="t_203_75" style="position: absolute; left: 76.67%; top:84.23%;" class="c_203_4">
+		REMOVAL FROM OFFICE
+	</div>
+
+	<div id="t_203_76" style="position: absolute; left: 76.67%; top:85.98%;" class="c_203_5">
+		Presidents can be removed
+	</div>
+
+	<div id="t_203_77" style="position: absolute; left: 76.67%; top:87.50%;" class="c_203_5">
+		from office if they are
+	</div>
+
+	<div id="t_203_78" style="position: absolute; left: 76.67%; top:89.01%;" class="c_203_5">
+		convicted of a serious
+	</div>
+
+	<div id="t_203_79" style="position: absolute; left: 76.67%; top:90.53%;" class="c_203_5">
+		crime by Congress.
+	</div>
+
+	<div id="t_203_80" style="position: absolute; left: 92.88%; top: 96.05%; letter-spacing: -0.15em;" class="c_203_6">
+		203
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="202.html?page=right"; onclick="goto('202.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="204.html"; onclick="goto('204.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="204.html"; onclick="goto('204.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

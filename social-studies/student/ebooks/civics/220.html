@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Five Ponds Press</title>
+    <link rel="stylesheet" href="/reader.css">
+    <link rel="stylesheet" href="css/book.css">
+    <link rel="stylesheet" href="/fonts.css">
+    <link rel="stylesheet" href="/chalkboard.css">
+            <link rel="stylesheet" href="css/civics_220.css">
+                <link rel="stylesheet" href="css/civics_221.css">
+        <link rel="stylesheet" href="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="/reader.js"></script>
+    <style>
+        #zoom-handle {
+            width: 3em;
+            height: 1.6em;
+            margin-top: -.8em;
+            text-align: center;
+            line-height: 1.6em;
+            left: -1.2em;
+        }
+    </style>
+    <script>
+        var forceLeft = false;
+        var forceRight = false;
+        var readbutton = false;
+        $(document).on("pagebeforeshow", function(){
+            updateByQueryValues();
+            $("div.sheet").on("vmousemove",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification == 100) {
+                    return;
+                }
+            });
+            $("div.sheet").on("swipeleft",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SNEXT1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SNEXT2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SNEXT2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DNEXT2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("div.sheet").on("swiperight",function(event){
+                var magnification = $( "#zoom-slider" ).slider("value");
+                if (magnification != 100) {
+                    return;
+                }
+                var dst = $("#SPREV1:visible").attr("href");
+                if (dst == null) {
+                    dst = $("#SPREV2:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV1R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#SPREV2R:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV1:visible").attr("href");
+                }
+                if (dst == null) {
+                    dst = $("#DPREV2:visible").attr("href");
+                }
+                if (dst != null) {
+                    goto (dst);
+                }
+            });
+            $("#player").on("ended",function(event){
+                unplay();
+            });
+        });
+        $( function() {
+            var handle = $( "#zoom-handle" );
+            $( "#zoom-slider" ).slider({
+                orientation: "vertical",
+                range: "min",
+                min: 100,
+                max: 400,
+                value: 100,
+                create: function() {
+                    handle.text( $( this ).slider( "value" )+"%" );
+                },
+                slide: function( event, ui ) {
+                    handle.text( ui.value+"%" );
+                    zoom( ui.value );
+                }
+            });
+            $( ".hscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".hscroll-handle" ).addClass("hscroll-dragging");
+                },
+                drag: function() {
+                    scrollx();
+                },
+                stop: function() {
+                    $( ".hscroll-handle" ).removeClass("hscroll-dragging");
+                }
+            });
+            $( ".vscroll-handle" ).draggable({
+                containment: "parent",
+                start: function() {
+                    $( ".vscroll-handle" ).addClass("vscroll-dragging");
+                },
+                drag: function() {
+                    scrolly();
+                },
+                stop: function() {
+                    $( ".vscroll-handle" ).removeClass("vscroll-dragging");
+                }
+            });
+        } );
+        function play(src, anchor) {
+            unplay();
+            readbutton = anchor;
+            readbutton.addClass("pressed");
+            readbutton.removeClass("not_pressed");
+            $("#player").attr("src", src);
+            var element = $("#player");
+            element.get(0).load();
+            element.get(0).play();
+        }
+        function unplay() {
+            if (readbutton != false) {
+                readbutton.removeClass("pressed");
+                readbutton.addClass("not_pressed");
+                readbutton = false;
+            }
+        }
+        function oldgoto(dst) {
+            var element = $("#player");
+            element.get(0).pause();
+            window.location.rel = "external";
+            window.location.href = dst;
+        }
+        function zoom(magnification) {
+            $("#scalebox").css({"height":(magnification*1.00)+"%","width":(magnification*1.00)+"%","font-size":(magnification/100)+"em"});
+            constrainx(magnification);
+            constrainy(magnification);
+            scrollx();
+            scrolly();
+        }
+        function scrollx() {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"left":(left/width*-100*magnification/100)+"%"});
+        }
+        function scrolly() {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var magnification = $( "#zoom-slider" ).slider("value");
+            $("#scalebox").css({"top":(top/height*-100*magnification/100)+"%"});
+        }
+        function constrainx(magnification) {
+            var left = $( ".hscroll-handle" ).position().left - $( ".hscroll-inner" ).position().left;
+            var width = $( ".hscroll-inner" ).width();
+            var maxleft = 1 - 100 / magnification;
+            if ( (left / width) > maxleft) {
+                $(".hscroll-handle").css({"left":(100*maxleft)+"%"});
+            }
+            $(".hscroll-handle").css({"width":(10000/magnification)+"%"});
+        }
+        function constrainy(magnification) {
+            var top = $( ".vscroll-handle" ).position().top - $( ".vscroll-inner" ).position().top;
+            var height = $( ".vscroll-inner" ).height();
+            var maxtop = 1 - 100 / magnification;
+            if ( (top / height) > maxtop) {
+                $(".vscroll-handle").css({"top":(100*maxtop)+"%"});
+            }
+            $(".vscroll-handle").css({"height":(10000/magnification)+"%"});
+        }
+    </script>
+</head>
+<body>
+<div id="reader">
+    <div id="readerTop">
+        <div id="readerTopLeft">
+        </div><!-- no whitespace
+         --><div id="readerTopCenter">
+            <div class="toolbar">
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="single">
+                                            <a id="SPREV1" class="leftButton" rel="external" href="218.html?page=right"; onclick="goto('218.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV1R" class="rightButton" rel="external" href="220.html"; onclick="goto('220.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:5%;" class="dual">
+                                            <a id="DPREV1" rel="external" href="218.html?page=right"; onclick="goto('218.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:32.67%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="single">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:60.33%;" class="dual">
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="single">
+                                            <a id="SNEXT1" rel="external" class="leftButton" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT1R" rel="external" class="rightButton" href="222.html"; onclick="goto('222.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:100%; width: auto; top:0%; left:88%;" class="dual">
+                                            <a id="DNEXT1" rel="external" href="222.html"; onclick="goto('222.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerTopRight">
+        </div>
+    </div>
+    <div id="readerMiddle">
+        <div id="readerMiddleLeft">
+            <div class="toolbar">
+                <div class="buttons-on-sides" style="position: absolute; height: 8%; top:0.5%; left:10%;">
+                                        <a href="2.html"; onclick="goto('2.html'); return false;"><img class="button" src="/images/contents.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="single buttons-on-sides">
+                                            <a id="SPREV2" class="leftButton" rel="external" href="218.html?page=right"; onclick="goto('218.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                            <a id="SPREV2R" class="rightButton" rel="external" href="220.html"; onclick="goto('220.html'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div style="position: absolute; height: 8%; top:45%; left:10%;" class="dual buttons-on-sides">
+                                            <a id="DPREV2" rel="external" href="218.html?page=right"; onclick="goto('218.html?page=right'); return false;"><img class="button" src="/images/prev.png"/></a>
+                                    </div>
+                <div id="zoom-outer" style="position: absolute; height: 80%; top:10%;">
+                    <div id="zoom-slider" style="height: 80%; left: 7.5%;">
+                        <span tabindex="0" id="zoom-handle" class="ui-slider-handle ui-corner-all ui-state-default"></span>
+                    </div>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="viewArea" class="sheet">
+                <div id="scalebox">
+                    <div class="leftPage page_220">
+                                                                                                <div class="pageData">
+
+	<div id="t_220_0" style="position: absolute; left: 8.82%; top:5.29%;" class="c_220_0">
+		mayor - <span class="c_220_1">the head of a town or city</span>
+	</div>
+
+	<div id="t_220_1" style="position: absolute; left: 8.82%; top:6.81%;" class="c_220_2">
+		council. This person is either elected
+	</div>
+
+	<div id="t_220_2" style="position: absolute; left: 8.82%; top:8.32%;" class="c_220_2">
+		directly by voters or appointed by
+	</div>
+
+	<div id="t_220_3" style="position: absolute; left: 8.82%; top:9.84%;" class="c_220_2">
+		town or city councils.
+	</div>
+
+	<div id="t_220_4" style="position: absolute; left: 8.82%; top:12.86%;" class="c_220_0">
+		misdemeanors - <span class="c_220_1">small crimes that</span>
+	</div>
+
+	<div id="t_220_5" style="position: absolute; left: 8.82%; top:14.38%;" class="c_220_2">
+		often result in the payment of a fine
+	</div>
+
+	<div id="t_220_6" style="position: absolute; left: 8.82%; top:15.90%;" class="c_220_2">
+		rather than jail time
+	</div>
+
+	<div id="t_220_7" style="position: absolute; left: 8.82%; top:18.93%;" class="c_220_0">
+		monopoly - <span class="c_220_1">a single company that</span>
+	</div>
+
+	<div id="t_220_8" style="position: absolute; left: 8.82%; top:20.44%;" class="c_220_2">
+		owns all or nearly all of the market for
+	</div>
+
+	<div id="t_220_9" style="position: absolute; left: 8.82%; top:21.96%;" class="c_220_2">
+		a given type of product or service.
+	</div>
+
+	<div id="t_220_10" style="position: absolute; left: 8.82%; top:23.47%;" class="c_220_2">
+		There is no competition, which can
+	</div>
+
+	<div id="t_220_11" style="position: absolute; left: 8.82%; top:24.99%;" class="c_220_2">
+		result in high prices or inferior
+	</div>
+
+	<div id="t_220_12" style="position: absolute; left: 8.82%; top:26.50%;" class="c_220_2">
+		products.
+	</div>
+
+	<div id="t_220_13" style="position: absolute; left: 8.82%; top:30.92%;" class="c_220_0">
+		naturalize - <span class="c_220_1">to grant a foreigner</span>
+	</div>
+
+	<div id="t_220_14" style="position: absolute; left: 8.82%; top:32.44%;" class="c_220_2">
+		citizenship in a country
+	</div>
+
+	<div id="t_220_15" style="position: absolute; left: 21.08%; top:35.27%;" class="c_220_3">
+		O
+	</div>
+
+	<div id="t_220_16" style="position: absolute; left: 8.82%; top:38.37%;" class="c_220_0">
+		op-ed pieces - <span class="c_220_1">newspaper articles</span>
+	</div>
+
+	<div id="t_220_17" style="position: absolute; left: 8.82%; top:39.89%;" class="c_220_2">
+		that offer a person's opinion instead
+	</div>
+
+	<div id="t_220_18" style="position: absolute; left: 8.82%; top:41.40%;" class="c_220_2">
+		of reporting facts
+	</div>
+
+	<div id="t_220_19" style="position: absolute; left: 8.82%; top:44.18%;" class="c_220_0">
+		opportunity cost - <span class="c_220_1">what you give</span>
+	</div>
+
+	<div id="t_220_20" style="position: absolute; left: 8.82%; top:45.70%;" class="c_220_2">
+		up when you make a choice
+	</div>
+
+	<div id="t_220_21" style="position: absolute; left: 8.82%; top:48.47%;" class="c_220_0">
+		ordinance - <span class="c_220_1">a local law enacted at</span>
+	</div>
+
+	<div id="t_220_22" style="position: absolute; left: 8.82%; top:49.99%;" class="c_220_2">
+		the town, city, or county level
+	</div>
+
+	<div id="t_220_23" style="position: absolute; left: 8.82%; top:52.76%;" class="c_220_0">
+		original jurisdiction - <span class="c_220_1">the authority</span>
+	</div>
+
+	<div id="t_220_24" style="position: absolute; left: 8.82%; top:54.28%;" class="c_220_2">
+		to hear a case first
+	</div>
+
+	<div id="t_220_25" style="position: absolute; left: 21.08%; top:27.82%;" class="c_220_3">
+		N
+	</div>
+
+	<div id="t_220_26" style="position: absolute; left: 21.15%; top:55.60%;" class="c_220_3">
+		P
+	</div>
+
+	<div id="t_220_27" style="position: absolute; left: 8.82%; top:58.70%;" class="c_220_0">
+		pandemic - <span class="c_220_1">a disease that spreads</span>
+	</div>
+
+	<div id="t_220_28" style="position: absolute; left: 8.82%; top:60.22%;" class="c_220_2">
+		over a wide area&mdash;a whole country
+	</div>
+
+	<div id="t_220_29" style="position: absolute; left: 8.82%; top:61.73%;" class="c_220_2">
+		and sometimes many parts of the
+	</div>
+
+	<div id="t_220_30" style="position: absolute; left: 8.82%; top:63.25%;" class="c_220_2">
+		world
+	</div>
+
+	<div id="t_220_31" style="position: absolute; left: 8.82%; top:66.27%;" class="c_220_0">
+		partnership - <span class="c_220_1">form of business with</span>
+	</div>
+
+	<div id="t_220_32" style="position: absolute; left: 8.82%; top:67.79%;" class="c_220_2">
+		two or more owners who share the
+	</div>
+
+	<div id="t_220_33" style="position: absolute; left: 8.82%; top:69.31%;" class="c_220_2">
+		risks and profits
+	</div>
+
+	<div id="t_220_34" style="position: absolute; left: 8.82%; top:72.21%;" class="c_220_0">
+		plaintiff - <span class="c_220_1">the person or group who</span>
+	</div>
+
+	<div id="t_220_35" style="position: absolute; left: 8.82%; top:73.73%;" class="c_220_2">
+		accuses another person or group of a
+	</div>
+
+	<div id="t_220_36" style="position: absolute; left: 8.82%; top:75.24%;" class="c_220_2">
+		wrongdoing in a civil case
+	</div>
+
+	<div id="t_220_37" style="position: absolute; left: 8.82%; top:78.02%;" class="c_220_0">
+		Political Action Committees
+	</div>
+
+	<div id="t_220_38" style="position: absolute; left: 8.82%; top:79.53%;" class="c_220_0">
+		(PACS) - <span class="c_220_1">special-interest groups&mdash;</span>
+	</div>
+
+	<div id="t_220_39" style="position: absolute; left: 8.82%; top:81.05%;" class="c_220_2">
+		private organizations, such as unions
+	</div>
+
+	<div id="t_220_40" style="position: absolute; left: 8.82%; top:82.57%;" class="c_220_2">
+		or trade groups, or corporations&mdash;
+	</div>
+
+	<div id="t_220_41" style="position: absolute; left: 8.82%; top:84.08%;" class="c_220_2">
+		that spend huge sums of money in
+	</div>
+
+	<div id="t_220_42" style="position: absolute; left: 8.82%; top:85.60%;" class="c_220_2">
+		hopes of influencing an election and
+	</div>
+
+	<div id="t_220_43" style="position: absolute; left: 8.82%; top:87.11%;" class="c_220_2">
+		then obtaining some benefits if the
+	</div>
+
+	<div id="t_220_44" style="position: absolute; left: 8.82%; top:88.63%;" class="c_220_2">
+		preferred candidate wins
+	</div>
+
+	<div id="t_220_45" style="position: absolute; left: 8.82%; top:91.53%;" class="c_220_0">
+		political cartoons - <span class="c_220_1">illustrations</span>
+	</div>
+
+	<div id="t_220_46" style="position: absolute; left: 8.82%; top:93.05%;" class="c_220_2">
+		containing political or social messages
+	</div>
+
+	<div id="t_220_47" style="position: absolute; left: 8.82%; top:94.56%;" class="c_220_2">
+		that relate to current events
+	</div>
+
+	<div id="t_220_48" style="position: absolute; left: 4.79%; top: 93.06%; letter-spacing: -0.15em;" class="c_220_4">
+		220
+	</div>
+
+	<div id="t_220_49" style="position: absolute; left: 36.93%; top:5.29%;" class="c_220_0">
+		popular vote - <span class="c_220_1">the total</span>
+	</div>
+
+	<div id="t_220_50" style="position: absolute; left: 36.93%; top:6.81%;" class="c_220_2">
+		number of votes a candidate gets
+	</div>
+
+	<div id="t_220_51" style="position: absolute; left: 36.93%; top:8.32%;" class="c_220_2">
+		from individual voters
+	</div>
+
+	<div id="t_220_52" style="position: absolute; left: 36.93%; top: 93.05%;" class="c_220_0">
+		republic - <span class="c_220_1">a government led by</span>
+	</div>
+
+	<div id="t_220_53" style="position: absolute; left: 36.93%; top: 94.56%;" class="c_220_2">
+		elected representatives rather than a
+	</div>
+
+	<div id="t_220_54" style="position: absolute; left: 36.93%; top: 96.07%;" class="c_220_2">
+		king or a queen
+	</div>
+
+	<div id="t_220_55" style="position: absolute; left: 36.93%; top:11.10%;" class="c_220_0">
+		preamble - <span class="c_220_1">an introduction to a</span>
+	</div>
+
+	<div id="t_220_56" style="position: absolute; left: 36.93%; top:12.62%;" class="c_220_2">
+		document that explains why it is
+	</div>
+
+	<div id="t_220_57" style="position: absolute; left: 36.93%; top:14.13%;" class="c_220_2">
+		being written and what its aims are
+	</div>
+
+	<div id="t_220_58" style="position: absolute; left: 36.93%; top:16.91%;" class="c_220_0">
+		price - <span class="c_220_1">the amount paid for an item</span>
+	</div>
+
+	<div id="t_220_59" style="position: absolute; left: 36.93%; top:18.42%;" class="c_220_2">
+		or service
+	</div>
+
+	<div id="t_220_60" style="position: absolute; left: 65.03%; top: 5.29%;" class="c_220_0">
+		revenue - <span class="c_220_1">the income of a</span>
+	</div>
+
+	<div id="t_220_61" style="position: absolute; left: 65.03%; top: 6.81%;" class="c_220_2">
+		government or business
+	</div>
+
+	<div id="t_220_62" style="position: absolute; left: 65.03%; top: 9.58%;" class="c_220_0">
+		rule of law - <span class="c_220_1">a system where the</span>
+	</div>
+
+	<div id="t_220_63" style="position: absolute; left: 65.03%; top: 11.1%;" class="c_220_2">
+        government, elected officials, and
+	</div>
+
+	<div id="t_220_64" style="position: absolute; left: 65.03%; top: 12.62%;" class="c_220_2">
+        everyone else must obey the law
+	</div>
+
+	<div id="t_220_65" style="position: absolute; left: 36.93%; top:21.45%;" class="c_220_0">
+		private property - <span class="c_220_1">personally</span>
+	</div>
+
+	<div id="t_220_66" style="position: absolute; left: 36.93%; top:22.97%;" class="c_220_2">
+		owned property defined and
+	</div>
+
+	<div id="t_220_67" style="position: absolute; left: 36.93%; top:24.48%;" class="c_220_2">
+		protected by the government
+	</div>
+
+	<div id="t_220_68" style="position: absolute; left: 36.93%; top: 27.26%;" class="c_220_0">
+		probable cause - <span class="c_220_1">enough evidence</span>
+	</div>
+
+	<div id="t_220_69" style="position: absolute; left: 36.93%; top: 28.78%;" class="c_220_2">
+		to make a search or press charges
+	</div>
+
+	<div id="t_220_70" style="position: absolute; left: 36.93%; top: 31.55%;" class="c_220_0">
+		production - <span class="c_220_1">the combining of</span>
+	</div>
+
+	<div id="t_220_71" style="position: absolute; left: 36.93%; top: 33.07%;" class="c_220_2">
+		resources to make goods or provide
+	</div>
+
+	<div id="t_220_72" style="position: absolute; left: 36.93%; top: 34.59%;" class="c_220_2">
+		services
+	</div>
+
+	<div id="t_220_73" style="position: absolute; left: 36.93%; top: 37.62%;" class="c_220_0">
+		profits - <span class="c_220_1">a company&rsquo;s earnings after</span>
+	</div>
+
+	<div id="t_220_74" style="position: absolute; left: 36.93%; top: 39.13%;" class="c_220_2">
+		all of its expenses have been paid
+	</div>
+
+	<div id="t_220_75" style="position: absolute; left: 36.93%; top: 42.16%;" class="c_220_0">
+		propaganda - <span class="c_220_1">misleading</span>
+	</div>
+
+	<div id="t_220_76" style="position: absolute; left: 36.93%; top: 43.68%;" class="c_220_2">
+		information, used to promote a
+	</div>
+
+	<div id="t_220_77" style="position: absolute; left: 36.93%; top: 45.19%;" class="c_220_2">
+		political cause or point of view
+	</div>
+
+	<div id="t_220_78" style="position: absolute; left: 36.93%; top: 47.97%;" class="c_220_0">
+		property tax - <span class="c_220_1">a tax on land and</span>
+	</div>
+
+	<div id="t_220_79" style="position: absolute; left: 36.93%; top: 49.49%;" class="c_220_2">
+		buildings. Property tax may also be
+	</div>
+
+	<div id="t_220_80" style="position: absolute; left: 36.93%; top: 51%;" class="c_220_2">
+		levied on personal property, such as
+	</div>
+
+	<div id="t_220_81" style="position: absolute; left: 36.93%; top: 52.52%;" class="c_220_2">
+		boats or cars.
+	</div>
+
+	<div id="t_220_82" style="position: absolute; left: 36.93%; top: 55.54%;" class="c_220_0">
+		proposition - <span class="c_220_1">a suggested idea or</span>
+	</div>
+
+	<div id="t_220_83" style="position: absolute; left: 36.93%; top: 57.06%;" class="c_220_2">
+		plan of action
+	</div>
+
+	<div id="t_220_84" style="position: absolute; left: 36.93%; top: 59.96%;" class="c_220_0">
+		proprietorship - <span class="c_220_1">form of business</span>
+	</div>
+
+	<div id="t_220_85" style="position: absolute; left: 36.93%; top: 61.48%;" class="c_220_2">
+		with one owner who takes all the
+	</div>
+
+	<div id="t_220_86" style="position: absolute; left: 36.93%; top: 63%;" class="c_220_2">
+		risks and all the profits
+	</div>
+
+	<div id="t_220_87" style="position: absolute; left: 36.93%; top: 66.02%;" class="c_220_0">
+		prosecutors - <span class="c_220_1">the lawyers who try</span>
+	</div>
+
+	<div id="t_220_88" style="position: absolute; left: 36.93%; top: 67.54%;" class="c_220_2">
+		to prove someone is guilty of a crime
+	</div>
+
+	<div id="t_220_89" style="position: absolute; left: 49.22%; top: 70.37%;" class="c_220_3">
+		R
+	</div>
+
+	<div id="t_220_90" style="position: absolute; left: 36.93%; top: 73.47%;" class="c_220_0">
+		ratification - <span class="c_220_1">the formal consent or</span>
+	</div>
+
+	<div id="t_220_91" style="position: absolute; left: 36.93%; top: 74.99%;" class="c_220_2">
+		approval of something
+	</div>
+
+	<div id="t_220_92" style="position: absolute; left: 36.93%; top: 78.02%;" class="c_220_0">
+		recession - <span class="c_220_1">a time of economic</span>
+	</div>
+
+	<div id="t_220_93" style="position: absolute; left: 36.93%; top: 79.54%;" class="c_220_2">
+		decline. Trade and manufacturing
+	</div>
+
+	<div id="t_220_94" style="position: absolute; left: 36.93%; top: 81.05%;" class="c_220_2">
+		drop off, and jobs are lost.
+	</div>
+
+	<div id="t_220_95" style="position: absolute; left: 36.93%; top: 83.95%;" class="c_220_0">
+		representative system of
+	</div>
+
+	<div id="t_220_96" style="position: absolute; left: 36.93%; top: 85.47%;" class="c_220_0">
+		government - <span class="c_220_1">a type of</span>
+	</div>
+
+	<div id="t_220_97" style="position: absolute; left: 36.93%; top: 86.99%;" class="c_220_2">
+		government where people elect
+	</div>
+
+	<div id="t_220_98" style="position: absolute; left: 36.93%; top: 88.5%;" class="c_220_2">
+		officeholders to make laws and run
+	</div>
+
+	<div id="t_220_99" style="position: absolute; left: 36.93%; top: 90.02%;" class="c_220_2">
+		the nation on their behalf
+	</div>
+
+	<div id="t_220_100" style="position: absolute; left: 77.39%; top: 15.45%;" class="c_220_3">
+		S
+	</div>
+
+	<div id="t_220_101" style="position: absolute; left: 65.03%; top: 18.55%;" class="c_220_0">
+		sales tax - <span class="c_220_1">a tax consumers pay on</span>
+	</div>
+
+	<div id="t_220_102" style="position: absolute; left: 65.03%; top: 20.07%;" class="c_220_2">
+		many items they purchase. It is a
+	</div>
+
+	<div id="t_220_103" style="position: absolute; left: 65.03%; top: 21.58%;" class="c_220_2">
+		percentage of the sale price.
+	</div>
+
+	<div id="t_220_104" style="position: absolute; left: 65.03%; top: 24.61%;" class="c_220_0">
+		scarcity - <span class="c_220_1">the inability to satisfy all</span>
+	</div>
+
+	<div id="t_220_105" style="position: absolute; left: 65.03%; top: 26.13%;" class="c_220_2">
+		wants at the same time due to
+	</div>
+
+	<div id="t_220_106" style="position: absolute; left: 65.03%; top: 27.64%;" class="c_220_2">
+		limited resources and goods
+	</div>
+
+	<div id="t_220_107" style="position: absolute; left: 65.03%; top: 30.67%;" class="c_220_0">
+		school board - <span class="c_220_1">an elected or</span>
+	</div>
+
+	<div id="t_220_108" style="position: absolute; left: 65.03%; top: 32.19%;" class="c_220_2">
+		appointed group that oversees the
+	</div>
+
+	<div id="t_220_109" style="position: absolute; left: 65.03%; top: 33.7%;" class="c_220_2">
+		operation of K&ndash;12 public schools in
+	</div>
+
+	<div id="t_220_110" style="position: absolute; left: 65.03%; top: 35.22%;" class="c_220_2">
+		counties and cities across Virginia
+	</div>
+
+	<div id="t_220_111" style="position: absolute; left: 65.03%; top: 38.24%;" class="c_220_0">
+        self-assessment - <span class="c_220_1">an evaluation of</span>
+	</div>
+
+	<div id="t_220_112" style="position: absolute; left: 65.03%; top: 39.76%;" class="c_220_2">
+        one&rsquo;s strengths and weaknesses
+	</div>
+
+	<div id="t_220_113" style="position: absolute; left: 65.03%; top: 42.78%;" class="c_220_0">
+        separation of powers - <span class="c_220_1">a way of</span>
+	</div>
+
+	<div id="t_220_114" style="position: absolute; left: 65.03%; top: 44.30%;" class="c_220_2">
+        dividing the government&rsquo;s power into
+	</div>
+
+	<div id="t_220_115" style="position: absolute; left: 65.03%; top: 45.82%;" class="c_220_2">
+        three equal branches: executive,
+	</div>
+
+	<div id="t_220_116" style="position: absolute; left: 65.03%; top: 47.34%;" class="c_220_2">
+        legislative, and judicial
+	</div>
+
+	<div id="t_220_117" style="position: absolute; left: 65.03%; top: 50.37%;" class="c_220_0">
+		small claims court - <span class="c_220_1">part of the</span>
+	</div>
+
+	<div id="t_220_118" style="position: absolute; left: 65.03%; top: 51.88%;" class="c_220_2">
+		court system where a judge hears
+	</div>
+
+	<div id="t_220_119" style="position: absolute; left: 65.03%; top: 53.4%;" class="c_220_2">
+		disputes involving money under the
+	</div>
+
+	<div id="t_220_120" style="position: absolute; left: 65.03%; top: 54.91%;" class="c_220_2">
+		sum of $5,000
+	</div>
+
+	<div id="t_220_121" style="position: absolute; left: 65.03%; top: 57.94%;" class="c_220_0">
+		sue - <span class="c_220_1">to begin legal proceedings</span>
+	</div>
+
+	<div id="t_220_122" style="position: absolute; left: 65.03%; top: 59.46%;" class="c_220_2">
+		against a person or company
+	</div>
+
+	<div id="t_220_123" style="position: absolute; left: 77.46%; top: 62.29%;" class="c_220_3">
+		T
+	</div>
+
+	<div id="t_220_124" style="position: absolute; left: 65.03%; top: 65.39%;" class="c_220_0">
+		third party - <span class="c_220_1">a political party</span>
+	</div>
+
+	<div id="t_220_125" style="position: absolute; left: 65.03%; top: 66.91%;" class="c_220_2">
+		organized in opposition to the
+	</div>
+
+	<div id="t_220_126" style="position: absolute; left: 65.03%; top: 68.42%;" class="c_220_2">
+		existing parties in a two-party system
+	</div>
+
+	<div id="t_220_127" style="position: absolute; left: 65.03%; top: 71.45%;" class="c_220_0">
+		town council - <span class="c_220_1">the legislative body</span>
+	</div>
+
+	<div id="t_220_128" style="position: absolute; left: 65.03%; top: 72.97%;" class="c_220_2">
+		of a town
+	</div>
+
+	<div id="t_220_129" style="position: absolute; left: 77.39%; top: 75.8%;" class="c_220_3">
+		V
+	</div>
+
+	<div id="t_220_130" style="position: absolute; left: 65.03%; top: 78.9%;" class="c_220_0">
+		verdict - <span class="c_220_1">the decision of a jury</span>
+	</div>
+
+	<div id="t_220_131" style="position: absolute; left: 77.04%; top: 81.74%;" class="c_220_3">
+		W
+	</div>
+
+	<div id="t_220_132" style="position: absolute; left: 65.03%; top: 84.84%;" class="c_220_0">
+		warranty - <span class="c_220_1">a written promise from a</span>
+	</div>
+
+	<div id="t_220_133" style="position: absolute; left: 65.03%; top: 86.35%;" class="c_220_2">
+		manufacturer that says that if a
+	</div>
+
+	<div id="t_220_134" style="position: absolute; left: 65.03%; top: 87.87%;" class="c_220_2">
+		product fails during a specified time,
+	</div>
+
+	<div id="t_220_135" style="position: absolute; left: 65.03%; top: 89.38%;" class="c_220_2">
+		it will be repaired or replaced
+	</div>
+
+</div>
+                    </div><!-- No whitespace
+             --><div class="rightPage page_221">
+                                                                                                <div class="pageData">
+
+	<div id="t_221_0" style="position: absolute; left: 11.02%; top:5.60%;" class="c_221_0">
+		INDEX
+	</div>
+
+	<div id="t_221_1" style="position: absolute; left: 21.15%; top:13.11%;" class="c_221_1">
+		A
+	</div>
+
+	<div id="t_221_2" style="position: absolute; left: 8.82%; top:16.20%;" class="c_221_2">
+		Adams, John, 33, 56, 136
+	</div>
+
+	<div id="t_221_3" style="position: absolute; left: 8.82%; top:17.59%;" class="c_221_2">
+		Administration Department (Virginia),
+	</div>
+
+	<div id="t_221_4" style="position: absolute; left: 10.58%; top:18.98%;" class="c_221_2">
+		103
+	</div>
+
+	<div id="t_221_5" style="position: absolute; left: 8.82%; top:20.37%;" class="c_221_2">
+		Agriculture &amp;Forestry (Virginia), 103
+	</div>
+
+	<div id="t_221_6" style="position: absolute; left: 8.82%; top:21.76%;" class="c_221_2">
+		Agriculture Department (U.S.), 76
+	</div>
+
+	<div id="t_221_7" style="position: absolute; left: 8.82%; top:23.14%;" class="c_221_2">
+		ambassadors, 75
+	</div>
+
+	<div id="t_221_8" style="position: absolute; left: 8.82%; top:24.53%;" class="c_221_2">
+		amendment process, U.S. Constitution,
+	</div>
+
+	<div id="t_221_9" style="position: absolute; left: 10.14%; top:25.92%;" class="c_221_2">
+		42
+	</div>
+
+	<div id="t_221_10" style="position: absolute; left: 8.82%; top:27.31%;" class="c_221_2">
+		amendment process, Virginia
+	</div>
+
+	<div id="t_221_11" style="position: absolute; left: 10.14%; top:28.70%;" class="c_221_2">
+		Constitution, 43
+	</div>
+
+	<div id="t_221_12" style="position: absolute; left: 8.82%; top:30.09%;" class="c_221_2">
+		amendments to the U.S. Constitution,
+	</div>
+
+	<div id="t_221_13" style="position: absolute; left: 10.14%; top:31.48%;" class="c_221_2">
+		14&ndash;15, 21, 40&ndash;41, 43&ndash;45, 207&ndash;210
+	</div>
+
+	<div id="t_221_14" style="position: absolute; left: 8.82%; top:32.87%;" class="c_221_2">
+		anti-counterfeiting measures, 179
+	</div>
+
+	<div id="t_221_15" style="position: absolute; left: 8.82%; top:34.25%;" class="c_221_2">
+		antitrust legislation, 172
+	</div>
+
+	<div id="t_221_16" style="position: absolute; left: 8.82%; top:35.64%;" class="c_221_2">
+		appeals, 82, 141
+	</div>
+
+	<div id="t_221_17" style="position: absolute; left: 8.82%; top:37.03%;" class="c_221_2">
+		appellate courts, 82, 134&ndash;135
+	</div>
+
+	<div id="t_221_18" style="position: absolute; left: 8.82%; top:38.42%;" class="c_221_2">
+		armed forces, 18&ndash;19
+	</div>
+
+	<div id="t_221_19" style="position: absolute; left: 8.82%; top:39.81%;" class="c_221_2">
+		arraignment, 140&ndash;141
+	</div>
+
+	<div id="t_221_20" style="position: absolute; left: 8.82%; top:41.20%;" class="c_221_2">
+		Articles of Confederation, 34&ndash;35
+	</div>
+
+	<div id="t_221_21" style="position: absolute; left: 8.82%; top:42.59%;" class="c_221_2">
+		auto industry standards, 157
+	</div>
+
+	<div id="t_221_22" style="position: absolute; left: 21.11%; top:44.42%;" class="c_221_1">
+		B
+	</div>
+
+	<div id="t_221_23" style="position: absolute; left: 8.82%; top:47.51%;" class="c_221_2">
+		bail, 140
+	</div>
+
+	<div id="t_221_24" style="position: absolute; left: 8.82%; top:48.90%;" class="c_221_2">
+		balance of power, 66, 68
+	</div>
+
+	<div id="t_221_25" style="position: absolute; left: 8.82%; top:50.29%;" class="c_221_2">
+		balloon economics, 176
+	</div>
+
+	<div id="t_221_26" style="position: absolute; left: 8.82%; top:51.68%;" class="c_221_2">
+		ballots, 52
+	</div>
+
+	<div id="t_221_27" style="position: absolute; left: 8.82%; top:53.07%;" class="c_221_2">
+		banking system (U.S.), 164&ndash;165
+	</div>
+
+	<div id="t_221_28" style="position: absolute; left: 8.82%; top:54.46%;" class="c_221_2">
+		bias, 56&ndash;57
+	</div>
+
+	<div id="t_221_29" style="position: absolute; left: 8.82%; top:55.85%;" class="c_221_2">
+		bicameral legislature, 68, 94
+	</div>
+
+	<div id="t_221_30" style="position: absolute; left: 8.82%; top:57.23%;" class="c_221_2">
+		Bill of Rights, 14&ndash;15, 37, 40&ndash;41, 93, 96,
+	</div>
+
+	<div id="t_221_31" style="position: absolute; left: 9.70%; top:58.62%;" class="c_221_2">
+		124, 134&ndash;135, 141, 206
+	</div>
+
+	<div id="t_221_32" style="position: absolute; left: 8.82%; top:60.01%;" class="c_221_2">
+		Bono, Edward de, 190
+	</div>
+
+	<div id="t_221_33" style="position: absolute; left: 8.82%; top:61.40%;" class="c_221_2">
+		Bovard, James, 20
+	</div>
+
+	<div id="t_221_34" style="position: absolute; left: 8.82%; top:62.79%;" class="c_221_3">
+		Brown v. Board of Education<span class="c_221_4">, 83, 138</span>
+	</div>
+
+	<div id="t_221_35" style="position: absolute; left: 8.82%; top:64.18%;" class="c_221_2">
+		Bull Moose Party, 55
+	</div>
+
+	<div id="t_221_36" style="position: absolute; left: 8.82%; top:65.57%;" class="c_221_2">
+		bureaucracy, 68
+	</div>
+
+	<div id="t_221_37" style="position: absolute; left: 8.82%; top:66.96%;" class="c_221_2">
+		Bush, George, 61
+	</div>
+
+	<div id="t_221_38" style="position: absolute; left: 8.82%; top:68.34%;" class="c_221_2">
+		business organizations, types of,
+	</div>
+
+	<div id="t_221_39" style="position: absolute; left: 10.14%; top:69.73%;" class="c_221_2">
+		158&ndash;159
+	</div>
+
+	<div id="t_221_40" style="position: absolute; left: 21.11%; top:70.81%;" class="c_221_1">
+		C
+	</div>
+
+	<div id="t_221_41" style="position: absolute; left: 8.82%; top:73.90%;" class="c_221_2">
+		Cabinet departments (federal), 74&ndash;77
+	</div>
+
+	<div id="t_221_42" style="position: absolute; left: 8.82%; top:75.29%;" class="c_221_2">
+		Cabinet departments (Virginia), 102&ndash;103
+	</div>
+
+	<div id="t_221_43" style="position: absolute; left: 8.82%; top:76.68%;" class="c_221_2">
+		capital resources, 152
+	</div>
+
+	<div id="t_221_44" style="position: absolute; left: 8.82%; top:78.07%;" class="c_221_2">
+		Capitol Hill, 72, 125
+	</div>
+
+	<div id="t_221_45" style="position: absolute; left: 8.82%; top:79.46%;" class="c_221_2">
+		car manufacturing in America, 156&ndash;157
+	</div>
+
+	<div id="t_221_46" style="position: absolute; left: 8.82%; top:80.85%;" class="c_221_2">
+		career choices, influencing factors in,
+	</div>
+
+	<div id="t_221_47" style="position: absolute; left: 10.14%; top:82.24%;" class="c_221_2">
+		188&ndash;193
+	</div>
+
+	<div id="t_221_48" style="position: absolute; left: 8.82%; top:83.62%;" class="c_221_2">
+		Centers for Disease Control (CDC), 128
+	</div>
+
+	<div id="t_221_49" style="position: absolute; left: 8.82%; top:85.01%;" class="c_221_2">
+		central bank of the United States, 164,
+	</div>
+
+	<div id="t_221_50" style="position: absolute; left: 10.14%; top:86.40%;" class="c_221_2">
+		180
+	</div>
+
+	<div id="t_221_51" style="position: absolute; left: 8.82%; top:87.79%;" class="c_221_2">
+		changing public policy, 124
+	</div>
+
+	<div id="t_221_52" style="position: absolute; left: 8.82%; top:89.18%;" class="c_221_2">
+		Ch&aacute;vez, C&eacute;sar, 106, 124
+	</div>
+
+	<div id="t_221_53" style="position: absolute; left: 8.82%; top:90.57%;" class="c_221_2">
+		checks and balances, 84&ndash;85, 137
+	</div>
+
+	<div id="t_221_54" style="position: absolute; left: 8.82%; top:91.96%;" class="c_221_2">
+		CIA (Central Intelligence Agency), 80
+	</div>
+
+	<div id="t_221_55" style="position: absolute; left: 36.93%; top:5.09%;" class="c_221_2">
+		citizenship, 9&ndash;11, 16
+	</div>
+
+	<div id="t_221_56" style="position: absolute; left: 36.93%; top:6.48%;" class="c_221_2">
+		civic duties, 12, 16&ndash;19
+	</div>
+
+	<div id="t_221_57" style="position: absolute; left: 36.93%; top:7.86%;" class="c_221_2">
+		civic responsibilities, 9&ndash;13, 16, 50&ndash;51,
+	</div>
+
+	<div id="t_221_58" style="position: absolute; left: 38.24%; top:9.25%;" class="c_221_2">
+		62&ndash;63
+	</div>
+
+	<div id="t_221_59" style="position: absolute; left: 36.93%; top:10.64%;" class="c_221_2">
+		civil cases, 112, 134&ndash;135, 142&ndash;143
+	</div>
+
+	<div id="t_221_60" style="position: absolute; left: 36.93%; top:12.03%;" class="c_221_2">
+		civil procedure, 143
+	</div>
+
+	<div id="t_221_61" style="position: absolute; left: 36.93%; top:13.42%;" class="c_221_2">
+		Civil Rights Act (1866), 21
+	</div>
+
+	<div id="t_221_62" style="position: absolute; left: 36.93%; top:14.81%;" class="c_221_2">
+		Civil Rights Act (1964), 98
+	</div>
+
+	<div id="t_221_63" style="position: absolute; left: 36.93%; top:16.20%;" class="c_221_2">
+		Civil War, the, 44, 99, 144, 164
+	</div>
+
+	<div id="t_221_64" style="position: absolute; left: 36.93%; top:17.59%;" class="c_221_2">
+		class action lawsuits, 143
+	</div>
+
+	<div id="t_221_65" style="position: absolute; left: 36.93%; top:18.97%;" class="c_221_2">
+		coins and currency, 178&ndash;179
+	</div>
+
+	<div id="t_221_66" style="position: absolute; left: 36.93%; top:20.36%;" class="c_221_2">
+		colonial economy of Virginia, 154, 167,
+	</div>
+
+	<div id="t_221_67" style="position: absolute; left: 38.24%; top:21.75%;" class="c_221_2">
+		178
+	</div>
+
+	<div id="t_221_68" style="position: absolute; left: 36.93%; top:23.14%;" class="c_221_2">
+		command economy, 155
+	</div>
+
+	<div id="t_221_69" style="position: absolute; left: 36.93%; top:24.53%;" class="c_221_2">
+		Commerce &amp;Trade (Virginia), 103
+	</div>
+
+	<div id="t_221_70" style="position: absolute; left: 36.93%; top:25.92%;" class="c_221_2">
+		Commerce Clause, 98
+	</div>
+
+	<div id="t_221_71" style="position: absolute; left: 36.93%; top:27.31%;" class="c_221_2">
+		Commerce Department (U.S.), 77
+	</div>
+
+	<div id="t_221_72" style="position: absolute; left: 36.93%; top:28.69%;" class="c_221_2">
+		Commonwealth Department (Virginia),
+	</div>
+
+	<div id="t_221_73" style="position: absolute; left: 38.24%; top:30.08%;" class="c_221_2">
+		103
+	</div>
+
+	<div id="t_221_74" style="position: absolute; left: 36.93%; top:31.47%;" class="c_221_2">
+		Commonwealth of Virginia, 91&ndash;95
+	</div>
+
+	<div id="t_221_75" style="position: absolute; left: 36.93%; top:32.86%;" class="c_221_2">
+		community service, 7, 22&ndash;23, 50&ndash;51
+	</div>
+
+	<div id="t_221_76" style="position: absolute; left: 36.93%; top:34.25%;" class="c_221_2">
+		competition in the U.S. marketplace, 156
+	</div>
+
+	<div id="t_221_77" style="position: absolute; left: 36.93%; top:35.64%;" class="c_221_2">
+		confirmation of presidential appointees,
+	</div>
+
+	<div id="t_221_78" style="position: absolute; left: 38.24%; top:37.03%;" class="c_221_2">
+		71, 73
+	</div>
+
+	<div id="t_221_79" style="position: absolute; left: 36.93%; top:38.41%;" class="c_221_2">
+		congressional powers, 68, 71, 73, 86&ndash;87
+	</div>
+
+	<div id="t_221_80" style="position: absolute; left: 36.93%; top:39.80%;" class="c_221_2">
+		consent of the governed, 29
+	</div>
+
+	<div id="t_221_81" style="position: absolute; left: 36.93%; top:41.19%;" class="c_221_2">
+		conservatives, 54
+	</div>
+
+	<div id="t_221_82" style="position: absolute; left: 36.93%; top:42.58%;" class="c_221_2">
+		Constitution of the United States, 7, 14,
+	</div>
+
+	<div id="t_221_83" style="position: absolute; left: 38.24%; top:43.97%;" class="c_221_2">
+		27, 35&ndash;40, 82&ndash;84, 93, 134, 199&ndash;205
+	</div>
+
+	<div id="t_221_84" style="position: absolute; left: 36.93%; top:45.36%;" class="c_221_2">
+		Constitution of Virginia, 92&ndash;93, 116
+	</div>
+
+	<div id="t_221_85" style="position: absolute; left: 36.93%; top:46.75%;" class="c_221_2">
+		Constitutional Convention of 1787, 36
+	</div>
+
+	<div id="t_221_86" style="position: absolute; left: 36.93%; top:48.14%;" class="c_221_2">
+		Consumer Product Safety Commission
+	</div>
+
+	<div id="t_221_87" style="position: absolute; left: 38.24%; top:49.52%;" class="c_221_2">
+		(CPSC), 183
+	</div>
+
+	<div id="t_221_88" style="position: absolute; left: 36.93%; top:50.91%;" class="c_221_2">
+		consumer protection agencies, 183
+	</div>
+
+	<div id="t_221_89" style="position: absolute; left: 36.93%; top:52.30%;" class="c_221_2">
+		consumer sovereignty, 155&ndash;156
+	</div>
+
+	<div id="t_221_90" style="position: absolute; left: 36.93%; top:53.69%;" class="c_221_2">
+		consumption in the marketplace, 153
+	</div>
+
+	<div id="t_221_91" style="position: absolute; left: 36.93%; top:55.08%;" class="c_221_2">
+		Continental Congress, 33&ndash;34
+	</div>
+
+	<div id="t_221_92" style="position: absolute; left: 36.93%; top:56.47%;" class="c_221_2">
+		contracts, 183
+	</div>
+
+	<div id="t_221_93" style="position: absolute; left: 36.93%; top:57.86%;" class="c_221_2">
+		corporations, 158&ndash;159
+	</div>
+
+	<div id="t_221_94" style="position: absolute; left: 36.93%; top:59.24%;" class="c_221_2">
+		county officials, 110&ndash;111, 114&ndash;115
+	</div>
+
+	<div id="t_221_95" style="position: absolute; left: 36.93%; top:60.63%;" class="c_221_2">
+		county/city basic services, 108&ndash;109
+	</div>
+
+	<div id="t_221_96" style="position: absolute; left: 36.93%; top:62.02%;" class="c_221_2">
+		credit unions, 165
+	</div>
+
+	<div id="t_221_97" style="position: absolute; left: 36.93%; top:63.41%;" class="c_221_2">
+		criminal cases, 112, 140
+	</div>
+
+	<div id="t_221_98" style="position: absolute; left: 36.93%; top:64.80%;" class="c_221_2">
+		criminal procedure, 141
+	</div>
+
+	<div id="t_221_99" style="position: absolute; left: 49.18%; top:66.64%;" class="c_221_1">
+		D
+	</div>
+
+	<div id="t_221_100" style="position: absolute; left: 36.93%; top:69.74%;" class="c_221_2">
+		Declaration of Independence, 32&ndash;33, 93,
+	</div>
+
+	<div id="t_221_101" style="position: absolute; left: 38.24%; top:71.13%;" class="c_221_2">
+		196&ndash;198
+	</div>
+
+	<div id="t_221_102" style="position: absolute; left: 36.93%; top:72.51%;" class="c_221_2">
+		defendants, 41
+	</div>
+
+	<div id="t_221_103" style="position: absolute; left: 36.93%; top:73.90%;" class="c_221_2">
+		Defense Department, 76, 175
+	</div>
+
+	<div id="t_221_104" style="position: absolute; left: 36.93%; top:75.29%;" class="c_221_2">
+		Democrats, 52, 54&ndash;55, 214
+	</div>
+
+	<div id="t_221_105" style="position: absolute; left: 36.93%; top:76.68%;" class="c_221_2">
+		Department of the Interior, 76
+	</div>
+
+	<div id="t_221_106" style="position: absolute; left: 36.93%; top:78.07%;" class="c_221_2">
+		desegregated schools, 83, 99
+	</div>
+
+	<div id="t_221_107" style="position: absolute; left: 36.93%; top:79.46%;" class="c_221_2">
+		direct democracy, ancient Greece, 28
+	</div>
+
+	<div id="t_221_108" style="position: absolute; left: 36.93%; top:80.85%;" class="c_221_2">
+		double jeopardy, 141
+	</div>
+
+	<div id="t_221_109" style="position: absolute; left: 36.93%; top:82.23%;" class="c_221_3">
+		Dred Scott v. Sandford<span class="c_221_4">, 138</span>
+	</div>
+
+	<div id="t_221_110" style="position: absolute; left: 36.93%; top:83.62%;" class="c_221_2">
+		due process protections, 15, 144&ndash;145
+	</div>
+
+	<div id="t_221_111" style="position: absolute; left: 49.32%; top:86.84%;" class="c_221_1">
+		E
+	</div>
+
+	<div id="t_221_112" style="position: absolute; left: 36.93%; top:89.94%;" class="c_221_2">
+		economic concepts, 153
+	</div>
+
+	<div id="t_221_113" style="position: absolute; left: 36.93%; top:91.33%;" class="c_221_2">
+		economic flow, 162&ndash;163
+	</div>
+
+	<div id="t_221_114" style="position: absolute; left: 36.93%; top:92.72%;" class="c_221_2">
+		economic resources, 152
+	</div>
+
+	<div id="t_221_115" style="position: absolute; left: 65.03%; top:5.09%;" class="c_221_2">
+		economic systems, types of, 154&ndash;155
+	</div>
+
+	<div id="t_221_116" style="position: absolute; left: 65.03%; top:6.48%;" class="c_221_2">
+		editorials, 57
+	</div>
+
+	<div id="t_221_117" style="position: absolute; left: 65.03%; top:7.87%;" class="c_221_2">
+		Education, Department of (U.S.), 77
+	</div>
+
+	<div id="t_221_118" style="position: absolute; left: 65.03%; top:9.26%;" class="c_221_2">
+		Education, Department of (Virginia), 103
+	</div>
+
+	<div id="t_221_119" style="position: absolute; left: 65.03%; top:10.64%;" class="c_221_2">
+		education, importance of, 189, 192&ndash;193
+	</div>
+
+	<div id="t_221_120" style="position: absolute; left: 65.03%; top:12.03%;" class="c_221_2">
+		Einstein, Albert, 11, 132
+	</div>
+
+	<div id="t_221_121" style="position: absolute; left: 65.03%; top:13.42%;" class="c_221_2">
+		Eisenhower, Dwight, 53
+	</div>
+
+	<div id="t_221_122" style="position: absolute; left: 65.03%; top:14.81%;" class="c_221_2">
+		Electoral College, 60&ndash;61
+	</div>
+
+	<div id="t_221_123" style="position: absolute; left: 65.03%; top:16.20%;" class="c_221_2">
+		electoral votes, 60&ndash;61
+	</div>
+
+	<div id="t_221_124" style="position: absolute; left: 65.03%; top:17.59%;" class="c_221_2">
+		electorate, 52
+	</div>
+
+	<div id="t_221_125" style="position: absolute; left: 65.03%; top:18.98%;" class="c_221_2">
+		electronic banking, 165, 179
+	</div>
+
+	<div id="t_221_126" style="position: absolute; left: 65.03%; top:20.36%;" class="c_221_2">
+		embassies, 75
+	</div>
+
+	<div id="t_221_127" style="position: absolute; left: 65.03%; top:21.75%;" class="c_221_2">
+		endangered species, 129
+	</div>
+
+	<div id="t_221_128" style="position: absolute; left: 65.03%; top:23.14%;" class="c_221_2">
+		Energy Department (U.S.), 77
+	</div>
+
+	<div id="t_221_129" style="position: absolute; left: 65.03%; top:24.53%;" class="c_221_2">
+		entitlements, 80&ndash;81
+	</div>
+
+	<div id="t_221_130" style="position: absolute; left: 65.03%; top:25.92%;" class="c_221_2">
+		entrepreneurs, 159, 167
+	</div>
+
+	<div id="t_221_131" style="position: absolute; left: 65.03%; top:27.31%;" class="c_221_2">
+		entrepreneurship, role in the economy,
+	</div>
+
+	<div id="t_221_132" style="position: absolute; left: 66.35%; top:28.70%;" class="c_221_2">
+		152
+	</div>
+
+	<div id="t_221_133" style="position: absolute; left: 65.03%; top:30.09%;" class="c_221_2">
+		Environmental Protection Agency (EPA),
+	</div>
+
+	<div id="t_221_134" style="position: absolute; left: 66.35%; top:31.47%;" class="c_221_2">
+		81, 183
+	</div>
+
+	<div id="t_221_135" style="position: absolute; left: 65.03%; top:32.86%;" class="c_221_2">
+		Equal Employment Opportunity
+	</div>
+
+	<div id="t_221_136" style="position: absolute; left: 66.35%; top:34.25%;" class="c_221_2">
+		Commission (EEOC), 81, 183
+	</div>
+
+	<div id="t_221_137" style="position: absolute; left: 65.03%; top:35.64%;" class="c_221_2">
+		Equal Rights Amendment (ERA), 45
+	</div>
+
+	<div id="t_221_138" style="position: absolute; left: 65.03%; top:37.03%;" class="c_221_2">
+		equality under the law, 38
+	</div>
+
+	<div id="t_221_139" style="position: absolute; left: 65.03%; top:38.42%;" class="c_221_2">
+		establish justice, 37
+	</div>
+
+	<div id="t_221_140" style="position: absolute; left: 65.03%; top:39.81%;" class="c_221_2">
+		executive actions, 85
+	</div>
+
+	<div id="t_221_141" style="position: absolute; left: 65.03%; top:41.19%;" class="c_221_2">
+		executive branch (federal), roles and
+	</div>
+
+	<div id="t_221_142" style="position: absolute; left: 65.03%; top:42.58%;" class="c_221_2">
+		powers, 39, 69, 74&ndash;81
+	</div>
+
+	<div id="t_221_143" style="position: absolute; left: 65.03%; top:43.97%;" class="c_221_2">
+		executive branch (state), roles and
+	</div>
+
+	<div id="t_221_144" style="position: absolute; left: 65.03%; top:45.36%;" class="c_221_2">
+		powers, 94&ndash;95, 102&ndash;103
+	</div>
+
+	<div id="t_221_145" style="position: absolute; left: 65.03%; top:46.75%;" class="c_221_2">
+		exports, 166&ndash;167
+	</div>
+
+	<div id="t_221_146" style="position: absolute; left: 65.03%; top:48.14%;" class="c_221_2">
+		expressed congressional powers, 86&ndash;87
+	</div>
+
+	<div id="t_221_147" style="position: absolute; left: 77.47%; top:49.97%;" class="c_221_1">
+		F
+	</div>
+
+	<div id="t_221_148" style="position: absolute; left: 65.03%; top:53.07%;" class="c_221_2">
+		federal agencies and commissions, 74,
+	</div>
+
+	<div id="t_221_149" style="position: absolute; left: 66.35%; top:54.46%;" class="c_221_2">
+		80&ndash;81
+	</div>
+
+	<div id="t_221_150" style="position: absolute; left: 65.03%; top:55.85%;" class="c_221_2">
+		federal budget, 81
+	</div>
+
+	<div id="t_221_151" style="position: absolute; left: 65.03%; top:57.24%;" class="c_221_2">
+		federal budget approval process, 71
+	</div>
+
+	<div id="t_221_152" style="position: absolute; left: 65.03%; top:58.62%;" class="c_221_2">
+		Federal Communications Commission
+	</div>
+
+	<div id="t_221_153" style="position: absolute; left: 66.35%; top:60.01%;" class="c_221_2">
+		(FCC), 81, 173
+	</div>
+
+	<div id="t_221_154" style="position: absolute; left: 65.03%; top:61.40%;" class="c_221_2">
+		Federal Deposit Insurance Corporation
+	</div>
+
+	<div id="t_221_155" style="position: absolute; left: 66.35%; top:62.79%;" class="c_221_2">
+		(FDIC), 81
+	</div>
+
+	<div id="t_221_156" style="position: absolute; left: 65.03%; top:64.18%;" class="c_221_2">
+		Federal Election Commission (FEC), 58
+	</div>
+
+	<div id="t_221_157" style="position: absolute; left: 65.03%; top:65.57%;" class="c_221_2">
+		federal government, structure and
+	</div>
+
+	<div id="t_221_158" style="position: absolute; left: 66.35%; top:66.96%;" class="c_221_2">
+		powers, 68&ndash;87
+	</div>
+
+	<div id="t_221_159" style="position: absolute; left: 65.03%; top:68.35%;" class="c_221_2">
+		Federal Reserve Notes, 178
+	</div>
+
+	<div id="t_221_160" style="position: absolute; left: 65.03%; top:69.73%;" class="c_221_2">
+		Federal Reserve System, 81, 178&ndash;181
+	</div>
+
+	<div id="t_221_161" style="position: absolute; left: 65.03%; top:71.12%;" class="c_221_2">
+		federal supremacy, 138
+	</div>
+
+	<div id="t_221_162" style="position: absolute; left: 65.03%; top:72.51%;" class="c_221_2">
+		Federal Trade Commission (FTC), 173,
+	</div>
+
+	<div id="t_221_163" style="position: absolute; left: 66.35%; top:73.90%;" class="c_221_2">
+		183
+	</div>
+
+	<div id="t_221_164" style="position: absolute; left: 65.03%; top:75.29%;" class="c_221_2">
+		federalism, 96, 98
+	</div>
+
+	<div id="t_221_165" style="position: absolute; left: 65.03%; top:76.68%;" class="c_221_2">
+		Federalist Papers, 96
+	</div>
+
+	<div id="t_221_166" style="position: absolute; left: 65.03%; top:78.07%;" class="c_221_2">
+		Federalists, 96
+	</div>
+
+	<div id="t_221_167" style="position: absolute; left: 65.03%; top:79.45%;" class="c_221_2">
+		felonies, 135
+	</div>
+
+	<div id="t_221_168" style="position: absolute; left: 65.03%; top:80.84%;" class="c_221_2">
+		Finance Department (Virginia), 103
+	</div>
+
+	<div id="t_221_169" style="position: absolute; left: 65.03%; top:82.23%;" class="c_221_2">
+		financial responsibilities, personal, 192
+	</div>
+
+	<div id="t_221_170" style="position: absolute; left: 65.03%; top:83.62%;" class="c_221_2">
+		527 groups, 58
+	</div>
+
+	<div id="t_221_171" style="position: absolute; left: 65.03%; top:85.01%;" class="c_221_2">
+		Food and Drug Administration (FDA),
+	</div>
+
+	<div id="t_221_172" style="position: absolute; left: 65.91%; top:86.40%;" class="c_221_2">
+		183
+	</div>
+
+	<div id="t_221_173" style="position: absolute; left: 65.03%; top:87.79%;" class="c_221_2">
+		Ford, Henry, 156
+	</div>
+
+	<div id="t_221_174" style="position: absolute; left: 65.03%; top:89.17%;" class="c_221_2">
+		forensics evidence, 140
+	</div>
+
+	<div id="t_221_175" style="position: absolute; left: 65.03%; top:90.56%;" class="c_221_2">
+		for-profit banks, 165
+	</div>
+
+	<div id="t_221_176" style="position: absolute; left: 65.03%; top:91.95%;" class="c_221_2">
+		Franken, Al 122
+	</div>
+
+	<div id="t_221_177" style="position: absolute; left: 92.92%; top: 93.06%; letter-spacing: -0.15em;" class="c_221_5">
+		221
+	</div>
+
+</div>
+                    </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerMiddleRight">
+            <div class="toolbar">
+                <div class="vscroll" style="position: absolute; left: 5%; height: 100%;">
+                    <div class="vscroll-up">&#9650;</div>
+                    <div class="vscroll-inner">
+                        <div class="vscroll-handle"></div>
+                    </div>
+                    <div class="vscroll-down">&#9660;</div>
+                </div>
+                <div style="position: absolute; height: 8%; top:0%; left:35%;" class="single buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height: 8%; top:0%; left:48%;" class="dual buttons-on-sides">
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:35%;" class="single buttons-on-sides">
+                                            <a id="SNEXT2" rel="external" class="leftButton" href="220.html?page=right"; onclick="goto('220.html?page=right'); return false;"><img class="button" src="/images/next.png"/></a>
+                                            <a id="SNEXT2R" rel="external" class="rightButton" href="222.html"; onclick="goto('222.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+                <div style="position: absolute; height:8%; top:45%; left:48%;" class="dual buttons-on-sides">
+                                            <a id="DNEXT2" rel="external" href="222.html"; onclick="goto('222.html'); return false;"><img class="button" src="/images/next.png"/></a>
+                                    </div>
+            </div>
+        </div>
+    </div>
+    <div id="readerBottom">
+        <div id="readerBottomLeft">
+        </div><!-- no whitespace
+         --><div id="readerBottomCenter">
+            <div class="toolbar">
+                <div class="hscroll" style="position: absolute; top: 5%; width: 100%;">
+                    <div class="hscroll-left">&#9664;</div>
+                    <div class="hscroll-inner">
+                        <div class="hscroll-handle"></div>
+                    </div>
+                    <div class="hscroll-right">&#9654;</div>
+                </div>
+                <div style="position: absolute; top: 50%; width: 100%;">
+                    <audio class="audiobook" id="player" style="width:100%;" controls="controls"></audio>
+                </div>
+            </div>
+        </div><!-- no whitespace
+         --><div id="readerBottomRight">
+        </div>
+    </div>
+</div>
+</body>
+</html>

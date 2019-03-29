@@ -1,0 +1,32 @@
+/* Background images */
+.sheet .leftPage {
+    background-position: left top;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+.sheet .rightPage {
+    background-position: right top;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+body{
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%
+}
+
+div {
+    width: 100%;
+}
+
+a, a:valid, a:active, a:visited {
+    font-weight: normal !important;
+    font-style: normal !important;
+    letter-spacing: normal !important;
+}
+
+.toc_entry {
+    width: auto;
+}
